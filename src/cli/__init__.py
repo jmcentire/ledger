@@ -5,11 +5,16 @@ from cli.cli import (
     cmd_schema_add,
     cmd_schema_show,
     cmd_schema_validate,
+    cmd_schema_infer,
     cmd_migrate_plan,
     cmd_migrate_approve,
     cmd_export,
     cmd_mock,
     cmd_serve,
+    cmd_builtins_list,
+    cmd_builtins_show,
+    cmd_builtins_stripe,
+    builtins_group,
     require_config,
     format_output,
     render_violations,
@@ -32,6 +37,7 @@ import migration
 import export
 import mock
 import api
+import inference
 
 # ── Add thin dispatch stubs that the CLI calls and tests patch ──
 # These are added here so @patch("cli.config.init_config") etc. can find them.
@@ -84,6 +90,12 @@ if not hasattr(export, "export_contracts"):
         return {"contracts": []}
     export.export_contracts = _export_contracts
 
+if not hasattr(export, "export_retention_from_config"):
+    def _export_retention_from_config(cfg, component=None, **kwargs):
+        """Stub: export retention policies."""
+        return {"retention_rules": []}
+    export.export_retention_from_config = _export_retention_from_config
+
 if not hasattr(mock, "generate_mock_data"):
     def _generate_mock_data(cfg, backend_id, table, count, seed=None, purpose="default", **kwargs):
         """Stub: generate mock data."""
@@ -95,3 +107,34 @@ if not hasattr(api, "start_server"):
         """Stub: start server."""
         pass
     api.start_server = _start_server
+
+# ── Inference stubs ──
+
+if not hasattr(inference, "infer_schema"):
+    def _infer_schema(backend_id, backend_type, connection_config, show_confidence=False, **kwargs):
+        """Stub: infer schema."""
+        return {"backend_id": backend_id, "backend_type": backend_type, "tables": []}
+    inference.infer_schema = _infer_schema
+
+if not hasattr(inference, "schema_to_yaml"):
+    def _schema_to_yaml(schema, show_confidence=False, **kwargs):
+        """Stub: schema to yaml."""
+        import yaml
+        return yaml.dump(schema if isinstance(schema, dict) else {}, default_flow_style=False)
+    inference.schema_to_yaml = _schema_to_yaml
+
+if not hasattr(inference, "MissingDependencyError"):
+    class _MissingDependencyError(Exception):
+        def __init__(self, package, backend_type):
+            self.package = package
+            self.backend_type = backend_type
+            self.message = f"Missing {package}"
+            super().__init__(self.message)
+    inference.MissingDependencyError = _MissingDependencyError
+
+if not hasattr(inference, "InferenceError"):
+    class _InferenceError(Exception):
+        def __init__(self, message):
+            self.message = message
+            super().__init__(message)
+    inference.InferenceError = _InferenceError

@@ -260,6 +260,100 @@ _BUILTIN_PROPAGATION_TABLE: dict[str, PropagationRule] = {
 _BUILTIN_TABLE_PROXY = MappingProxyType(_BUILTIN_PROPAGATION_TABLE)
 
 
+# Stripe-specific built-in annotations — card and customer field defaults
+STRIPE_BUILTINS: dict[str, dict] = {
+    "stripe_card_number": {
+        "description": "Stripe card number fields",
+        "field_pattern": "*.card.number",
+        "classification": "FINANCIAL",
+        "annotations": ["encrypted_at_rest", "tokenized"],
+        "propagation": {
+            "pact_assertion_type": "type_match",
+            "arbiter_tier_behavior": "enforce_tier",
+            "baton_masking_rule": "full_mask",
+            "sentinel_severity": "critical",
+        },
+    },
+    "stripe_card_cvc": {
+        "description": "Stripe card CVC/CVV fields",
+        "field_pattern": "*.card.cvc",
+        "classification": "FINANCIAL",
+        "annotations": ["encrypted_at_rest", "tokenized"],
+        "propagation": {
+            "pact_assertion_type": "type_match",
+            "arbiter_tier_behavior": "enforce_tier",
+            "baton_masking_rule": "full_mask",
+            "sentinel_severity": "critical",
+        },
+    },
+    "stripe_card_exp": {
+        "description": "Stripe card expiration fields",
+        "field_pattern": "*.card.exp_*",
+        "classification": "FINANCIAL",
+        "annotations": ["encrypted_at_rest"],
+        "propagation": {
+            "pact_assertion_type": "type_match",
+            "arbiter_tier_behavior": "enforce_tier",
+            "baton_masking_rule": "partial_mask",
+            "sentinel_severity": "high",
+        },
+    },
+    "stripe_customer_email": {
+        "description": "Stripe customer email fields",
+        "field_pattern": "*.customer.email",
+        "classification": "PII",
+        "annotations": ["pii_field", "gdpr_erasable"],
+        "propagation": {
+            "pact_assertion_type": "field_present",
+            "arbiter_tier_behavior": "enforce_tier",
+            "baton_masking_rule": "partial_mask",
+            "sentinel_severity": "high",
+        },
+    },
+    "stripe_customer_name": {
+        "description": "Stripe customer name fields",
+        "field_pattern": "*.customer.name",
+        "classification": "PII",
+        "annotations": ["pii_field", "gdpr_erasable"],
+        "propagation": {
+            "pact_assertion_type": "field_present",
+            "arbiter_tier_behavior": "enforce_tier",
+            "baton_masking_rule": "partial_mask",
+            "sentinel_severity": "high",
+        },
+    },
+    "stripe_customer_phone": {
+        "description": "Stripe customer phone fields",
+        "field_pattern": "*.customer.phone",
+        "classification": "PII",
+        "annotations": ["pii_field", "gdpr_erasable"],
+        "propagation": {
+            "pact_assertion_type": "field_present",
+            "arbiter_tier_behavior": "enforce_tier",
+            "baton_masking_rule": "partial_mask",
+            "sentinel_severity": "high",
+        },
+    },
+    "stripe_customer_address": {
+        "description": "Stripe customer address fields",
+        "field_pattern": "*.customer.address.*",
+        "classification": "PII",
+        "annotations": ["pii_field", "gdpr_erasable"],
+        "propagation": {
+            "pact_assertion_type": "field_present",
+            "arbiter_tier_behavior": "enforce_tier",
+            "baton_masking_rule": "partial_mask",
+            "sentinel_severity": "high",
+        },
+    },
+}
+
+
+def get_stripe_builtins() -> dict[str, dict]:
+    """Return the Stripe-specific built-in annotation definitions."""
+    return dict(STRIPE_BUILTINS)
+
+
 # ── Public Functions ───────────────────────────────────
 
 

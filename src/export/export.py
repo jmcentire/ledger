@@ -1,7 +1,8 @@
-"""Export generators for Pact, Arbiter, Baton, and Sentinel."""
+"""Export generators for Pact, Arbiter, Baton, Sentinel, and Retention."""
 
 from __future__ import annotations
 
+import os
 from enum import Enum
 from typing import Any, Optional
 
@@ -432,6 +433,149 @@ def export_sentinel(
     return ExportResultSentinel(
         output=SentinelExport(severity_mappings=mappings), violations=violations,
     )
+
+
+# ── Retention Exporter ─────────────────────────────────
+
+
+class RetentionFieldRule(BaseModel):
+    field_name: str
+    annotation: str
+    retention_days: int
+    erasure_method: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class RetentionTableRule(BaseModel):
+    backend_id: str
+    table_name: str
+    field_rules: list[RetentionFieldRule]
+
+
+class RetentionExport(BaseModel):
+    retention_rules: list[RetentionTableRule]
+
+
+# Default retention periods (in days) keyed by annotation
+_RETENTION_DEFAULTS = {
+    "gdpr_erasable": {
+        "retention_days": 90,
+        "erasure_method": "hard_delete_or_anonymize",
+        "notes": "GDPR Art. 17 — right to erasure. Retain for max 90 days after request.",
+    },
+    "audit_field": {
+        "retention_days": 2555,  # ~7 years
+        "erasure_method": "archive_then_purge",
+        "notes": "Regulatory audit trail — retain for 7 years minimum.",
+    },
+    "soft_delete_marker": {
+        "retention_days": 30,
+        "erasure_method": "hard_delete_after_window",
+        "notes": "Soft-deleted records eligible for permanent removal after retention window.",
+    },
+}
+
+_RETENTION_ANNOTATIONS = frozenset(_RETENTION_DEFAULTS.keys())
+
+
+def export_retention(
+    schemas: list[dict],
+) -> RetentionExport:
+    """Generate retention policy config hints from schema annotations.
+
+    Args:
+        schemas: List of dicts, each with keys:
+            - backend_id (str)
+            - table_name (str)
+            - fields (list of dicts with 'name' and 'annotations' keys)
+
+    Returns:
+        RetentionExport with per-table retention rules.
+    """
+    table_rules: list[RetentionTableRule] = []
+
+    for schema in schemas:
+        backend_id = schema.get("backend_id", "unknown")
+        table_name = schema.get("table_name", "unknown")
+        fields = schema.get("fields", [])
+
+        field_rules: list[RetentionFieldRule] = []
+        for field_def in fields:
+            fname = field_def.get("name", "")
+            annotations = field_def.get("annotations", [])
+            if not isinstance(annotations, list):
+                continue
+
+            for ann in annotations:
+                if ann in _RETENTION_ANNOTATIONS:
+                    defaults = _RETENTION_DEFAULTS[ann]
+                    field_rules.append(RetentionFieldRule(
+                        field_name=fname,
+                        annotation=ann,
+                        retention_days=defaults["retention_days"],
+                        erasure_method=defaults.get("erasure_method"),
+                        notes=defaults.get("notes"),
+                    ))
+
+        if field_rules:
+            table_rules.append(RetentionTableRule(
+                backend_id=backend_id,
+                table_name=table_name,
+                field_rules=field_rules,
+            ))
+
+    return RetentionExport(retention_rules=table_rules)
+
+
+def export_retention_from_config(cfg: Any, component: Optional[str] = None) -> dict:
+    """Convenience wrapper: build retention export from a LedgerConfig object.
+
+    Extracts schema data from the config and delegates to export_retention().
+    Returns a dict suitable for JSON/YAML serialization.
+    """
+    schemas_list: list[dict] = []
+
+    # Try to read schemas from config's schemas_dir
+    schemas_dir = getattr(cfg, "schemas_dir", None)
+    if schemas_dir and os.path.isdir(schemas_dir):
+        for fname in sorted(os.listdir(schemas_dir)):
+            if not fname.endswith((".yaml", ".yml")):
+                continue
+            fpath = os.path.join(schemas_dir, fname)
+            try:
+                with open(fpath, "r") as f:
+                    data = yaml.safe_load(f.read())
+            except Exception:
+                continue
+
+            if not isinstance(data, dict):
+                continue
+
+            backend_id = data.get("backend_id", data.get("name", fname.replace(".yaml", "")))
+            table_name = data.get("table_name", data.get("unit", backend_id))
+
+            # Filter by component if specified
+            if component and data.get("owner", data.get("component")) != component:
+                continue
+
+            fields = data.get("fields", [])
+            schema_entry = {
+                "backend_id": backend_id,
+                "table_name": table_name,
+                "fields": [],
+            }
+            for fd in fields:
+                if isinstance(fd, dict):
+                    annotations = fd.get("annotations", [])
+                    if isinstance(annotations, list):
+                        schema_entry["fields"].append({
+                            "name": fd.get("name", ""),
+                            "annotations": annotations,
+                        })
+            schemas_list.append(schema_entry)
+
+    result = export_retention(schemas_list)
+    return result.model_dump(exclude_none=True)
 
 
 # ── YAML Serializer ───────────────────────────────────

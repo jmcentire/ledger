@@ -68,6 +68,10 @@ ledger schema add schemas/users.yaml
 # Validate annotations
 ledger schema validate
 
+# Infer schema from a live backend (draft mode)
+ledger schema infer users_db
+ledger schema infer users_db --output draft.yaml --confidence
+
 # Analyze a migration
 ledger migrate plan user_service migrations/002_add_email.sql
 
@@ -75,6 +79,13 @@ ledger migrate plan user_service migrations/002_add_email.sql
 ledger export --format pact --component user_service
 ledger export --format arbiter
 ledger export --format baton
+ledger export --format sentinel
+ledger export --format retention
+
+# Inspect built-in annotations
+ledger builtins list
+ledger builtins show immutable
+ledger builtins stripe
 
 # Generate mock data
 ledger mock users_db users --count 10
@@ -191,6 +202,52 @@ custom_annotations:
       sentinel_severity: HIGH
       pact_contract_assertion: "phi_handling_verified"
 ```
+
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `ledger init` | Initialize a new `ledger.yaml` scaffold |
+| `ledger backend add <id> --type <type> --owner <owner>` | Register a storage backend |
+| `ledger schema add <path>` | Ingest a schema YAML file |
+| `ledger schema show <backend_id> [table]` | Display schema for a backend |
+| `ledger schema validate` | Validate all registered schemas |
+| `ledger schema infer <backend_id> [--output path] [--confidence]` | Infer schema from live backend introspection |
+| `ledger migrate plan <component_id> <sql_path>` | Create a migration plan from SQL |
+| `ledger migrate approve <plan_id> --review <ref>` | Approve a pending migration plan |
+| `ledger export --format <fmt> [--component <id>]` | Export contracts (pact, arbiter, baton, sentinel, retention) |
+| `ledger builtins list` | Show all built-in annotations with propagation rules |
+| `ledger builtins show <name>` | Show detail for a specific annotation |
+| `ledger builtins stripe` | Show Stripe-specific built-in annotations |
+| `ledger mock <backend_id> <table> [--count N] [--seed N]` | Generate mock data |
+| `ledger serve` | Start the Ledger API server |
+
+### Schema Inference
+
+`ledger schema infer` connects to a registered backend and generates draft schema YAML
+with classification guesses and annotation suggestions. Each inferred field is marked
+with `_confidence: draft` to indicate human review is needed.
+
+Currently supported for live introspection:
+- **PostgreSQL** (requires `psycopg2-binary`): queries `information_schema.columns`
+
+Other backend types will report which optional dependency package is needed.
+
+### Retention Export
+
+`ledger export --format retention` generates infrastructure config hints for data
+retention policies based on field annotations:
+- `gdpr_erasable` fields: 90-day retention + hard delete or anonymize
+- `audit_field` fields: 7-year retention + archive then purge
+- `soft_delete_marker` fields: 30-day soft delete window
+
+### Stripe Built-in Annotations
+
+`ledger builtins stripe` shows pre-configured annotation sets for Stripe API fields:
+- **Card fields** (`card.number`, `card.cvc`, `card.exp_*`): FINANCIAL classification,
+  `encrypted_at_rest` + `tokenized`, full masking
+- **Customer fields** (`customer.email`, `customer.name`, `customer.phone`,
+  `customer.address.*`): PII classification, `pii_field` + `gdpr_erasable`, partial masking
 
 ## Architecture
 

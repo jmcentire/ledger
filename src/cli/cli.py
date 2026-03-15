@@ -20,6 +20,7 @@ import migration
 import export
 import mock
 import api
+import inference
 
 
 # ── Enums ──────────────────────────────────────────────
@@ -54,6 +55,7 @@ class ExportFormat(str, Enum):
     arbiter = "arbiter"
     baton = "baton"
     sentinel = "sentinel"
+    retention = "retention"
 
 
 class MockPurpose(str, Enum):
@@ -386,6 +388,80 @@ def cmd_schema_validate(ctx):
         ctx.exit(ExitCode.KEYBOARD_INTERRUPT_130.value)
 
 
+@schema_group.command("infer")
+@click.argument("backend_id")
+@click.option("--output", "output_path", default=None,
+              help="Write draft schema to file (default: stdout)")
+@click.option("--confidence", is_flag=True, default=False,
+              help="Show confidence levels on inferred fields")
+@click.pass_context
+def cmd_schema_infer(ctx, backend_id, output_path, confidence):
+    """Infer schema from a registered backend via live introspection."""
+    cli_ctx = ctx.obj["cli_ctx"]
+    try:
+        require_config(cli_ctx)
+
+        # Look up the backend config
+        backend_config = None
+        if hasattr(cli_ctx.config, 'backends'):
+            for b in cli_ctx.config.backends:
+                bname = getattr(b, 'name', getattr(b, 'backend_id', None))
+                if bname == backend_id:
+                    backend_config = b
+                    break
+
+        if backend_config is None:
+            raise LedgerError(
+                violations=[Violation(
+                    path=backend_id,
+                    message=f"Backend '{backend_id}' not found in config",
+                    severity=Severity.error,
+                    code="E_BACKEND_NOT_FOUND",
+                )],
+                exit_code=ExitCode.DOMAIN_ERROR_1,
+            )
+
+        # Extract backend type and connection config
+        backend_type = getattr(backend_config, 'backend_type',
+                               getattr(backend_config, 'type', 'unknown'))
+        if hasattr(backend_type, 'value'):
+            backend_type = backend_type.value
+
+        connection_config = {}
+        if hasattr(backend_config, 'base_url') and backend_config.base_url:
+            connection_config["connection_string"] = backend_config.base_url
+
+        schema = inference.infer_schema(
+            backend_id=backend_id,
+            backend_type=backend_type,
+            connection_config=connection_config,
+            show_confidence=confidence,
+        )
+
+        output_yaml = inference.schema_to_yaml(schema, show_confidence=confidence)
+
+        if output_path:
+            with open(output_path, "w") as f:
+                f.write(output_yaml)
+            if cli_ctx.verbose:
+                click.echo(f"Draft schema written to {output_path}", err=True)
+        else:
+            click.echo(output_yaml)
+
+    except LedgerError as e:
+        rendered = render_violations(e.violations, use_color=True)
+        click.echo(rendered)
+        ctx.exit(e.exit_code.value if isinstance(e.exit_code, ExitCode) else int(e.exit_code))
+    except inference.MissingDependencyError as e:
+        click.echo(e.message, err=True)
+        ctx.exit(ExitCode.DOMAIN_ERROR_1.value)
+    except inference.InferenceError as e:
+        click.echo(f"Inference error: {e.message}", err=True)
+        ctx.exit(ExitCode.DOMAIN_ERROR_1.value)
+    except KeyboardInterrupt:
+        ctx.exit(ExitCode.KEYBOARD_INTERRUPT_130.value)
+
+
 # ── migrate ───────────────────────────────────────────
 
 
@@ -467,7 +543,7 @@ def cmd_migrate_approve(ctx, plan_id, review):
 
 @cli_main.command("export")
 @click.option("--format", "export_format", required=True,
-              type=click.Choice(["pact", "arbiter", "baton", "sentinel"]),
+              type=click.Choice(["pact", "arbiter", "baton", "sentinel", "retention"]),
               help="Export format")
 @click.option("--component", default=None, help="Filter by component ID")
 @click.pass_context
@@ -476,7 +552,13 @@ def cmd_export(ctx, export_format, component):
     cli_ctx = ctx.obj["cli_ctx"]
     try:
         require_config(cli_ctx)
-        data = export.export_contracts(cli_ctx.config, export_format, component)
+
+        if export_format == "retention":
+            # Build schemas list from config for retention export
+            data = export.export_retention_from_config(cli_ctx.config, component)
+        else:
+            data = export.export_contracts(cli_ctx.config, export_format, component)
+
         result = CommandResult(success=True, data=data, message="OK", violations=[])
         output = format_output(result, cli_ctx.output_format)
         click.echo(output)
@@ -484,6 +566,119 @@ def cmd_export(ctx, export_format, component):
         rendered = render_violations(e.violations, use_color=True)
         click.echo(rendered)
         ctx.exit(e.exit_code.value if isinstance(e.exit_code, ExitCode) else int(e.exit_code))
+    except KeyboardInterrupt:
+        ctx.exit(ExitCode.KEYBOARD_INTERRUPT_130.value)
+
+
+# ── builtins ─────────────────────────────────────────
+
+
+@cli_main.group("builtins")
+@click.pass_context
+def builtins_group(ctx):
+    """Built-in annotation definitions and propagation rules."""
+    pass
+
+
+@builtins_group.command("list")
+@click.pass_context
+def cmd_builtins_list(ctx):
+    """Show all built-in annotation definitions with their propagation rules."""
+    cli_ctx = ctx.obj["cli_ctx"]
+    try:
+        table = config.get_builtin_propagation_table()
+        if cli_ctx.output_format == OutputFormat.json:
+            data = {}
+            for name, rule in sorted(table.items()):
+                data[name] = {
+                    "pact_assertion_type": rule.pact_assertion_type,
+                    "arbiter_tier_behavior": rule.arbiter_tier_behavior,
+                    "baton_masking_rule": rule.baton_masking_rule,
+                    "sentinel_severity": rule.sentinel_severity,
+                }
+            click.echo(json.dumps(data))
+        elif cli_ctx.output_format == OutputFormat.yaml:
+            data = {}
+            for name, rule in sorted(table.items()):
+                data[name] = {
+                    "pact_assertion_type": rule.pact_assertion_type,
+                    "arbiter_tier_behavior": rule.arbiter_tier_behavior,
+                    "baton_masking_rule": rule.baton_masking_rule,
+                    "sentinel_severity": rule.sentinel_severity,
+                }
+            click.echo(yaml.dump(data, sort_keys=False, default_flow_style=False))
+        else:
+            lines = []
+            for name, rule in sorted(table.items()):
+                lines.append(
+                    f"{name}: pact={rule.pact_assertion_type} "
+                    f"arbiter={rule.arbiter_tier_behavior} "
+                    f"baton={rule.baton_masking_rule} "
+                    f"sentinel={rule.sentinel_severity}"
+                )
+            click.echo("\n".join(lines))
+    except KeyboardInterrupt:
+        ctx.exit(ExitCode.KEYBOARD_INTERRUPT_130.value)
+
+
+@builtins_group.command("show")
+@click.argument("name")
+@click.pass_context
+def cmd_builtins_show(ctx, name):
+    """Show detail for a specific built-in annotation."""
+    cli_ctx = ctx.obj["cli_ctx"]
+    try:
+        table = config.get_builtin_propagation_table()
+        if name not in table:
+            click.echo(f"Unknown annotation: '{name}'", err=True)
+            click.echo(f"Available: {', '.join(sorted(table.keys()))}", err=True)
+            ctx.exit(ExitCode.DOMAIN_ERROR_1.value)
+            return
+
+        rule = table[name]
+        data = {
+            "annotation_name": rule.annotation_name,
+            "pact_assertion_type": rule.pact_assertion_type,
+            "arbiter_tier_behavior": rule.arbiter_tier_behavior,
+            "baton_masking_rule": rule.baton_masking_rule,
+            "sentinel_severity": rule.sentinel_severity,
+        }
+
+        if cli_ctx.output_format == OutputFormat.json:
+            click.echo(json.dumps(data))
+        elif cli_ctx.output_format == OutputFormat.yaml:
+            click.echo(yaml.dump(data, sort_keys=False, default_flow_style=False))
+        else:
+            for k, v in data.items():
+                click.echo(f"  {k}: {v}")
+    except KeyboardInterrupt:
+        ctx.exit(ExitCode.KEYBOARD_INTERRUPT_130.value)
+
+
+@builtins_group.command("stripe")
+@click.pass_context
+def cmd_builtins_stripe(ctx):
+    """Show Stripe-specific built-in annotation definitions."""
+    cli_ctx = ctx.obj["cli_ctx"]
+    try:
+        stripe_builtins = config.get_stripe_builtins()
+
+        if cli_ctx.output_format == OutputFormat.json:
+            click.echo(json.dumps(stripe_builtins))
+        elif cli_ctx.output_format == OutputFormat.yaml:
+            click.echo(yaml.dump(stripe_builtins, sort_keys=False, default_flow_style=False))
+        else:
+            for name, defn in sorted(stripe_builtins.items()):
+                click.echo(f"{name}:")
+                click.echo(f"  description: {defn['description']}")
+                click.echo(f"  field_pattern: {defn['field_pattern']}")
+                click.echo(f"  classification: {defn['classification']}")
+                click.echo(f"  annotations: {', '.join(defn['annotations'])}")
+                prop = defn['propagation']
+                click.echo(f"  propagation:")
+                for pk, pv in prop.items():
+                    click.echo(f"    {pk}: {pv}")
+                click.echo()
     except KeyboardInterrupt:
         ctx.exit(ExitCode.KEYBOARD_INTERRUPT_130.value)
 
