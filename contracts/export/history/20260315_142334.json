@@ -1,0 +1,1062 @@
+{
+  "component_id": "export",
+  "name": "Export Generators",
+  "description": "Generates output YAML for four downstream tools (Pact, Arbiter, Baton, Sentinel) by consulting the schema store and annotation propagation table generically. Each exporter is a pure function that filters propagation entries by semantic rule properties — never by hard-coded annotation names — ensuring custom annotations with propagation rules defined in ledger.yaml produce output without code changes. A shared iter_propagation_entries() helper yields field-level tuples from the propagation table, and a yaml_dump() utility serializes any export model to deterministic, diffable YAML.",
+  "version": 1,
+  "types": [
+    {
+      "name": "ExportViolationSeverity",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "ERROR",
+        "WARNING",
+        "INFO"
+      ],
+      "inner_types": [],
+      "description": "Severity levels for export violations, supporting the collect-all-errors requirement."
+    },
+    {
+      "name": "ExportViolation",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "severity",
+          "type_ref": "ExportViolationSeverity",
+          "required": true,
+          "default": "",
+          "description": "Severity level of this violation.",
+          "validators": []
+        },
+        {
+          "name": "field_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Dot-delimited path to the field that triggered the violation, e.g. 'users.email'.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of the violation.",
+          "validators": []
+        },
+        {
+          "name": "annotation_key",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "The annotation key involved, if applicable. Empty string if not annotation-specific.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single violation encountered during export generation. Structural problems are ERROR, missing annotations are WARNING, informational notes are INFO."
+    },
+    {
+      "name": "PropagationEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "field_ref",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Fully qualified field reference, e.g. 'schema.table.column'.",
+          "validators": []
+        },
+        {
+          "name": "annotation_key",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The annotation identifier, e.g. 'PII', 'FINANCIAL', or any custom annotation.",
+          "validators": []
+        },
+        {
+          "name": "rule",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Property bag from ledger.yaml propagation rules. Keys include semantic properties like requires_masking, canary_eligible, severity, tier, etc. Extensible for custom annotations.",
+          "validators": []
+        },
+        {
+          "name": "field_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The data type of the field (e.g. 'string', 'integer', 'boolean').",
+          "validators": []
+        },
+        {
+          "name": "component_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The component that owns this field's schema.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single entry from the annotation propagation table. The rule dict preserves extensibility — custom annotations add arbitrary keys without code changes."
+    },
+    {
+      "name": "PropagationEntryTuple",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "field_ref",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Fully qualified field reference.",
+          "validators": []
+        },
+        {
+          "name": "annotation_key",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The annotation identifier.",
+          "validators": []
+        },
+        {
+          "name": "rule_properties",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Semantic properties from the propagation rule payload.",
+          "validators": []
+        },
+        {
+          "name": "field_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Data type of the underlying field.",
+          "validators": []
+        },
+        {
+          "name": "component_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Owning component identifier.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Yielded tuple from iter_propagation_entries: (field_ref, annotation_key, rule_properties)."
+    },
+    {
+      "name": "PactAssertion",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "assertion_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique identifier for this assertion, deterministically derived from field_ref and annotation_key.",
+          "validators": []
+        },
+        {
+          "name": "description",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of what this assertion verifies.",
+          "validators": []
+        },
+        {
+          "name": "test_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Type of test: 'shape', 'filter', 'method', derived from propagation rule properties.",
+          "validators": []
+        },
+        {
+          "name": "field_ref",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Fully qualified field reference this assertion targets.",
+          "validators": []
+        },
+        {
+          "name": "filter",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Filter expression derived from propagation rules. Empty string if not applicable.",
+          "validators": []
+        },
+        {
+          "name": "shape",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Shape constraint derived from propagation rules. Empty string if not applicable.",
+          "validators": []
+        },
+        {
+          "name": "method",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Verification method derived from propagation rules. Empty string if not applicable.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single Pact contract assertion derived from propagation rules. Used in component-scoped contract assertion YAML."
+    },
+    {
+      "name": "PactExport",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "component_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The component this Pact export targets.",
+          "validators": []
+        },
+        {
+          "name": "assertions",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of contract assertions sorted by assertion_id for deterministic output.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Top-level container for Pact export output. Contains component-scoped assertion lists."
+    },
+    {
+      "name": "ArbiterRule",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "pattern",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Field matching pattern, e.g. '*.email' or 'users.ssn'.",
+          "validators": []
+        },
+        {
+          "name": "backend",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Storage backend identifier where this rule applies.",
+          "validators": []
+        },
+        {
+          "name": "tier",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Classification tier: PUBLIC, INTERNAL, PII, FINANCIAL, etc.",
+          "validators": []
+        },
+        {
+          "name": "annotations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of annotation keys applied to this field.",
+          "validators": []
+        },
+        {
+          "name": "taint_on_raw_value",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether raw value access taints the data flow.",
+          "validators": []
+        },
+        {
+          "name": "mask_in_spans",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether this field should be masked in observability spans.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single Arbiter field-level classification rule for data governance."
+    },
+    {
+      "name": "ArbiterExport",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "rules",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of classification rules sorted by pattern for deterministic output.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Top-level container for Arbiter export output."
+    },
+    {
+      "name": "BatonEgressNode",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique identifier for this egress node.",
+          "validators": []
+        },
+        {
+          "name": "owner",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Component that owns this egress point.",
+          "validators": []
+        },
+        {
+          "name": "mock_generator",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Reference to the mock data generator (faker provider or stdlib random function).",
+          "validators": []
+        },
+        {
+          "name": "masked_fields",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Fields with non-PUBLIC classification that require masking at egress.",
+          "validators": []
+        },
+        {
+          "name": "canary_eligible_fields",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "String-typed fields with PII or FINANCIAL annotations (via canary_eligible rule property) eligible for canary value injection.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single Baton egress node describing a data exit point with mock and masking metadata."
+    },
+    {
+      "name": "BatonExport",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "egress_nodes",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of egress nodes sorted by id for deterministic output.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Top-level container for Baton export output."
+    },
+    {
+      "name": "SentinelSeverityMapping",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "annotation_key",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The annotation that this severity mapping applies to.",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Severity level string derived from the propagation rule's severity property (e.g. 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW').",
+          "validators": []
+        },
+        {
+          "name": "field_pattern",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Field pattern this mapping applies to.",
+          "validators": []
+        },
+        {
+          "name": "description",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of why this severity level was assigned.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single Sentinel severity mapping derived from annotation propagation rules."
+    },
+    {
+      "name": "SentinelExport",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "severity_mappings",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of severity mappings sorted by (severity, annotation_key, field_pattern) for deterministic output.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Top-level container for Sentinel export output."
+    },
+    {
+      "name": "ExportResultPact",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "output",
+          "type_ref": "PactExport",
+          "required": false,
+          "default": "None",
+          "description": "The generated Pact export, or None if errors prevented generation.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "All violations collected during generation. May contain warnings even on success.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result wrapper for Pact export. Contains typed output and collected violations."
+    },
+    {
+      "name": "ExportResultArbiter",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "output",
+          "type_ref": "ArbiterExport",
+          "required": false,
+          "default": "None",
+          "description": "The generated Arbiter export, or None if errors prevented generation.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "All violations collected during generation.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result wrapper for Arbiter export. Contains typed output and collected violations."
+    },
+    {
+      "name": "ExportResultBaton",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "output",
+          "type_ref": "BatonExport",
+          "required": false,
+          "default": "None",
+          "description": "The generated Baton export, or None if errors prevented generation.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "All violations collected during generation.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result wrapper for Baton export. Contains typed output and collected violations."
+    },
+    {
+      "name": "ExportResultSentinel",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "output",
+          "type_ref": "SentinelExport",
+          "required": false,
+          "default": "None",
+          "description": "The generated Sentinel export, or None if errors prevented generation.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "All violations collected during generation.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result wrapper for Sentinel export. Contains typed output and collected violations."
+    },
+    {
+      "name": "YamlString",
+      "kind": "primitive",
+      "fields": [],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A UTF-8 YAML string produced by yaml_dump(). Always uses block style, sort_keys=False."
+    }
+  ],
+  "functions": [
+    {
+      "name": "iter_propagation_entries",
+      "description": "Generic iterator over the propagation table. Yields PropagationEntryTuple for each field+annotation combination from the propagation table. Callers (exporters) apply their own property-based filters. This is the single shared entry point ensuring all exporters use the same traversal logic and custom annotations flow through automatically.",
+      "inputs": [
+        {
+          "name": "propagation_table",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of PropagationEntry objects from the propagation component.",
+          "validators": []
+        },
+        {
+          "name": "property_filter",
+          "type_ref": "dict",
+          "required": false,
+          "default": "{}",
+          "description": "Optional dict of rule property keys to required values. Only entries whose rule contains all specified key-value pairs are yielded. Empty dict yields all entries.",
+          "validators": []
+        }
+      ],
+      "output_type": "list",
+      "error_cases": [
+        {
+          "name": "empty_propagation_table",
+          "condition": "propagation_table is empty",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "WARNING",
+            "message": "Propagation table is empty; no entries to iterate."
+          }
+        },
+        {
+          "name": "invalid_entry_structure",
+          "condition": "An entry in propagation_table lacks required fields (field_ref, annotation_key, rule)",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "PropagationEntry missing required field: {field_name}"
+          }
+        }
+      ],
+      "preconditions": [
+        "propagation_table is a list of PropagationEntry objects",
+        "property_filter keys and values are strings or booleans"
+      ],
+      "postconditions": [
+        "Returned list contains only PropagationEntryTuple instances",
+        "Every returned entry satisfies all property_filter constraints",
+        "Output order is deterministic: sorted by (field_ref, annotation_key)"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "export_pact",
+      "description": "Generates Pact contract assertion YAML for a given component. Iterates propagation entries and produces assertions with assertion_id, description, test_type, field_ref, and filter/shape/method derived from propagation rule properties. Filters entries where rule contains assertion-relevant properties (test_type, shape, filter, method). Returns ExportResultPact with all violations collected.",
+      "inputs": [
+        {
+          "name": "component_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The component to scope Pact assertions to.",
+          "validators": []
+        },
+        {
+          "name": "propagation_table",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of PropagationEntry objects from the propagation component.",
+          "validators": []
+        }
+      ],
+      "output_type": "ExportResultPact",
+      "error_cases": [
+        {
+          "name": "empty_propagation_table",
+          "condition": "No propagation entries exist",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "WARNING",
+            "message": "No propagation entries found; Pact export will be empty."
+          }
+        },
+        {
+          "name": "no_matching_entries",
+          "condition": "No propagation entries match the target component_id",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "WARNING",
+            "message": "No propagation entries found for component '{component_id}'."
+          }
+        },
+        {
+          "name": "missing_test_type_property",
+          "condition": "A propagation rule lacks the 'test_type' property required for Pact assertion generation",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "ERROR",
+            "message": "Propagation rule for field '{field_ref}' annotation '{annotation_key}' missing required 'test_type' property."
+          }
+        },
+        {
+          "name": "invalid_test_type",
+          "condition": "test_type value is not one of 'shape', 'filter', 'method'",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "ERROR",
+            "message": "Invalid test_type '{test_type}' for field '{field_ref}'. Must be 'shape', 'filter', or 'method'."
+          }
+        }
+      ],
+      "preconditions": [
+        "component_id is a non-empty string",
+        "propagation_table is a list of PropagationEntry objects"
+      ],
+      "postconditions": [
+        "If output is not None, output.assertions is sorted by assertion_id",
+        "Each assertion_id is unique within the output",
+        "All structural errors in propagation entries are reported as ERROR-severity violations",
+        "Missing optional annotation properties are reported as WARNING-severity violations",
+        "output is None if and only if violations contain at least one ERROR-severity entry"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "export_arbiter",
+      "description": "Generates Arbiter field-level classification rules YAML. Iterates propagation entries and produces rules with pattern, backend, tier, annotations, taint_on_raw_value, and mask_in_spans derived from propagation rule properties. Filters entries where rule contains tier or classification-relevant properties. Returns ExportResultArbiter with all violations collected.",
+      "inputs": [
+        {
+          "name": "propagation_table",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of PropagationEntry objects from the propagation component.",
+          "validators": []
+        },
+        {
+          "name": "default_backend",
+          "type_ref": "str",
+          "required": false,
+          "default": "primary",
+          "description": "Default storage backend identifier when rule does not specify one.",
+          "validators": []
+        }
+      ],
+      "output_type": "ExportResultArbiter",
+      "error_cases": [
+        {
+          "name": "empty_propagation_table",
+          "condition": "No propagation entries exist",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "WARNING",
+            "message": "No propagation entries found; Arbiter export will be empty."
+          }
+        },
+        {
+          "name": "missing_tier_property",
+          "condition": "A propagation rule lacks the 'tier' property required for classification",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "ERROR",
+            "message": "Propagation rule for field '{field_ref}' annotation '{annotation_key}' missing required 'tier' property."
+          }
+        },
+        {
+          "name": "conflicting_tiers",
+          "condition": "Multiple annotations on the same field specify different tier values",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "WARNING",
+            "message": "Field '{field_ref}' has conflicting tiers: {tiers}. Using highest classification."
+          }
+        }
+      ],
+      "preconditions": [
+        "propagation_table is a list of PropagationEntry objects",
+        "default_backend is a non-empty string"
+      ],
+      "postconditions": [
+        "If output is not None, output.rules is sorted by pattern",
+        "Each (pattern, backend) combination is unique — multiple annotations on the same field are merged into a single rule",
+        "taint_on_raw_value is true if any annotation's rule has requires_masking=true or taint_on_raw_value=true",
+        "mask_in_spans is true if any annotation's rule has requires_masking=true or mask_in_spans=true",
+        "output is None if and only if violations contain at least one ERROR-severity entry"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "export_baton",
+      "description": "Generates Baton egress_nodes list YAML. Iterates propagation entries and produces egress nodes with id, owner, mock_generator reference, masked_fields (non-PUBLIC tier), and canary_eligible_fields (string-typed fields where rule has canary_eligible=true). Filters on requires_masking and canary_eligible rule properties. Returns ExportResultBaton with all violations collected.",
+      "inputs": [
+        {
+          "name": "propagation_table",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of PropagationEntry objects from the propagation component.",
+          "validators": []
+        }
+      ],
+      "output_type": "ExportResultBaton",
+      "error_cases": [
+        {
+          "name": "empty_propagation_table",
+          "condition": "No propagation entries exist",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "WARNING",
+            "message": "No propagation entries found; Baton export will be empty."
+          }
+        },
+        {
+          "name": "missing_mock_generator",
+          "condition": "A propagation rule for a field requiring mocking lacks 'mock_generator' property",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "WARNING",
+            "message": "No mock_generator specified for field '{field_ref}'; will use default generator."
+          }
+        },
+        {
+          "name": "non_string_canary_field",
+          "condition": "A field with canary_eligible=true has a non-string field_type",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "INFO",
+            "message": "Field '{field_ref}' is canary_eligible but type is '{field_type}' (not string); skipping canary eligibility."
+          }
+        },
+        {
+          "name": "missing_owner",
+          "condition": "Cannot determine owner component for an egress node",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "ERROR",
+            "message": "Cannot determine owner for egress node derived from field '{field_ref}'."
+          }
+        }
+      ],
+      "preconditions": [
+        "propagation_table is a list of PropagationEntry objects"
+      ],
+      "postconditions": [
+        "If output is not None, output.egress_nodes is sorted by id",
+        "Each egress node id is unique",
+        "masked_fields contains only fields where tier is not PUBLIC (determined by requires_masking rule property)",
+        "canary_eligible_fields contains only fields where field_type is 'string' and rule has canary_eligible=true",
+        "mock_generator references faker providers for PII/FINANCIAL fields and stdlib random for others",
+        "output is None if and only if violations contain at least one ERROR-severity entry"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "export_sentinel",
+      "description": "Generates Sentinel severity mapping YAML derived from annotation propagation rules. Iterates propagation entries and produces severity mappings keyed by annotation and field pattern, using the 'severity' property from propagation rules. Returns ExportResultSentinel with all violations collected.",
+      "inputs": [
+        {
+          "name": "propagation_table",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of PropagationEntry objects from the propagation component.",
+          "validators": []
+        }
+      ],
+      "output_type": "ExportResultSentinel",
+      "error_cases": [
+        {
+          "name": "empty_propagation_table",
+          "condition": "No propagation entries exist",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "WARNING",
+            "message": "No propagation entries found; Sentinel export will be empty."
+          }
+        },
+        {
+          "name": "missing_severity_property",
+          "condition": "A propagation rule lacks the 'severity' property",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "WARNING",
+            "message": "Propagation rule for field '{field_ref}' annotation '{annotation_key}' has no 'severity' property; skipping."
+          }
+        },
+        {
+          "name": "invalid_severity_value",
+          "condition": "severity property value is not a recognized severity string",
+          "error_type": "ExportViolation",
+          "error_data": {
+            "severity": "ERROR",
+            "message": "Invalid severity '{severity}' for field '{field_ref}' annotation '{annotation_key}'. Expected CRITICAL, HIGH, MEDIUM, or LOW."
+          }
+        }
+      ],
+      "preconditions": [
+        "propagation_table is a list of PropagationEntry objects"
+      ],
+      "postconditions": [
+        "If output is not None, output.severity_mappings is sorted by (severity, annotation_key, field_pattern)",
+        "Every propagation entry with a 'severity' rule property produces exactly one SentinelSeverityMapping",
+        "Entries without a 'severity' rule property are skipped with a WARNING violation",
+        "output is None if and only if violations contain at least one ERROR-severity entry"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "yaml_dump",
+      "description": "Serializes any Pydantic v2 export model to a deterministic YAML string. Uses model.model_dump(exclude_none=True) and yaml.dump(sort_keys=False) to preserve field order from the model definition. Output is stable and diffable.",
+      "inputs": [
+        {
+          "name": "export_model",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "A Pydantic v2 BaseModel instance (PactExport, ArbiterExport, BatonExport, or SentinelExport).",
+          "validators": []
+        }
+      ],
+      "output_type": "YamlString",
+      "error_cases": [
+        {
+          "name": "not_a_pydantic_model",
+          "condition": "export_model does not have a model_dump() method",
+          "error_type": "TypeError",
+          "error_data": {
+            "message": "export_model must be a Pydantic v2 BaseModel instance, got {type}."
+          }
+        },
+        {
+          "name": "yaml_serialization_error",
+          "condition": "yaml.dump raises an error on the model data",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Failed to serialize model to YAML: {error}"
+          }
+        }
+      ],
+      "preconditions": [
+        "export_model is a Pydantic v2 BaseModel instance with a model_dump() method",
+        "export_model is one of PactExport, ArbiterExport, BatonExport, SentinelExport"
+      ],
+      "postconditions": [
+        "Returned string is valid YAML",
+        "None values are excluded from output",
+        "Key order matches model field definition order (sort_keys=False)",
+        "Calling yaml_dump twice on the same model produces identical output"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 50,
+        "max_memory_mb": 64,
+        "complexity": "O(n)"
+      }
+    }
+  ],
+  "dependencies": [
+    "registry",
+    "propagation",
+    "config"
+  ],
+  "dependency_contracts": {
+    "registry": [
+      "get_schema",
+      "list_schemas"
+    ],
+    "propagation": [
+      "get_propagation_table",
+      "PropagationEntry"
+    ],
+    "config": [
+      "load_config",
+      "LedgerConfig"
+    ]
+  },
+  "invariants": [
+    "All four exporters use iter_propagation_entries() as their sole traversal mechanism over the propagation table — no exporter directly indexes or iterates propagation_table",
+    "No exporter hard-codes annotation names (e.g. 'PII', 'FINANCIAL'); all filtering is by semantic rule properties (requires_masking, canary_eligible, severity, tier, test_type, etc.)",
+    "Custom annotations defined in ledger.yaml with appropriate propagation rule properties produce correct export output without any code changes to exporters",
+    "All export output lists are sorted by deterministic keys for stable, diffable YAML output",
+    "Violations are always collected exhaustively — exporters never short-circuit on the first error",
+    "An ExportResult output is None if and only if the violations list contains at least one ERROR-severity violation",
+    "yaml_dump never normalizes, reorders, or reformats beyond exclude_none — preserving model field definition order",
+    "Each exporter is a standalone function — no class hierarchy, no shared mutable state between exporters",
+    "Faker is used for mock_generator references on PII/FINANCIAL fields; stdlib random is used for all other mock generation"
+  ],
+  "requires": [
+    "registry",
+    "propagation",
+    "config"
+  ],
+  "processing_register": "rigorous-analytical",
+  "data_access": {
+    "reads": [
+      "INTERNAL",
+      "PII",
+      "FINANCIAL",
+      "PUBLIC"
+    ],
+    "writes": [
+      "INTERNAL"
+    ],
+    "rationale": "Reads schema field definitions across all classification tiers (PUBLIC, INTERNAL, PII, FINANCIAL) from the registry and propagation table to determine annotation semantics. Reads propagation rules including masking requirements and canary eligibility which reference PII and FINANCIAL field metadata. Writes INTERNAL-tier export YAML artifacts for downstream tool consumption.",
+    "side_effects": [
+      {
+        "type": "read_schema_store",
+        "classification": "PII,FINANCIAL,PUBLIC,INTERNAL",
+        "fields": [
+          "field_ref",
+          "annotation_key",
+          "classification_tier",
+          "field_type"
+        ],
+        "rationale": "Reads all schema fields and their annotations to determine which fields require masking, canary eligibility, classification rules, and severity mappings across all tiers."
+      },
+      {
+        "type": "write_export_yaml",
+        "classification": "INTERNAL",
+        "fields": [
+          "pact_assertions",
+          "arbiter_rules",
+          "baton_egress_nodes",
+          "sentinel_severity_mappings"
+        ],
+        "rationale": "Produces YAML export artifacts consumed by Pact, Arbiter, Baton, and Sentinel. These are INTERNAL configuration artifacts derived from schema metadata."
+      }
+    ]
+  },
+  "authority": {
+    "domains": [
+      "export_output"
+    ],
+    "rationale": "This component is the sole authority for generating downstream tool YAML output (Pact assertions, Arbiter rules, Baton egress nodes, Sentinel severity mappings). No other component produces these artifacts."
+  }
+}

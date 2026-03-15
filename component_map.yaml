@@ -1,0 +1,310 @@
+version: "2.0"
+generated_by: constrain
+system: ledger
+
+components:
+  - name: cli
+    description: CLI entry point for human operators — init, register, validate, migrate, export, mock, serve, infer, builtins
+    type: ingress
+    port: null
+    protocol: null
+    data_access:
+      reads: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      writes: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      rationale: CLI is the operator interface for all schema and migration operations — it can read and write all tiers through registry delegation
+    authority:
+      domains: [operator_interface]
+      rationale: CLI is the single entry point for human operators
+    dependencies: [registry, migration, propagation, export, mock, api, inference, builtins]
+    constraints: []
+
+  - name: registry
+    description: Schema store, annotation index, and backend registry — stores schemas verbatim using unit/unit_type abstraction, validates annotations, enforces backend ownership exclusivity across all backend types
+    type: library
+    port: null
+    protocol: null
+    data_access:
+      reads: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      writes: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      rationale: Registry stores all schemas regardless of tier — it must read all classifications to validate and index annotations
+    authority:
+      domains: [schema_storage, annotation_index, backend_registry]
+      rationale: Single source of truth for schema definitions and field annotations
+    dependencies: []
+    constraints: [C001, C002, C003, C013, C017, C026, C027, C028, C031, C032]
+
+  - name: migration
+    description: Migration parser, diff engine, and blast radius calculator — analyzes SQL/Alembic/Flyway/Liquibase/CQL/Kafka schema evolution, computes gate decisions (BLOCKED/HUMAN_GATE/AUTO_PROCEED) for all mutable backend types
+    type: library
+    port: null
+    protocol: null
+    data_access:
+      reads: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      writes: []
+      rationale: Migration analysis reads schemas and annotations to compute blast radius — it never writes data, only produces analysis artifacts
+    authority:
+      domains: [migration_analysis, migration_gating, migration_approval]
+      rationale: Owns all migration analysis and gating logic
+    dependencies: [registry]
+    constraints: [C004, C005, C006, C007, C016, C018, C023, C035, C036]
+
+  - name: propagation
+    description: Annotation propagation rules engine — maps annotations to control plane behaviors for Pact, Arbiter, Baton, and Sentinel using data-driven rule tables
+    type: library
+    port: null
+    protocol: null
+    data_access:
+      reads: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      writes: []
+      rationale: Reads annotations and classifications to compute propagation rules — produces export artifacts but does not modify schemas
+    authority:
+      domains: [annotation_rules, annotation_export]
+      rationale: Owns the mapping from annotations to downstream tool behavior
+    dependencies: [registry]
+    constraints: [C003, C012, C020, C025]
+
+  - name: export
+    description: Export adapters for Pact, Arbiter, Baton, Sentinel, and retention — transforms propagation rules into tool-specific YAML formats including infrastructure retention requirements
+    type: library
+    port: null
+    protocol: null
+    data_access:
+      reads: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      writes: []
+      rationale: Reads schemas and propagation rules to produce export artifacts
+    authority:
+      domains: []
+      rationale: Export adapters format data but do not own any domain — authority belongs to propagation
+    dependencies: [registry, propagation]
+    constraints: [C012, C014, C015, C019, C020, C025, C029, C037]
+
+  - name: mock
+    description: Schema-aware mock data generator — produces type-correct, tier-appropriate test data with canary fingerprinting for Arbiter taint tracking
+    type: library
+    port: null
+    protocol: null
+    data_access:
+      reads: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      writes: []
+      rationale: Reads schemas to generate mock data matching field types and classifications — writes nothing to the registry
+    authority:
+      domains: [mock_generation, canary_fingerprinting]
+      rationale: Owns mock data generation and canary value creation
+    dependencies: [registry]
+    constraints: [C008, C009, C010, C011, C019, C021, C022]
+
+  - name: api
+    description: HTTP API server for Arbiter, Pact, Baton, and Sentinel integration — exposes registration, export, mock, and validation endpoints
+    type: service
+    port: 7701
+    protocol: http
+    data_access:
+      reads: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      writes: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      rationale: API is the network interface to all Ledger capabilities — delegates to internal components but must handle all tiers
+    authority:
+      domains: [http_interface, integration_endpoints]
+      rationale: Single HTTP entry point for all peer tool integrations
+    dependencies: [registry, migration, propagation, export, mock, inference, builtins]
+    constraints: [C010, C011, C019, C024]
+
+  - name: inference
+    description: Schema inference engine — introspects live backends to produce draft schemas for human review, supports postgres/mongodb/redis/kafka/s3/stripe via backend-specific drivers
+    type: library
+    port: null
+    protocol: null
+    data_access:
+      reads: [PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE]
+      writes: []
+      rationale: Inference reads live backend structure which may expose field names and sample values across all tiers — it produces drafts but writes nothing to registry
+    authority:
+      domains: [schema_inference]
+      rationale: Owns all live backend introspection logic and inference drivers
+    dependencies: [registry, config]
+    constraints: [C027, C028, C032, C033, C034]
+
+  - name: builtins
+    description: Built-in annotation maps for known external services (Stripe, etc.) — ships as YAML data files, supports override per-field without affecting other fields
+    type: library
+    port: null
+    protocol: null
+    data_access:
+      reads: [PUBLIC, PII, FINANCIAL]
+      writes: []
+      rationale: Built-in maps contain classification hints for known services — reads PII and FINANCIAL tiers from curated data files
+    authority:
+      domains: [builtin_annotation_maps]
+      rationale: Owns curated annotation maps for known external services
+    dependencies: [registry, config]
+    constraints: [C030, C038]
+
+  - name: config
+    description: Configuration loader — reads ledger.yaml including per-backend type settings, provides runtime settings to all components
+    type: library
+    port: null
+    protocol: null
+    data_access:
+      reads: [PUBLIC]
+      writes: []
+      rationale: Config only reads configuration files — no access to classified data
+    authority:
+      domains: []
+      rationale: Config is a utility, not an authority holder
+    dependencies: []
+    constraints: [C026, C030]
+
+edges:
+  - from: cli
+    to: registry
+    protocol: function_call
+    description: Schema registration, backend registration, validation commands
+
+  - from: cli
+    to: migration
+    protocol: function_call
+    description: Migration plan and approval commands
+
+  - from: cli
+    to: propagation
+    protocol: function_call
+    description: Export commands route through propagation rules
+
+  - from: cli
+    to: export
+    protocol: function_call
+    description: Export format selection and output
+
+  - from: cli
+    to: mock
+    protocol: function_call
+    description: Mock data generation commands
+
+  - from: cli
+    to: api
+    protocol: function_call
+    description: Server start command
+
+  - from: api
+    to: registry
+    protocol: function_call
+    description: Schema and backend registration via HTTP endpoints
+
+  - from: api
+    to: migration
+    protocol: function_call
+    description: Migration plan and approval via HTTP endpoints
+
+  - from: api
+    to: propagation
+    protocol: function_call
+    description: Annotation rule queries via HTTP endpoints
+
+  - from: api
+    to: export
+    protocol: function_call
+    description: Export generation via HTTP endpoints
+
+  - from: api
+    to: mock
+    protocol: function_call
+    description: Mock data generation via HTTP endpoints
+
+  - from: migration
+    to: registry
+    protocol: function_call
+    description: Reads current schema to compute migration diffs and blast radius
+
+  - from: propagation
+    to: registry
+    protocol: function_call
+    description: Reads annotations and classifications to compute propagation rules
+
+  - from: export
+    to: registry
+    protocol: function_call
+    description: Reads schemas for export formatting
+
+  - from: export
+    to: propagation
+    protocol: function_call
+    description: Reads propagation rules to produce tool-specific export format
+
+  - from: mock
+    to: registry
+    protocol: function_call
+    description: Reads field schemas to generate type-correct mock data
+
+  - from: mock
+    to: arbiter_api
+    protocol: http
+    description: Registers canary fingerprints with Arbiter when arbiter_api is configured
+
+  - from: cli
+    to: inference
+    protocol: function_call
+    description: Schema inference commands (ledger schema infer)
+
+  - from: cli
+    to: builtins
+    protocol: function_call
+    description: Built-in annotation map commands (ledger builtins list/show/apply)
+
+  - from: api
+    to: inference
+    protocol: function_call
+    description: Schema inference via HTTP endpoints
+
+  - from: api
+    to: builtins
+    protocol: function_call
+    description: Built-in annotation queries via HTTP endpoints
+
+  - from: inference
+    to: registry
+    protocol: function_call
+    description: Reads backend connection hints and existing schemas for inference context
+
+  - from: inference
+    to: config
+    protocol: function_call
+    description: Reads per-backend type settings (redis value_inference, kafka schema_registry_url, etc.)
+
+  - from: builtins
+    to: registry
+    protocol: function_call
+    description: Applies built-in annotations to registered backend fields
+
+  - from: builtins
+    to: config
+    protocol: function_call
+    description: Reads built-in YAML data files from configured paths
+
+  - from: inference
+    to: live_backends
+    protocol: varies
+    description: Connects to live backends (postgres, mongodb, redis, kafka, s3, stripe) for schema introspection
+
+  - from: api
+    to: arbiter_api
+    protocol: http
+    description: Receives component authority declarations for ownership validation (optional)
+
+  - from: pact
+    to: api
+    protocol: http
+    description: Pact pulls contract assertion exports from Ledger API
+
+  - from: arbiter
+    to: api
+    protocol: http
+    description: Arbiter pulls classification rule exports from Ledger API
+
+  - from: baton
+    to: api
+    protocol: http
+    description: Baton pulls egress node configs and mock data from Ledger API
+
+  - from: sentinel
+    to: api
+    protocol: http
+    description: Sentinel pulls severity mapping exports from Ledger API

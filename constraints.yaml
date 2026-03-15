@@ -1,0 +1,344 @@
+constraints:
+  - id: C001
+    boundary: schema_append_only
+    condition: Schema registry change log must be append-only — schema changes are recorded, never overwritten or deleted
+    violation: Existing schema entry modified in place or removed from registry
+    severity: must
+    rationale: Mutable schema history defeats audit trail and makes it impossible to reconstruct what obligations were active at a given point in time
+    classification_tier: COMPLIANCE
+    affected_components: [registry]
+
+  - id: C002
+    boundary: backend_ownership_exclusivity
+    condition: Each storage backend must be owned by exactly one component — no two components may register as owner of the same backend
+    violation: Second component registered as owner of an already-owned backend
+    severity: must
+    rationale: Shared ownership creates authority conflicts that Arbiter cannot resolve — if two components claim the same database, neither can be held accountable for its data obligations
+    classification_tier: null
+    affected_components: [registry]
+
+  - id: C003
+    boundary: annotation_conflict_validation
+    condition: Schema validation must reject logically contradictory annotation combinations (immutable+gdpr_erasable, audit_field+gdpr_erasable, soft_delete_marker+immutable) before the schema enters the registry
+    violation: Schema accepted with conflicting annotations on the same field
+    severity: must
+    rationale: Contradictory obligations cannot be satisfied at runtime — catching them at validation time prevents impossible compliance states from reaching production
+    classification_tier: COMPLIANCE
+    affected_components: [registry, propagation]
+
+  - id: C004
+    boundary: audit_field_immutability
+    condition: Migration that drops or alters an audit_field column must be unconditionally BLOCKED — no automation or approval path exists
+    violation: Migration removing or modifying audit_field column proceeds through any gate level
+    severity: must
+    rationale: Audit fields are the compliance team's evidence trail — their removal is never acceptable and must require a schema redesign, not an approval
+    classification_tier: COMPLIANCE
+    affected_components: [migration]
+
+  - id: C005
+    boundary: immutable_field_protection
+    condition: Migration that modifies an immutable field's type, constraints, or adds an update path must be BLOCKED
+    violation: Migration altering immutable field proceeds through any gate level
+    severity: must
+    rationale: Immutable fields represent data that must never change after creation — allowing modification undermines the guarantee for all downstream consumers
+    classification_tier: null
+    affected_components: [migration]
+
+  - id: C006
+    boundary: encryption_removal_gating
+    condition: Migration that removes encrypted_at_rest annotation or encryption constraint from a field must require HUMAN_GATE with documented rationale
+    violation: Encryption removed from field without human approval and rationale
+    severity: must
+    rationale: Removing encryption from a field that previously required it is a security downgrade that must be explicitly authorized and documented
+    classification_tier: FINANCIAL
+    affected_components: [migration]
+
+  - id: C007
+    boundary: classification_tier_escalation_gating
+    condition: Migration adding a field whose classification tier is not in the owning component's declared data_access must require HUMAN_GATE
+    violation: New field with undeclared classification tier added without human review
+    severity: must
+    rationale: If a component gains access to a data tier it hasn't declared, the change must be reviewed to update both Ledger and Arbiter before proceeding
+    classification_tier: null
+    affected_components: [migration]
+
+  - id: C008
+    boundary: encrypted_field_mock_opacity
+    condition: Mock data generator must never emit raw plaintext values for fields annotated encrypted_at_rest — only token-shaped or encrypted-shaped values
+    violation: Mock record contains plaintext value for encrypted_at_rest field
+    severity: must
+    rationale: Test data that contains plaintext where production has ciphertext teaches the test suite wrong expectations and can leak encryption assumptions into logs and spans
+    classification_tier: FINANCIAL
+    affected_components: [mock]
+
+  - id: C009
+    boundary: tokenized_field_mock_shape
+    condition: Mock data generator must emit token-shaped values for fields annotated tokenized — never the real underlying value
+    violation: Mock record contains value-shaped (not token-shaped) data for tokenized field
+    severity: must
+    rationale: Token fields store references, not values — mock data must match production shape to ensure downstream components handle tokens correctly
+    classification_tier: FINANCIAL
+    affected_components: [mock]
+
+  - id: C010
+    boundary: canary_fingerprint_format_agreement
+    condition: Canary fingerprints must follow the agreed format (ledger-canary-{tier}-{hex8}) and be shaped to match the target field's type
+    violation: Canary value generated with non-standard fingerprint format or not shaped to field type
+    severity: must
+    rationale: Arbiter must be able to detect canary escapes by pattern matching — format divergence defeats taint tracking entirely
+    classification_tier: null
+    affected_components: [mock, api]
+
+  - id: C011
+    boundary: canary_arbiter_registration
+    condition: When arbiter_api is configured, every generated canary fingerprint must be registered with Arbiter before the mock record is returned
+    violation: Canary value returned to caller without Arbiter registration
+    severity: must
+    rationale: Unregistered canary values are invisible to Arbiter's taint detection — they pass through the system without triggering alerts
+    classification_tier: null
+    affected_components: [mock, api]
+
+  - id: C012
+    boundary: propagation_data_driven
+    condition: Annotation propagation rules must be defined in a table structure (built-in or in ledger.yaml) — adding a new annotation's propagation must not require code changes
+    violation: Annotation propagation behavior hardcoded in application logic rather than driven by rule table
+    severity: must
+    rationale: Custom annotations are a first-class extension point — if each one requires code changes, the system becomes a bottleneck for teams defining new data obligations
+    classification_tier: null
+    affected_components: [propagation, export]
+
+  - id: C013
+    boundary: schema_verbatim_storage
+    condition: Schema YAML files must be stored verbatim in the registry — no normalization, transformation, or reformatting on ingestion
+    violation: Stored schema differs from submitted schema in formatting, field order, or content
+    severity: must
+    rationale: Schemas must be human-editable and git-committable — transformation on ingestion would create drift between the file engineers edit and what Ledger stores
+    classification_tier: null
+    affected_components: [registry]
+
+  - id: C014
+    boundary: pact_export_completeness
+    condition: Pact export must produce assertion entries for every storage unit owned by the target component that has at least one field with a propagation-eligible annotation
+    violation: Storage unit with annotated fields omitted from Pact export for its owning component
+    severity: must
+    rationale: Missing assertions mean missing contract tests — the obligation exists in the schema but no test enforces it
+    classification_tier: null
+    affected_components: [export]
+
+  - id: C015
+    boundary: arbiter_export_completeness
+    condition: Arbiter export must produce classification rules for every field with a non-PUBLIC tier, including taint_on_raw_value and mask_in_spans flags derived from annotations
+    violation: Non-PUBLIC field missing from Arbiter classification export
+    severity: must
+    rationale: Missing classification rules mean Arbiter cannot enforce tier-appropriate access control for that field
+    classification_tier: null
+    affected_components: [export]
+
+  - id: C016
+    boundary: foreign_key_blast_radius
+    condition: Foreign key annotations must cause the referenced table to be included in migration blast radius analysis
+    violation: Migration blast radius computed without considering foreign key references
+    severity: should
+    rationale: Schema changes to a referenced table can cascade through foreign keys — blast radius must account for cross-table impact
+    classification_tier: null
+    affected_components: [migration]
+
+  - id: C017
+    boundary: gdpr_erasure_requirement
+    condition: Schema validation must warn when a gdpr_erasable field exists in a table that has no soft_delete_marker field and no erasure_method_declared annotation
+    violation: gdpr_erasable field accepted without erasure mechanism in the same table
+    severity: should
+    rationale: gdpr_erasable without an erasure mechanism is an unfulfillable obligation — engineers should be warned before this reaches production
+    classification_tier: PII
+    affected_components: [registry]
+
+  - id: C018
+    boundary: migration_approval_traceability
+    condition: Migration approval for HUMAN_GATE items must record the approver identity, review reference, and documented rationale
+    violation: HUMAN_GATE migration approved without all three fields
+    severity: must
+    rationale: Approval without rationale is rubber-stamping — the audit trail must explain why the security downgrade was acceptable
+    classification_tier: COMPLIANCE
+    affected_components: [migration]
+
+  - id: C019
+    boundary: arbiter_absent_degradation
+    condition: Ledger must function without Arbiter configured — canary registration is skipped with a warning, exports write to files instead of posting to API
+    violation: Ledger fails to start or crashes when arbiter_api is null
+    severity: must
+    rationale: Ledger should be adoptable incrementally — requiring the full stack on day one prevents adoption
+    classification_tier: null
+    affected_components: [api, mock, export]
+
+  - id: C020
+    boundary: custom_annotation_tier_override
+    condition: Custom annotations with arbiter_tier_override must be exported with the overridden tier in Arbiter classification rules
+    violation: Custom annotation tier override ignored in Arbiter export
+    severity: should
+    rationale: Custom annotations are the extension mechanism for domain-specific compliance — their tier overrides must propagate correctly or the extension point is broken
+    classification_tier: null
+    affected_components: [propagation, export]
+
+  - id: C021
+    boundary: mock_type_fidelity
+    condition: Mock data generator must produce values that match field type declarations (uuid generates UUIDs, varchar generates strings within length, boolean generates true/false, timestamptz generates ISO8601, etc.)
+    violation: Mock value does not parse as the declared field type
+    severity: must
+    rationale: Type-mismatched mock data causes downstream test failures unrelated to the behavior being tested
+    classification_tier: null
+    affected_components: [mock]
+
+  - id: C022
+    boundary: mock_determinism
+    condition: Mock data generation with the same seed and schema must produce identical output across runs
+    violation: Same seed and schema produce different mock records
+    severity: should
+    rationale: Deterministic mock data enables reproducible test runs and makes test failures diagnosable
+    classification_tier: null
+    affected_components: [mock]
+
+  - id: C023
+    boundary: sql_migration_parser_correctness
+    condition: SQL migration parser must correctly extract ADD COLUMN, DROP COLUMN, and ALTER COLUMN operations with field names, types, and constraints
+    violation: Parsed migration diff missing or misrepresenting a structural change present in the SQL
+    severity: must
+    rationale: Migration gating depends on accurate diff extraction — a missed DROP COLUMN means a missed audit_field removal
+    classification_tier: null
+    affected_components: [migration]
+
+  - id: C024
+    boundary: api_startup_performance
+    condition: HTTP API server must start and accept connections within 3 seconds of invocation
+    violation: API server takes longer than 3 seconds to respond to first request
+    severity: should
+    rationale: Ledger is queried during deploy pipelines — slow startup adds latency to every deployment
+    classification_tier: null
+    affected_components: [api]
+
+  - id: C025
+    boundary: tier_inheritance_on_foreign_key
+    condition: When a foreign key annotation references a field with a higher classification tier, the referencing field should inherit the higher tier in Arbiter export
+    violation: Foreign key field exported with its own tier when referenced field has higher tier
+    severity: should
+    rationale: A foreign key to a PII field is itself a PII handle — Arbiter must know this to enforce access correctly
+    classification_tier: null
+    affected_components: [propagation, export]
+
+  # === v2 constraints: multi-backend model ===
+
+  - id: C026
+    boundary: unit_abstraction_universality
+    condition: All backend types must map their native storage concept to the unit/unit_type abstraction — backend-specific terminology (table, collection, topic, key_pattern, etc.) must not leak into the core schema model
+    violation: Core schema model contains backend-specific terminology instead of using the unit/unit_type abstraction
+    severity: must
+    rationale: The unified model is what makes annotations and propagation rules work across all backend types — if the abstraction leaks, every downstream consumer needs backend-specific code paths
+    classification_tier: null
+    affected_components: [registry, config]
+
+  - id: C027
+    boundary: schema_inference_draft_only
+    condition: Schema inference must produce draft schemas for human review — inferred schemas must never be written to the registry automatically
+    violation: Inferred schema written to registry without explicit ledger schema add
+    severity: must
+    rationale: Classification is always assigned by a human — inference provides structure, not classification. Automatic registry writes bypass human judgment on tier assignment
+    classification_tier: null
+    affected_components: [registry]
+
+  - id: C028
+    boundary: inference_graceful_degradation
+    condition: Schema inference with no live connection to the target backend must fail with an actionable error message — never hang, crash, or produce empty results silently
+    violation: Inference command hangs or crashes when backend is unreachable
+    severity: must
+    rationale: Inference runs against live systems that may be down or firewalled — graceful failure is essential for developer experience
+    classification_tier: null
+    affected_components: [registry]
+
+  - id: C029
+    boundary: kafka_audit_retention_requirement
+    condition: Kafka topic containing a field with audit_field annotation must export a retention requirement of infinite or compliance-defined minimum
+    violation: Kafka topic with audit_field exported without retention requirement
+    severity: must
+    rationale: Audit fields on message streams imply the stream is an evidence trail — finite retention would destroy compliance evidence
+    classification_tier: COMPLIANCE
+    affected_components: [export]
+
+  - id: C030
+    boundary: builtin_annotation_map_data_driven
+    condition: Built-in annotation maps (e.g., Stripe) must be shipped as YAML data files, not hardcoded — teams can extend or override without code changes
+    violation: Built-in annotations hardcoded in application logic
+    severity: must
+    rationale: Built-in maps are curated starting points, not final answers — hardcoding prevents teams from adapting to their specific Stripe integration patterns
+    classification_tier: null
+    affected_components: [config, registry]
+
+  - id: C031
+    boundary: mongodb_subfield_dot_notation
+    condition: MongoDB schemas must support dot-notation sub-fields to arbitrary depth — annotations on nested fields must propagate identically to top-level fields
+    violation: Annotation on dot-notation sub-field ignored or not exported
+    severity: must
+    rationale: Document store data obligations live at the field level regardless of nesting depth — ignoring sub-fields creates classification gaps
+    classification_tier: null
+    affected_components: [registry, propagation]
+
+  - id: C032
+    boundary: redis_scan_safety
+    condition: Redis schema inference must use SCAN (not KEYS) and must warn when the key space is too large for safe scanning — must accept a --key-pattern filter to scope inference
+    violation: Inference uses KEYS command or scans unbounded key space without warning
+    severity: must
+    rationale: KEYS blocks Redis in production — SCAN is O(1) per call. Unbounded scanning can also overwhelm the client
+    classification_tier: null
+    affected_components: [registry]
+
+  - id: C033
+    boundary: sqs_rabbitmq_inference_safety
+    condition: SQS and RabbitMQ message sampling for inference must only run against development/staging queues — documentation must prominently warn against production inference
+    violation: Inference runs against production queue without warning
+    severity: should
+    rationale: Message sampling requires receiving and re-queuing messages — in production this risks message loss, duplication, or ordering violations
+    classification_tier: null
+    affected_components: [registry]
+
+  - id: C034
+    boundary: s3_body_inference_gating
+    condition: S3/R2 body schema inference must be gated behind an explicit --sample-bodies flag, off by default — downloading sample objects has cost and security implications
+    violation: S3 body sampling runs without explicit opt-in flag
+    severity: must
+    rationale: Downloading objects from S3 incurs egress costs and may expose sensitive data to the inference environment — must be opt-in
+    classification_tier: null
+    affected_components: [registry]
+
+  - id: C035
+    boundary: kafka_schema_evolution_gating
+    condition: Kafka schema evolution that removes a field with audit_field must return BLOCKED — changing compatibility mode from BACKWARD to NONE must return HUMAN_GATE
+    violation: Kafka schema evolution removing audit_field or disabling compatibility proceeds without gating
+    severity: must
+    rationale: Kafka schema evolution has the same compliance implications as SQL migration — removing audit fields or disabling compatibility checks must be gated
+    classification_tier: COMPLIANCE
+    affected_components: [migration]
+
+  - id: C036
+    boundary: external_api_read_only
+    condition: External API backends must not be subject to migration gating — they are read-only from Ledger's perspective since Ledger cannot control external schema changes
+    violation: Migration gate logic applied to external API backend
+    severity: must
+    rationale: Ledger tracks what flows into the system from external APIs, not what the external API does — gating external schema changes is nonsensical
+    classification_tier: null
+    affected_components: [migration]
+
+  - id: C037
+    boundary: retention_export_completeness
+    condition: Retention export must produce config hints for every backend containing audit_field or retention_days annotations
+    violation: Backend with retention-relevant annotations omitted from retention export
+    severity: must
+    rationale: Missing retention hints mean infrastructure may be configured with finite retention for compliance-critical data
+    classification_tier: COMPLIANCE
+    affected_components: [export]
+
+  - id: C038
+    boundary: builtin_override_isolation
+    condition: Overriding a built-in annotation for one field must not affect built-in annotations on other fields
+    violation: Built-in annotation override on one field changes annotations on unrelated fields
+    severity: must
+    rationale: Override isolation ensures teams can customize incrementally without side effects
+    classification_tier: null
+    affected_components: [registry, config]

@@ -1,0 +1,1381 @@
+{
+  "component_id": "mock",
+  "name": "Mock Data Generator",
+  "description": "Generates N mock records for a given backend_id and table. Seeds Python's random module and Faker per-field (using field index offset from base seed) to ensure deterministic output independent of field order changes. Field type mapping: uuid→uuid4, varchar→random string of appropriate length, bigint→random int, boolean→random bool, timestamptz→random datetime. Classification-aware generation: PII fields use Faker for realistic fakes (email, name, address), FINANCIAL fields use plausible monetary fakes. encrypted_at_rest and tokenized fields always produce token-shaped values (tok_{base64url_24chars}), never raw plaintext. Canary mode (--purpose canary) generates fingerprinted values matching ledger-canary-{tier}-{hex8} pattern shaped to field type (email gets @canary.invalid suffix, payment_token gets tok_ prefix). Canary registration with Arbiter attempted via httpx if arbiter_api is configured; skipped with warning if not. Seed from ledger.yaml mock.seed, overridable via --seed CLI flag.",
+  "version": 1,
+  "types": [
+    {
+      "name": "FieldClassification",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "PII",
+        "FINANCIAL",
+        "INTERNAL",
+        "PUBLIC"
+      ],
+      "inner_types": [],
+      "description": "Classification tier for a schema field, determining which generator strategy is used."
+    },
+    {
+      "name": "MockPurpose",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "test",
+        "canary"
+      ],
+      "inner_types": [],
+      "description": "The purpose of mock data generation, controlling value shaping strategy."
+    },
+    {
+      "name": "ViolationSeverity",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "error",
+        "warning"
+      ],
+      "inner_types": [],
+      "description": "Severity level for mock generation violations."
+    },
+    {
+      "name": "FieldSpec",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "field_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Column name in the target table.",
+          "validators": []
+        },
+        {
+          "name": "sql_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw SQL type string, e.g. 'varchar(255)', 'bigint', 'uuid', 'boolean', 'timestamptz'.",
+          "validators": []
+        },
+        {
+          "name": "max_length",
+          "type_ref": "Optional[int]",
+          "required": false,
+          "default": "None",
+          "description": "Maximum character length parsed from varchar(N). None for non-varchar types.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "value is None or 1 <= value <= 65535",
+              "error_message": "max_length must be between 1 and 65535 if specified."
+            }
+          ]
+        },
+        {
+          "name": "classification",
+          "type_ref": "Optional[FieldClassification]",
+          "required": false,
+          "default": "None",
+          "description": "Classification tier of the field. None treated as PUBLIC for generation purposes.",
+          "validators": []
+        },
+        {
+          "name": "encrypted_at_rest",
+          "type_ref": "bool",
+          "required": false,
+          "default": "false",
+          "description": "If true, generated value is always a token-shaped string (tok_{base64url_24chars}).",
+          "validators": []
+        },
+        {
+          "name": "tokenized",
+          "type_ref": "bool",
+          "required": false,
+          "default": "false",
+          "description": "If true, generated value is always a token-shaped string (tok_{base64url_24chars}).",
+          "validators": []
+        },
+        {
+          "name": "nullable",
+          "type_ref": "bool",
+          "required": false,
+          "default": "false",
+          "description": "If true, there is a configurable probability (default 10%) the generated value is None.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Specification of a single table field for mock generation. sql_type is the raw SQL type string (e.g. 'varchar(255)', 'bigint', 'timestamptz'). max_length is parsed from varchar(N) if present; None otherwise."
+    },
+    {
+      "name": "MockGenerationRequest",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Identifier of the backend system owning the table.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "1 <= len(value) <= 128",
+              "error_message": "backend_id must be 1-128 characters."
+            }
+          ]
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Name of the table to generate mock records for.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "1 <= len(value) <= 256",
+              "error_message": "table_name must be 1-256 characters."
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "type_ref": "list[FieldSpec]",
+          "required": true,
+          "default": "",
+          "description": "List of field specifications for the table. Must contain at least one field.",
+          "validators": [
+            {
+              "kind": "custom",
+              "expression": "len(value) >= 1",
+              "error_message": "At least one field must be specified."
+            }
+          ]
+        },
+        {
+          "name": "row_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of mock records to generate.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "1 <= value <= 1000000",
+              "error_message": "row_count must be between 1 and 1,000,000."
+            }
+          ]
+        },
+        {
+          "name": "seed",
+          "type_ref": "Optional[int]",
+          "required": false,
+          "default": "None",
+          "description": "Override seed for deterministic generation. If None, uses mock.seed from ledger.yaml config.",
+          "validators": []
+        },
+        {
+          "name": "purpose",
+          "type_ref": "MockPurpose",
+          "required": false,
+          "default": "test",
+          "description": "Purpose of generation: 'test' for standard mock data, 'canary' for fingerprinted canary values.",
+          "validators": []
+        },
+        {
+          "name": "tier",
+          "type_ref": "Optional[str]",
+          "required": false,
+          "default": "None",
+          "description": "Data tier label for canary mode. Required when purpose is 'canary'. Used in canary pattern: ledger-canary-{tier}-{hex8}.",
+          "validators": [
+            {
+              "kind": "custom",
+              "expression": "purpose != 'canary' or (value is not None and len(value) >= 1)",
+              "error_message": "tier is required and must be non-empty when purpose is 'canary'."
+            }
+          ]
+        },
+        {
+          "name": "arbiter_api",
+          "type_ref": "Optional[str]",
+          "required": false,
+          "default": "None",
+          "description": "Base URL for Arbiter API. If provided and purpose is 'canary', canary registration is attempted via httpx.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^https?://.+",
+              "error_message": "arbiter_api must be a valid HTTP(S) URL."
+            }
+          ]
+        },
+        {
+          "name": "null_probability",
+          "type_ref": "float",
+          "required": false,
+          "default": "0.1",
+          "description": "Probability that a nullable field produces None for a given row.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "0.0 <= value <= 1.0",
+              "error_message": "null_probability must be between 0.0 and 1.0."
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Request model for mock data generation. Validated by Pydantic with cross-field model_validator enforcing that tier is required when purpose is 'canary'."
+    },
+    {
+      "name": "MockViolation",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "field_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Name of the field that triggered the violation. May be empty for request-level violations.",
+          "validators": []
+        },
+        {
+          "name": "error_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Machine-readable error category, e.g. 'unsupported_type', 'arbiter_unreachable', 'validation_error'.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of the violation.",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "ViolationSeverity",
+          "required": true,
+          "default": "",
+          "description": "Severity level: 'error' for generation failures, 'warning' for fallbacks and non-fatal issues.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single violation or warning encountered during mock generation."
+    },
+    {
+      "name": "MockGenerationResult",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "records",
+          "type_ref": "list[dict[str, any]]",
+          "required": true,
+          "default": "",
+          "description": "Generated mock records. Each dict maps field_name to generated value.",
+          "validators": []
+        },
+        {
+          "name": "seed_used",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "The base seed that was used for generation (from CLI, request, or config).",
+          "validators": []
+        },
+        {
+          "name": "canary_registered",
+          "type_ref": "Optional[bool]",
+          "required": false,
+          "default": "None",
+          "description": "True if canary registration succeeded, False if attempted and failed, None if not attempted.",
+          "validators": []
+        },
+        {
+          "name": "warnings",
+          "type_ref": "list[str]",
+          "required": true,
+          "default": "",
+          "description": "Human-readable warning messages (e.g. arbiter skipped, unsupported type fallback).",
+          "validators": []
+        },
+        {
+          "name": "errors",
+          "type_ref": "list[MockViolation]",
+          "required": true,
+          "default": "",
+          "description": "Structured list of all violations encountered during generation.",
+          "validators": []
+        },
+        {
+          "name": "row_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Actual number of records generated (should equal request row_count unless errors occurred).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result of mock data generation. Contains the generated records, the seed used, canary registration status, and any warnings or errors encountered."
+    },
+    {
+      "name": "CanaryRegistrationResult",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "success",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "True if Arbiter accepted the canary registration.",
+          "validators": []
+        },
+        {
+          "name": "arbiter_response_code",
+          "type_ref": "Optional[int]",
+          "required": false,
+          "default": "None",
+          "description": "HTTP status code from Arbiter, if a response was received.",
+          "validators": []
+        },
+        {
+          "name": "registration_id",
+          "type_ref": "Optional[str]",
+          "required": false,
+          "default": "None",
+          "description": "Unique registration ID returned by Arbiter on success.",
+          "validators": []
+        },
+        {
+          "name": "error_message",
+          "type_ref": "Optional[str]",
+          "required": false,
+          "default": "None",
+          "description": "Error description if registration failed.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result of attempting to register canary values with the Arbiter API."
+    },
+    {
+      "name": "CanaryValue",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "field_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The field this canary value belongs to.",
+          "validators": []
+        },
+        {
+          "name": "row_index",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Zero-based row index within the generated batch.",
+          "validators": []
+        },
+        {
+          "name": "raw_fingerprint",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The raw canary fingerprint string: ledger-canary-{tier}-{hex8}.",
+          "validators": []
+        },
+        {
+          "name": "shaped_value",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "The canary value shaped to the field's SQL type (e.g. email with @canary.invalid suffix).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single canary fingerprint value for a specific field and row."
+    },
+    {
+      "name": "TypeGeneratorEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "sql_type_pattern",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "SQL type name (lowercase, without length modifiers), e.g. 'uuid', 'varchar', 'bigint', 'boolean', 'timestamptz'.",
+          "validators": []
+        },
+        {
+          "name": "generator_fn_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Fully qualified name of the generator function: (Random, FieldSpec, int) -> any.",
+          "validators": []
+        },
+        {
+          "name": "description",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Human-readable description of what this generator produces.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "An entry in the TYPE_GENERATORS registry mapping an SQL type to its generator callable."
+    },
+    {
+      "name": "ClassificationGeneratorEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "classification",
+          "type_ref": "FieldClassification",
+          "required": true,
+          "default": "",
+          "description": "The classification tier this generator handles.",
+          "validators": []
+        },
+        {
+          "name": "generator_fn_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Fully qualified name of the generator function: (Faker, FieldSpec, int) -> any.",
+          "validators": []
+        },
+        {
+          "name": "description",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Human-readable description of what this generator produces.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "An entry in the CLASSIFICATION_GENERATORS registry mapping a classification tier to its Faker-based generator callable."
+    },
+    {
+      "name": "SeedInfo",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "base_seed",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "The base seed from config or CLI override.",
+          "validators": []
+        },
+        {
+          "name": "field_index_offset",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Zero-based position of this field in the lexicographically sorted list of all field names.",
+          "validators": []
+        },
+        {
+          "name": "field_seed",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Computed as base_seed + field_index_offset.",
+          "validators": []
+        },
+        {
+          "name": "field_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The field name this seed info belongs to.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Computed seed information for a specific field, used internally during generation."
+    }
+  ],
+  "functions": [
+    {
+      "name": "generate_mock_records",
+      "description": "Primary entry point. Generates N mock records for the specified table and fields according to the MockGenerationRequest. Applies the precedence chain: canary > tokenized/encrypted > classification > type > fallback. Returns a MockGenerationResult with records, seed used, canary registration status, warnings, and aggregated errors. Never raises exceptions for generation issues; all problems are captured in the result.",
+      "inputs": [
+        {
+          "name": "request",
+          "type_ref": "MockGenerationRequest",
+          "required": true,
+          "default": "",
+          "description": "Fully validated mock generation request specifying backend, table, fields, row count, seed, purpose, and optional arbiter API.",
+          "validators": []
+        }
+      ],
+      "output_type": "MockGenerationResult",
+      "error_cases": [
+        {
+          "name": "invalid_request",
+          "condition": "MockGenerationRequest fails Pydantic validation (e.g. row_count < 1, missing tier for canary).",
+          "error_type": "ValidationError",
+          "error_data": {
+            "detail": "Aggregated list of all Pydantic validation errors as MockViolation entries."
+          }
+        },
+        {
+          "name": "no_seed_available",
+          "condition": "request.seed is None and ledger.yaml mock.seed is not configured or unreadable.",
+          "error_type": "MockGenerationError",
+          "error_data": {
+            "detail": "No seed available: neither --seed flag nor mock.seed in ledger.yaml is set."
+          }
+        },
+        {
+          "name": "unsupported_sql_type",
+          "condition": "A field's sql_type does not match any entry in TYPE_GENERATORS and no classification override applies.",
+          "error_type": "MockViolation",
+          "error_data": {
+            "severity": "warning",
+            "detail": "Unsupported SQL type '{sql_type}' for field '{field_name}'; falling back to random string."
+          }
+        },
+        {
+          "name": "canary_tier_missing",
+          "condition": "purpose is 'canary' but tier is None or empty.",
+          "error_type": "ValidationError",
+          "error_data": {
+            "detail": "tier is required when purpose is 'canary'."
+          }
+        },
+        {
+          "name": "arbiter_connection_failure",
+          "condition": "Canary registration attempted but httpx request to arbiter_api fails (timeout, DNS, HTTP error).",
+          "error_type": "MockViolation",
+          "error_data": {
+            "severity": "warning",
+            "detail": "Arbiter registration failed: {error}. Canary values generated but not registered."
+          }
+        },
+        {
+          "name": "arbiter_not_configured",
+          "condition": "purpose is 'canary' but arbiter_api is None.",
+          "error_type": "MockViolation",
+          "error_data": {
+            "severity": "warning",
+            "detail": "Arbiter API not configured; canary registration skipped."
+          }
+        },
+        {
+          "name": "duplicate_field_names",
+          "condition": "Two or more FieldSpec entries have the same field_name.",
+          "error_type": "ValidationError",
+          "error_data": {
+            "detail": "Duplicate field names detected: {duplicates}."
+          }
+        }
+      ],
+      "preconditions": [
+        "request has been validated by Pydantic (all field-level and model-level validators pass).",
+        "request.fields contains at least one FieldSpec.",
+        "If request.purpose is 'canary', request.tier is not None and not empty."
+      ],
+      "postconditions": [
+        "result.records has length equal to request.row_count unless generation-time errors prevented some rows.",
+        "result.seed_used reflects the actual seed used (from request.seed, or config fallback).",
+        "Every record in result.records has exactly len(request.fields) keys matching the field names.",
+        "All tokenized or encrypted_at_rest field values match pattern tok_[A-Za-z0-9_-]{24}.",
+        "All canary field values (when purpose='canary') contain the substring ledger-canary-{tier}.",
+        "result.canary_registered is None when purpose is 'test' or arbiter_api is None.",
+        "result.canary_registered is True or False when purpose is 'canary' and arbiter_api is not None.",
+        "Unsupported SQL types produce at least one MockViolation with severity 'warning' and the field falls back to random string generation."
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "Attempts HTTP POST to Arbiter API when purpose='canary' and arbiter_api is configured."
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "Arbiter API (arbiter_api URL)",
+          "description": "Registers canary fingerprint values via httpx POST when purpose='canary' and arbiter_api is configured. Wrapped in try/except; failure produces a warning, never an exception."
+        },
+        {
+          "kind": "logging",
+          "target": "stderr/logger",
+          "description": "Logs warnings for unsupported types, arbiter failures, and missing configuration."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 5000,
+        "max_memory_mb": 512,
+        "complexity": "O(row_count * field_count)"
+      }
+    },
+    {
+      "name": "compute_field_seeds",
+      "description": "Computes the deterministic per-field seed info for all fields in a request. Sorts field names lexicographically to assign stable field_index_offsets, then computes field_seed = base_seed + field_index_offset for each field.",
+      "inputs": [
+        {
+          "name": "field_names",
+          "type_ref": "list[str]",
+          "required": true,
+          "default": "",
+          "description": "List of field names from the request (need not be sorted).",
+          "validators": []
+        },
+        {
+          "name": "base_seed",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "The resolved base seed (from CLI or config).",
+          "validators": []
+        }
+      ],
+      "output_type": "list[SeedInfo]",
+      "error_cases": [
+        {
+          "name": "empty_field_names",
+          "condition": "field_names list is empty.",
+          "error_type": "ValueError",
+          "error_data": {
+            "detail": "field_names must contain at least one field name."
+          }
+        },
+        {
+          "name": "duplicate_field_names",
+          "condition": "field_names contains duplicates.",
+          "error_type": "ValueError",
+          "error_data": {
+            "detail": "field_names must be unique."
+          }
+        }
+      ],
+      "preconditions": [
+        "field_names is non-empty.",
+        "All field_names are unique."
+      ],
+      "postconditions": [
+        "Returned list has same length as field_names.",
+        "Each SeedInfo.field_index_offset is unique and in range [0, len(field_names)).",
+        "SeedInfo entries are sorted by field_name lexicographically.",
+        "SeedInfo.field_seed == base_seed + SeedInfo.field_index_offset for every entry.",
+        "Output is fully deterministic: same inputs always produce same outputs."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function with no side effects."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": null,
+        "max_memory_mb": null,
+        "complexity": "O(n log n)"
+      }
+    },
+    {
+      "name": "generate_field_value",
+      "description": "Generates a single value for a specific field and row index. Applies the precedence chain: canary > tokenized/encrypted > classification > type > fallback. Creates an isolated Random or Faker instance seeded with (field_seed + row_index). Returns the generated value or a fallback string with a MockViolation if the type is unsupported.",
+      "inputs": [
+        {
+          "name": "field_spec",
+          "type_ref": "FieldSpec",
+          "required": true,
+          "default": "",
+          "description": "Specification of the field to generate a value for.",
+          "validators": []
+        },
+        {
+          "name": "field_seed",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Pre-computed per-field seed (base_seed + field_index_offset).",
+          "validators": []
+        },
+        {
+          "name": "row_index",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Zero-based row index within the batch.",
+          "validators": []
+        },
+        {
+          "name": "purpose",
+          "type_ref": "MockPurpose",
+          "required": true,
+          "default": "",
+          "description": "Generation purpose: 'test' or 'canary'.",
+          "validators": []
+        },
+        {
+          "name": "tier",
+          "type_ref": "Optional[str]",
+          "required": false,
+          "default": "None",
+          "description": "Data tier for canary fingerprinting. Required when purpose is 'canary'.",
+          "validators": []
+        },
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend identifier, used for canary hex8 computation.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Table name, used for canary hex8 computation.",
+          "validators": []
+        },
+        {
+          "name": "null_probability",
+          "type_ref": "float",
+          "required": false,
+          "default": "0.1",
+          "description": "Probability of returning None for nullable fields.",
+          "validators": []
+        }
+      ],
+      "output_type": "any",
+      "error_cases": [
+        {
+          "name": "unsupported_type_fallback",
+          "condition": "field_spec.sql_type is not in TYPE_GENERATORS and no classification override applies.",
+          "error_type": "MockViolation",
+          "error_data": {
+            "severity": "warning",
+            "detail": "Falling back to random string for unsupported type."
+          }
+        },
+        {
+          "name": "canary_without_tier",
+          "condition": "purpose is 'canary' but tier is None.",
+          "error_type": "ValueError",
+          "error_data": {
+            "detail": "tier must be provided for canary generation."
+          }
+        }
+      ],
+      "preconditions": [
+        "field_seed is a valid integer.",
+        "row_index >= 0.",
+        "If purpose is 'canary', tier is not None and not empty."
+      ],
+      "postconditions": [
+        "If field_spec.tokenized or field_spec.encrypted_at_rest is true (and purpose != 'canary'), result matches pattern tok_[A-Za-z0-9_-]{24}.",
+        "If purpose is 'canary', result contains the canary fingerprint shaped to the field type.",
+        "If field_spec.nullable is true and the seeded random check hits null_probability, result is None.",
+        "Same inputs always produce the same output (deterministic)."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function; creates isolated Random/Faker instances internally, no shared state mutation."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "generate_canary_fingerprint",
+      "description": "Generates the raw canary fingerprint string for a specific field and row. Computes hex8 as the first 8 hex characters of SHA-256(backend_id + table_name + field_name + str(row_index)). Returns the fingerprint in format: ledger-canary-{tier}-{hex8}.",
+      "inputs": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend identifier.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Table name.",
+          "validators": []
+        },
+        {
+          "name": "field_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Field name.",
+          "validators": []
+        },
+        {
+          "name": "row_index",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Zero-based row index.",
+          "validators": []
+        },
+        {
+          "name": "tier",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Data tier label for the canary pattern.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "empty_tier",
+          "condition": "tier is an empty string.",
+          "error_type": "ValueError",
+          "error_data": {
+            "detail": "tier must not be empty."
+          }
+        }
+      ],
+      "preconditions": [
+        "tier is non-empty.",
+        "row_index >= 0."
+      ],
+      "postconditions": [
+        "Result matches pattern ledger-canary-{tier}-[0-9a-f]{8}.",
+        "hex8 portion equals hashlib.sha256((backend_id + table_name + field_name + str(row_index)).encode()).hexdigest()[:8].",
+        "Deterministic: same inputs always produce the same output."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function using only hashlib.sha256."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "shape_canary_to_type",
+      "description": "Shapes a raw canary fingerprint string to match the expected format for a given SQL type and field classification. For example: email fields get '@canary.invalid' suffix, payment_token fields get 'tok_' prefix, uuid fields get a valid UUID structure with embedded fingerprint, varchar fields are truncated to max_length.",
+      "inputs": [
+        {
+          "name": "raw_fingerprint",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw canary fingerprint string (ledger-canary-{tier}-{hex8}).",
+          "validators": []
+        },
+        {
+          "name": "field_spec",
+          "type_ref": "FieldSpec",
+          "required": true,
+          "default": "",
+          "description": "Field specification to determine shaping rules.",
+          "validators": []
+        }
+      ],
+      "output_type": "any",
+      "error_cases": [
+        {
+          "name": "fingerprint_too_long_for_field",
+          "condition": "Shaped fingerprint exceeds field_spec.max_length after shaping.",
+          "error_type": "MockViolation",
+          "error_data": {
+            "severity": "warning",
+            "detail": "Canary fingerprint truncated to fit max_length constraint."
+          }
+        }
+      ],
+      "preconditions": [
+        "raw_fingerprint matches pattern ledger-canary-.*-[0-9a-f]{8}."
+      ],
+      "postconditions": [
+        "Result contains the raw_fingerprint substring (or a recognizable derivative) for canary detection.",
+        "If field_spec.sql_type starts with 'varchar' and field_spec.max_length is set, result length <= max_length.",
+        "If field_spec.sql_type is 'uuid', result is a valid UUID-formatted string.",
+        "If field_spec.classification is PII and field_name contains 'email', result ends with '@canary.invalid'.",
+        "If field_spec.tokenized is true, result starts with 'tok_'."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function with no side effects."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "generate_token_value",
+      "description": "Generates a token-shaped value matching pattern tok_{base64url_24chars}. Used for fields marked as tokenized or encrypted_at_rest. Uses the provided seeded Random instance for deterministic base64url character selection.",
+      "inputs": [
+        {
+          "name": "rng",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "A seeded random.Random instance for deterministic generation.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [
+        "rng is a random.Random instance that has been properly seeded."
+      ],
+      "postconditions": [
+        "Result matches pattern tok_[A-Za-z0-9_-]{24}.",
+        "Result length is exactly 28 characters (4 prefix + 24 payload).",
+        "Deterministic: same seed produces same token."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function using only the provided Random instance."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "register_canary_with_arbiter",
+      "description": "Attempts to register generated canary fingerprint values with the Arbiter API via httpx POST. Wraps the call in try/except to ensure failures never propagate as exceptions. Returns a CanaryRegistrationResult indicating success/failure.",
+      "inputs": [
+        {
+          "name": "arbiter_api",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Base URL of the Arbiter API (e.g. 'https://arbiter.internal:8443').",
+          "validators": []
+        },
+        {
+          "name": "canary_values",
+          "type_ref": "list[CanaryValue]",
+          "required": true,
+          "default": "",
+          "description": "List of canary fingerprint values to register.",
+          "validators": []
+        },
+        {
+          "name": "tier",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Data tier label.",
+          "validators": []
+        },
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend system identifier.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Target table name.",
+          "validators": []
+        }
+      ],
+      "output_type": "CanaryRegistrationResult",
+      "error_cases": [
+        {
+          "name": "connection_timeout",
+          "condition": "httpx request times out.",
+          "error_type": "CanaryRegistrationResult",
+          "error_data": {
+            "success": "false",
+            "error_message": "Connection to Arbiter timed out."
+          }
+        },
+        {
+          "name": "dns_resolution_failure",
+          "condition": "Arbiter hostname cannot be resolved.",
+          "error_type": "CanaryRegistrationResult",
+          "error_data": {
+            "success": "false",
+            "error_message": "DNS resolution failed for Arbiter."
+          }
+        },
+        {
+          "name": "http_error_response",
+          "condition": "Arbiter returns HTTP 4xx or 5xx.",
+          "error_type": "CanaryRegistrationResult",
+          "error_data": {
+            "success": "false",
+            "error_message": "Arbiter returned HTTP {status_code}."
+          }
+        },
+        {
+          "name": "invalid_response_body",
+          "condition": "Arbiter returns 2xx but response body is not valid JSON or missing registration_id.",
+          "error_type": "CanaryRegistrationResult",
+          "error_data": {
+            "success": "false",
+            "error_message": "Invalid response body from Arbiter."
+          }
+        }
+      ],
+      "preconditions": [
+        "arbiter_api is a valid HTTP(S) URL.",
+        "canary_values is non-empty.",
+        "tier is non-empty."
+      ],
+      "postconditions": [
+        "If Arbiter returns HTTP 2xx, result.success is True and result.registration_id is set.",
+        "If Arbiter returns non-2xx or connection fails, result.success is False and result.error_message describes the failure.",
+        "Function never raises an exception regardless of network conditions.",
+        "result.arbiter_response_code is set if any HTTP response was received."
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "Arbiter API at {arbiter_api}/v1/canary/register",
+          "description": "HTTP POST with JSON payload containing canary values, tier, backend_id, and table_name. Uses httpx with a 10-second timeout."
+        },
+        {
+          "kind": "logging",
+          "target": "stderr/logger",
+          "description": "Logs warning on registration failure with error details."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 10000,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is number of canary values serialized"
+      }
+    },
+    {
+      "name": "resolve_seed",
+      "description": "Resolves the base seed to use for generation. Checks in order: explicit seed parameter (from CLI --seed or request), then mock.seed from ledger.yaml config. Raises MockGenerationError if neither is available.",
+      "inputs": [
+        {
+          "name": "explicit_seed",
+          "type_ref": "Optional[int]",
+          "required": true,
+          "default": "",
+          "description": "Seed provided via CLI flag or request field. Takes highest priority.",
+          "validators": []
+        },
+        {
+          "name": "config_seed",
+          "type_ref": "Optional[int]",
+          "required": true,
+          "default": "",
+          "description": "Seed from ledger.yaml mock.seed section. Used as fallback.",
+          "validators": []
+        }
+      ],
+      "output_type": "int",
+      "error_cases": [
+        {
+          "name": "no_seed_available",
+          "condition": "Both explicit_seed and config_seed are None.",
+          "error_type": "MockGenerationError",
+          "error_data": {
+            "detail": "No seed available: provide --seed flag or set mock.seed in ledger.yaml."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returns explicit_seed if not None, else config_seed if not None.",
+        "Raises MockGenerationError if both are None."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function with no side effects."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "parse_varchar_length",
+      "description": "Parses the max_length from a varchar SQL type string. Extracts N from 'varchar(N)' or 'character varying(N)'. Returns None if the type is not a varchar variant or has no length specifier.",
+      "inputs": [
+        {
+          "name": "sql_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw SQL type string, e.g. 'varchar(255)', 'varchar', 'character varying(100)', 'bigint'.",
+          "validators": []
+        }
+      ],
+      "output_type": "Optional[int]",
+      "error_cases": [
+        {
+          "name": "invalid_length_value",
+          "condition": "varchar(N) where N is not a valid positive integer (e.g. varchar(-1), varchar(abc)).",
+          "error_type": "ValueError",
+          "error_data": {
+            "detail": "Invalid varchar length specification: '{sql_type}'."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "If sql_type matches 'varchar(N)' or 'character varying(N)', returns N as int.",
+        "If sql_type is 'varchar' without length, returns None.",
+        "If sql_type is not a varchar variant, returns None.",
+        "Returned value, if not None, is >= 1."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure string parsing function."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_type_generator",
+      "description": "Looks up the appropriate generator function for a given SQL type from the TYPE_GENERATORS registry. Returns the generator callable if found, or None if the type is not supported (caller should use fallback).",
+      "inputs": [
+        {
+          "name": "sql_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Normalized SQL type name (lowercase, without length modifiers), e.g. 'uuid', 'varchar', 'bigint'.",
+          "validators": []
+        }
+      ],
+      "output_type": "Optional[any]",
+      "error_cases": [],
+      "preconditions": [
+        "sql_type is lowercase and stripped of length modifiers."
+      ],
+      "postconditions": [
+        "Returns a callable with signature (Random, FieldSpec, int) -> any if sql_type is in TYPE_GENERATORS.",
+        "Returns None if sql_type is not found in TYPE_GENERATORS."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure lookup in the TYPE_GENERATORS dict."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_classification_generator",
+      "description": "Looks up the appropriate Faker-based generator function for a given field classification from the CLASSIFICATION_GENERATORS registry. Returns the generator callable if found (PII or FINANCIAL), or None for PUBLIC/INTERNAL classifications.",
+      "inputs": [
+        {
+          "name": "classification",
+          "type_ref": "Optional[FieldClassification]",
+          "required": true,
+          "default": "",
+          "description": "Field classification tier. None is treated as PUBLIC.",
+          "validators": []
+        }
+      ],
+      "output_type": "Optional[any]",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns a callable with signature (Faker, FieldSpec, int) -> any if classification is PII or FINANCIAL.",
+        "Returns None if classification is PUBLIC, INTERNAL, or None."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure lookup in the CLASSIFICATION_GENERATORS dict."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "validate_request",
+      "description": "Validates a MockGenerationRequest, returning an aggregated list of all violations found. Checks Pydantic field validators, cross-field constraints (tier required for canary), and semantic rules (no duplicate field names, valid SQL types).",
+      "inputs": [
+        {
+          "name": "raw_input",
+          "type_ref": "dict[str, any]",
+          "required": true,
+          "default": "",
+          "description": "Raw input dictionary to validate against MockGenerationRequest schema.",
+          "validators": []
+        }
+      ],
+      "output_type": "list[MockViolation]",
+      "error_cases": [
+        {
+          "name": "completely_invalid_input",
+          "condition": "Input is not a dict or is missing all required fields.",
+          "error_type": "list[MockViolation]",
+          "error_data": {
+            "detail": "All detected violations returned as MockViolation list."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returns an empty list if input is fully valid.",
+        "Returns all violations found (not just the first), each as a MockViolation.",
+        "Violations include field-level type errors, range violations, and cross-field constraint failures."
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure validation function."
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "config",
+    "registry"
+  ],
+  "dependency_contracts": {
+    "config": [
+      "load_config",
+      "LedgerConfig"
+    ],
+    "registry": [
+      "get_table_schema",
+      "TableSchema"
+    ]
+  },
+  "invariants": [
+    "Generator precedence chain is always: canary > tokenized/encrypted > classification > type > fallback. No step may be skipped or reordered.",
+    "Per-field seed is computed as base_seed + field_index_offset where field_index_offset is the field's zero-based position in the lexicographically sorted list of field names. This ensures determinism independent of field declaration order.",
+    "Per-row seed is computed as field_seed + row_index, giving each (field, row) pair a unique deterministic seed.",
+    "Each field gets its own random.Random instance seeded with field_seed; PII fields additionally get their own Faker instance seeded with field_seed.",
+    "tokenized or encrypted_at_rest fields always produce values matching pattern tok_[A-Za-z0-9_-]{24}, never raw plaintext, regardless of classification or canary mode.",
+    "Canary values always match the pattern ledger-canary-{tier}-[0-9a-f]{8} shaped to the field type (email suffix @canary.invalid, payment_token prefix tok_).",
+    "The hex8 portion of canary values is derived as the first 8 hex characters of SHA-256(backend_id + table_name + field_name + str(row_index)).",
+    "Unsupported SQL types produce a warning MockViolation and fall back to generating a random string, never raising an exception.",
+    "Arbiter registration failures are caught, logged as warnings, and never propagate exceptions to the caller.",
+    "All Pydantic validation errors are aggregated and returned as a list of MockViolation entries, not raised individually.",
+    "row_count must be >= 1 and <= 1_000_000.",
+    "When purpose is 'canary', tier must be provided and non-empty.",
+    "Fields with nullable=true have a configurable probability (default 10%) of generating None for that cell."
+  ],
+  "requires": [
+    "pydantic>=2.0",
+    "faker",
+    "httpx",
+    "pyyaml"
+  ],
+  "processing_register": "rigorous-analytical",
+  "data_access": {
+    "reads": [
+      "PUBLIC",
+      "INTERNAL",
+      "PII",
+      "FINANCIAL"
+    ],
+    "writes": [
+      "PUBLIC",
+      "INTERNAL",
+      "PII",
+      "FINANCIAL"
+    ],
+    "rationale": "Reads schema metadata (field names, SQL types, classification tiers, encryption/tokenization flags) from the registry to determine how to generate each field. Writes synthetic records across all classification tiers: PUBLIC and INTERNAL fields get type-based random values, PII fields get Faker-generated realistic fakes (emails, names, addresses), FINANCIAL fields get plausible monetary fakes. Canary mode writes fingerprinted values across all tiers. Arbiter registration transmits canary fingerprint values externally.",
+    "side_effects": [
+      {
+        "type": "network_call",
+        "classification": "INTERNAL",
+        "fields": [
+          "canary_values",
+          "tier",
+          "backend_id",
+          "table_name"
+        ],
+        "rationale": "Registers canary fingerprint values with the Arbiter API via httpx POST when arbiter_api is configured and purpose is canary. Transmits the generated canary values along with tier, backend_id, and table_name for downstream canary detection."
+      },
+      {
+        "type": "read_config",
+        "classification": "INTERNAL",
+        "fields": [
+          "mock.seed",
+          "arbiter_api"
+        ],
+        "rationale": "Reads base seed and optional arbiter_api URL from ledger.yaml configuration to initialize deterministic generation and optional canary registration."
+      }
+    ]
+  },
+  "authority": {
+    "domains": [
+      "mock_data_generation",
+      "canary_value_generation"
+    ],
+    "rationale": "Mock Data Generator is the sole authoritative source for deterministic mock record generation and canary fingerprint value creation within the Ledger system. No other component generates mock or canary data."
+  }
+}

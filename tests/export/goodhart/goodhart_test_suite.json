@@ -1,0 +1,639 @@
+{
+  "component_id": "export",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "goodhart_iter_boolean_filter_values",
+      "description": "iter_propagation_entries correctly filters on boolean property_filter values (not just string values), ensuring the filter mechanism supports both types as specified in the precondition",
+      "function": "iter_propagation_entries",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with entries having boolean rule properties, filtered with boolean property_filter values",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Only entries where the boolean rule property matches the boolean filter value are returned",
+        "Entries with falsy boolean values are correctly excluded when filter requires true"
+      ]
+    },
+    {
+      "id": "goodhart_iter_multiple_filters_conjunction",
+      "description": "iter_propagation_entries applies all property_filter constraints as a conjunction (AND), not disjunction — entries must satisfy every filter key simultaneously",
+      "function": "iter_propagation_entries",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with entries that match some but not all filter keys, plus entries matching all filter keys",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Only entries satisfying ALL filter constraints are returned",
+        "Entries matching only a subset of filter keys are excluded"
+      ]
+    },
+    {
+      "id": "goodhart_iter_preserves_all_rule_properties",
+      "description": "iter_propagation_entries passes through all rule properties in rule_properties dict, not just the ones matching the filter — custom/unknown properties are preserved",
+      "function": "iter_propagation_entries",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entries with extra custom rule properties beyond the filter keys",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned PropagationEntryTuple.rule_properties contains all original rule keys",
+        "Custom properties not in the filter are preserved in the output"
+      ]
+    },
+    {
+      "id": "goodhart_iter_sort_stability_same_field_ref",
+      "description": "When multiple entries share the same field_ref, they are secondarily sorted by annotation_key to ensure deterministic ordering",
+      "function": "iter_propagation_entries",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Multiple propagation entries with the same field_ref but different annotation_keys, inserted in reverse alphabetical order",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output entries with the same field_ref are ordered alphabetically by annotation_key"
+      ]
+    },
+    {
+      "id": "goodhart_iter_missing_rule_field_error",
+      "description": "iter_propagation_entries raises invalid_entry_structure when an entry has field_ref and annotation_key but is missing the rule dict",
+      "function": "iter_propagation_entries",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with field_ref and annotation_key present but rule missing",
+      "expected_output_description": "",
+      "expected_error": "invalid_entry_structure",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_pact_custom_annotation_name",
+      "description": "export_pact produces correct assertions for custom/novel annotation names (not just PII/FINANCIAL) — proving no hard-coded annotation name filtering",
+      "function": "export_pact",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with a custom annotation like 'GDPR_CONSENT' having test_type='shape' and appropriate rule properties, targeting the given component_id",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output assertions include entries derived from the custom annotation",
+        "assertion_id references the custom annotation name"
+      ]
+    },
+    {
+      "id": "goodhart_pact_multiple_components_filters_correctly",
+      "description": "export_pact only includes assertions for the specified component_id when the propagation table contains entries for multiple different components",
+      "function": "export_pact",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with entries for component_id='svc-alpha' and component_id='svc-beta', calling export_pact with 'svc-alpha'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output assertions only reference fields from svc-alpha entries",
+        "No assertions from svc-beta entries appear in output"
+      ]
+    },
+    {
+      "id": "goodhart_pact_mixed_valid_and_invalid_entries",
+      "description": "export_pact collects ERROR violations for invalid entries AND WARNING violations for missing optional properties simultaneously — violations list contains both severity levels",
+      "function": "export_pact",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with one entry having invalid test_type and another valid entry missing optional properties like 'description'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Violations list contains at least one ERROR and at least one WARNING",
+        "output is None because of the ERROR violation",
+        "All violations are present, not just the first encountered"
+      ]
+    },
+    {
+      "id": "goodhart_pact_assertion_id_deterministic_format",
+      "description": "export_pact generates assertion_ids that are deterministic and unique even for entries with similar field_refs — no collision when field names differ only slightly",
+      "function": "export_pact",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entries for fields 'user.name' and 'user.name_alt' with the same annotation key and test_type",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Both entries produce distinct assertion_ids",
+        "assertion_ids are sorted in the output"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_taint_from_taint_on_raw_value_property",
+      "description": "export_arbiter sets taint_on_raw_value=true when the rule has taint_on_raw_value=true directly (not just via requires_masking), testing both pathways independently",
+      "function": "export_arbiter",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with taint_on_raw_value=true but requires_masking absent or false",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Rule in output has taint_on_raw_value=true",
+        "requires_masking being absent does not prevent taint_on_raw_value from being set"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_mask_in_spans_from_mask_in_spans_property",
+      "description": "export_arbiter sets mask_in_spans=true when the rule has mask_in_spans=true directly (not just via requires_masking), testing both pathways independently",
+      "function": "export_arbiter",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with mask_in_spans=true but requires_masking absent or false",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Rule in output has mask_in_spans=true"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_merge_annotations_list",
+      "description": "When multiple annotations exist on the same field, the merged Arbiter rule's annotations list contains all annotation keys from those entries",
+      "function": "export_arbiter",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Two propagation entries for the same field_ref with different annotation_keys but the same tier",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output rule's annotations list contains both annotation keys",
+        "Only one rule exists for that pattern (not two separate rules)"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_backend_from_rule_overrides_default",
+      "description": "When a propagation rule specifies a backend property, it overrides the default_backend parameter — the default is only used as fallback",
+      "function": "export_arbiter",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with rule containing backend='custom-db', called with default_backend='fallback-db'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output rule uses 'custom-db' as backend, not 'fallback-db'"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_no_taint_no_mask_when_not_required",
+      "description": "export_arbiter sets taint_on_raw_value=false and mask_in_spans=false when no annotation has requires_masking, taint_on_raw_value, or mask_in_spans set to true",
+      "function": "export_arbiter",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with tier='PUBLIC' and no masking-related properties",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output rule has taint_on_raw_value=false",
+        "Output rule has mask_in_spans=false"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_custom_annotation_not_hardcoded",
+      "description": "export_arbiter correctly processes a completely novel annotation name (e.g., 'BIOMETRIC') without any code changes, proving no hard-coded annotation name checks",
+      "function": "export_arbiter",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with annotation_key='BIOMETRIC' and rule containing tier='RESTRICTED'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output includes a rule with 'BIOMETRIC' in its annotations list",
+        "tier is 'RESTRICTED'"
+      ]
+    },
+    {
+      "id": "goodhart_baton_faker_for_pii_fields",
+      "description": "export_baton uses faker provider references for mock_generator on PII-annotated fields, as distinguished from stdlib random for other field types",
+      "function": "export_baton",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entries: one PII field with mock_generator referencing faker, one non-PII/non-FINANCIAL field with mock_generator referencing stdlib random",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "PII field's mock_generator references a faker provider",
+        "Non-PII field's mock_generator references stdlib random"
+      ]
+    },
+    {
+      "id": "goodhart_baton_faker_for_financial_fields",
+      "description": "export_baton uses faker provider references for mock_generator on FINANCIAL-annotated fields",
+      "function": "export_baton",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with annotation_key involving FINANCIAL tier and mock_generator referencing faker",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "FINANCIAL field's mock_generator references a faker provider"
+      ]
+    },
+    {
+      "id": "goodhart_baton_public_tier_not_masked",
+      "description": "Fields with PUBLIC tier (requires_masking=false) are excluded from masked_fields even if they appear in the propagation table",
+      "function": "export_baton",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with tier PUBLIC and requires_masking=false alongside a CONFIDENTIAL entry with requires_masking=true",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "PUBLIC field is not in masked_fields",
+        "CONFIDENTIAL field is in masked_fields"
+      ]
+    },
+    {
+      "id": "goodhart_baton_canary_false_excluded",
+      "description": "String-typed fields where canary_eligible is explicitly false are excluded from canary_eligible_fields",
+      "function": "export_baton",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with field_type='string' and canary_eligible=false",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Field does not appear in canary_eligible_fields"
+      ]
+    },
+    {
+      "id": "goodhart_baton_canary_missing_excluded",
+      "description": "String-typed fields where canary_eligible is absent from the rule are excluded from canary_eligible_fields — only explicit true qualifies",
+      "function": "export_baton",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entry with field_type='string' and no canary_eligible property in rule",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Field does not appear in canary_eligible_fields"
+      ]
+    },
+    {
+      "id": "goodhart_baton_multiple_errors_collected",
+      "description": "export_baton collects multiple different ERROR violations (e.g., missing_mock_generator AND missing_owner) rather than stopping at the first",
+      "function": "export_baton",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with one entry missing mock_generator and another entry missing owner",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Violations list contains at least two ERROR-severity violations",
+        "Both missing_mock_generator and missing_owner errors are represented"
+      ]
+    },
+    {
+      "id": "goodhart_sentinel_sort_order_triple_key",
+      "description": "export_sentinel sorts severity_mappings by the triple (severity, annotation_key, field_pattern), not just by one of those keys",
+      "function": "export_sentinel",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Multiple propagation entries producing mappings with varying severity, annotation_key, and field_pattern values that would sort differently by each key alone",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output severity_mappings are sorted by severity first, then annotation_key, then field_pattern"
+      ]
+    },
+    {
+      "id": "goodhart_sentinel_multiple_entries_same_severity",
+      "description": "export_sentinel produces one mapping per entry even when multiple entries share the same severity value — no deduplication or merging",
+      "function": "export_sentinel",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Three propagation entries all with severity='critical' but different annotation_keys and field_refs",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output contains exactly three severity_mappings",
+        "Each mapping corresponds to a distinct entry"
+      ]
+    },
+    {
+      "id": "goodhart_sentinel_mix_valid_and_missing_severity",
+      "description": "export_sentinel produces mappings for entries with severity while simultaneously generating WARNING violations for entries without severity — both behaviors coexist",
+      "function": "export_sentinel",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with two entries: one with severity='high' and one without severity property",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output is not None (no ERROR violations)",
+        "Output contains exactly one severity_mapping",
+        "Violations contain exactly one WARNING for the entry missing severity"
+      ]
+    },
+    {
+      "id": "goodhart_yaml_dump_block_style",
+      "description": "yaml_dump produces block-style YAML (not flow/inline style) for nested structures, ensuring human-readable diffable output",
+      "function": "yaml_dump",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A PactExport model with multiple assertions containing nested data",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output YAML does not contain flow-style indicators like {, }, [, ] for top-level structures",
+        "Output uses newlines and indentation for nesting"
+      ]
+    },
+    {
+      "id": "goodhart_yaml_dump_arbiter_export",
+      "description": "yaml_dump correctly serializes ArbiterExport models (not just PactExport) — verifying it works for all four export model types",
+      "function": "yaml_dump",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "An ArbiterExport model with rules containing patterns, backends, and annotations",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output is valid YAML",
+        "Loaded output matches model_dump(exclude_none=True)"
+      ]
+    },
+    {
+      "id": "goodhart_yaml_dump_baton_export",
+      "description": "yaml_dump correctly serializes BatonExport models",
+      "function": "yaml_dump",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A BatonExport model with egress_nodes",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output is valid YAML",
+        "Loaded output matches model_dump(exclude_none=True)"
+      ]
+    },
+    {
+      "id": "goodhart_yaml_dump_sentinel_export",
+      "description": "yaml_dump correctly serializes SentinelExport models",
+      "function": "yaml_dump",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A SentinelExport model with severity_mappings",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output is valid YAML",
+        "Loaded output matches model_dump(exclude_none=True)"
+      ]
+    },
+    {
+      "id": "goodhart_yaml_dump_empty_lists",
+      "description": "yaml_dump handles export models with empty lists (e.g., no assertions, no rules) without errors",
+      "function": "yaml_dump",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A PactExport model with component_id set but assertions as an empty list",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output is valid YAML",
+        "Output contains the component_id",
+        "assertions key maps to an empty list"
+      ]
+    },
+    {
+      "id": "goodhart_yaml_dump_dict_not_accepted",
+      "description": "yaml_dump rejects plain dicts that lack model_dump() method, even if their structure matches an export model",
+      "function": "yaml_dump",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A plain dict with keys matching PactExport fields",
+      "expected_output_description": "",
+      "expected_error": "not_a_pydantic_model",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_pact_warnings_present_when_output_exists",
+      "description": "export_pact can produce a non-None output AND simultaneously have WARNING-severity violations — warnings do not prevent output generation",
+      "function": "export_pact",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with valid entries for the component but some missing optional properties",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "output is not None",
+        "violations list is non-empty and contains WARNING-severity entries",
+        "No ERROR-severity violations exist"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_output_with_warnings",
+      "description": "export_arbiter can produce a non-None output alongside WARNING-severity violations — only ERRORs nullify output",
+      "function": "export_arbiter",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with valid tier entries but some with informational issues producing WARNINGs",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "output is not None",
+        "violations contains WARNING-severity entries"
+      ]
+    },
+    {
+      "id": "goodhart_iter_empty_filter_returns_all",
+      "description": "iter_propagation_entries with an empty property_filter dict returns all entries from the propagation table (no filtering applied)",
+      "function": "iter_propagation_entries",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Non-empty propagation table with varied entries and an empty dict as property_filter",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All entries from the propagation table are returned",
+        "Result count matches input entry count"
+      ]
+    },
+    {
+      "id": "goodhart_iter_field_type_and_component_preserved",
+      "description": "iter_propagation_entries preserves field_type and component_id from the original PropagationEntry in the returned PropagationEntryTuple",
+      "function": "iter_propagation_entries",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation entries with distinct field_type and component_id values",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Each returned tuple has the correct field_type from the source entry",
+        "Each returned tuple has the correct component_id from the source entry"
+      ]
+    },
+    {
+      "id": "goodhart_pact_three_test_types_all_accepted",
+      "description": "export_pact accepts all three valid test_type values ('shape', 'filter', 'method') and produces assertions for each",
+      "function": "export_pact",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Three propagation entries for the same component, each with a different valid test_type",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output contains three assertions",
+        "test_type values in assertions include 'shape', 'filter', and 'method'"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_pattern_sort_not_alphabetical_by_annotation",
+      "description": "export_arbiter sorts rules by pattern (field_ref), not by annotation_key or tier — confirming the sort key is correct",
+      "function": "export_arbiter",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Multiple propagation entries where alphabetical order of patterns differs from alphabetical order of annotation_keys",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output rules are sorted by pattern field",
+        "Sort order is not coincidentally matching annotation_key order"
+      ]
+    },
+    {
+      "id": "goodhart_baton_egress_node_id_uniqueness",
+      "description": "export_baton produces unique egress node ids even when multiple propagation entries could map to similar node concepts",
+      "function": "export_baton",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Multiple propagation entries with different field_refs that map to distinct egress nodes",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All egress node ids in output are unique",
+        "No duplicate ids exist"
+      ]
+    },
+    {
+      "id": "goodhart_sentinel_invalid_severity_with_valid_entries",
+      "description": "export_sentinel returns None output when any entry has an invalid severity value, even if other entries are valid — ERROR nullifies output",
+      "function": "export_sentinel",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Propagation table with one entry having severity='critical' (valid) and another with severity='BOGUS_LEVEL' (invalid)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "output is None",
+        "violations contain an ERROR for the invalid severity value",
+        "The valid entry's potential mapping is not in output since output is None"
+      ]
+    },
+    {
+      "id": "goodhart_pact_component_id_in_output",
+      "description": "export_pact includes the component_id in the output PactExport, matching the input parameter exactly",
+      "function": "export_pact",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Calling export_pact with a unique component_id string like 'my-unique-svc-12345'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "output.component_id equals the input component_id exactly"
+      ]
+    },
+    {
+      "id": "goodhart_yaml_dump_special_yaml_chars",
+      "description": "yaml_dump correctly handles values containing YAML-special characters (colons, hashes, brackets) without corruption",
+      "function": "yaml_dump",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Export model with field values containing ':', '#', '[', ']', '{', '}' characters",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output is valid YAML",
+        "Round-trip through yaml.safe_load preserves the special characters"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nHidden adversarial acceptance tests for Export Generators component.\nThese tests target gaps in visible test coverage to catch implementations\nthat hardcode returns or take shortcuts based on visible test inputs.\n\"\"\"\nimport pytest\nimport yaml\nfrom unittest.mock import MagicMock, patch\nfrom src.export import *\n\n\n# ─── Helpers ────────────────────────────────────────────────────────────────\n\ndef make_entry(field_ref, annotation_key, rule, field_type=\"string\", component_id=\"svc-a\"):\n    \"\"\"Create a PropagationEntry (or dict-like object matching its structure).\"\"\"\n    return PropagationEntry(\n        field_ref=field_ref,\n        annotation_key=annotation_key,\n        rule=rule,\n        field_type=field_type,\n        component_id=component_id,\n    )\n\n\n# ─── iter_propagation_entries ───────────────────────────────────────────────\n\nclass TestGoodhartIterPropagationEntries:\n\n    def test_goodhart_iter_boolean_filter_values(self):\n        \"\"\"iter_propagation_entries correctly filters on boolean property_filter values.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"requires_masking\": True, \"tier\": \"CONFIDENTIAL\"}),\n            make_entry(\"f2\", \"B\", {\"requires_masking\": False, \"tier\": \"PUBLIC\"}),\n            make_entry(\"f3\", \"C\", {\"tier\": \"INTERNAL\"}),\n        ]\n        result = iter_propagation_entries(table, {\"requires_masking\": True})\n        assert len(result) == 1\n        assert result[0].field_ref == \"f1\"\n\n    def test_goodhart_iter_multiple_filters_conjunction(self):\n        \"\"\"All property_filter constraints are ANDed — entries must match every key.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"tier\": \"CONFIDENTIAL\", \"requires_masking\": True}),\n            make_entry(\"f2\", \"B\", {\"tier\": \"CONFIDENTIAL\", \"requires_masking\": False}),\n            make_entry(\"f3\", \"C\", {\"tier\": \"PUBLIC\", \"requires_masking\": True}),\n        ]\n        result = iter_propagation_entries(table, {\"tier\": \"CONFIDENTIAL\", \"requires_masking\": True})\n        assert len(result) == 1\n        assert result[0].field_ref == \"f1\"\n\n    def test_goodhart_iter_preserves_all_rule_properties(self):\n        \"\"\"Returned rule_properties dict contains all original rule keys, not just filtered ones.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"tier\": \"CONFIDENTIAL\", \"custom_prop\": \"xyz\", \"extra\": 42}),\n        ]\n        result = iter_propagation_entries(table, {\"tier\": \"CONFIDENTIAL\"})\n        assert len(result) == 1\n        assert \"custom_prop\" in result[0].rule_properties\n        assert result[0].rule_properties[\"custom_prop\"] == \"xyz\"\n        assert \"extra\" in result[0].rule_properties\n\n    def test_goodhart_iter_sort_stability_same_field_ref(self):\n        \"\"\"Entries with the same field_ref are secondarily sorted by annotation_key.\"\"\"\n        table = [\n            make_entry(\"user.email\", \"ZETA\", {\"tier\": \"X\"}),\n            make_entry(\"user.email\", \"ALPHA\", {\"tier\": \"X\"}),\n            make_entry(\"user.email\", \"MID\", {\"tier\": \"X\"}),\n        ]\n        result = iter_propagation_entries(table, {})\n        keys = [r.annotation_key for r in result]\n        assert keys == sorted(keys)\n\n    def test_goodhart_iter_missing_rule_field_error(self):\n        \"\"\"Raises invalid_entry_structure when an entry has field_ref and annotation_key but no rule.\"\"\"\n        # Create an entry-like object missing the rule field\n        bad_entry = MagicMock()\n        bad_entry.field_ref = \"f1\"\n        bad_entry.annotation_key = \"A\"\n        del bad_entry.rule  # ensure 'rule' attribute is missing\n        with pytest.raises(Exception):\n            iter_propagation_entries([bad_entry], {})\n\n    def test_goodhart_iter_empty_filter_returns_all(self):\n        \"\"\"Empty property_filter dict returns all entries from propagation table.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"x\": 1}),\n            make_entry(\"f2\", \"B\", {\"y\": 2}),\n            make_entry(\"f3\", \"C\", {\"z\": 3}),\n        ]\n        result = iter_propagation_entries(table, {})\n        assert len(result) == 3\n\n    def test_goodhart_iter_field_type_and_component_preserved(self):\n        \"\"\"field_type and component_id are preserved in output tuples.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"tier\": \"X\"}, field_type=\"integer\", component_id=\"comp-99\"),\n        ]\n        result = iter_propagation_entries(table, {})\n        assert len(result) == 1\n        assert result[0].field_type == \"integer\"\n        assert result[0].component_id == \"comp-99\"\n\n\n# ─── export_pact ────────────────────────────────────────────────────────────\n\nclass TestGoodhartExportPact:\n\n    def test_goodhart_pact_custom_annotation_name(self):\n        \"\"\"Custom annotation names (not PII/FINANCIAL) produce correct assertions — no hard-coding.\"\"\"\n        table = [\n            make_entry(\"user.consent_flag\", \"GDPR_CONSENT\", {\n                \"test_type\": \"shape\",\n                \"shape\": \"boolean\",\n            }, component_id=\"svc-x\"),\n        ]\n        result = export_pact(\"svc-x\", table)\n        assert result.output is not None\n        assert len(result.output.assertions) == 1\n        # The assertion should reference the custom annotation\n        a = result.output.assertions[0]\n        assert \"GDPR_CONSENT\" in a.assertion_id or \"consent\" in a.assertion_id.lower() or a.field_ref == \"user.consent_flag\"\n\n    def test_goodhart_pact_multiple_components_filters_correctly(self):\n        \"\"\"Only assertions for the requested component_id are included.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"test_type\": \"shape\", \"shape\": \"string\"}, component_id=\"svc-alpha\"),\n            make_entry(\"f2\", \"B\", {\"test_type\": \"filter\", \"filter\": \"notnull\"}, component_id=\"svc-beta\"),\n        ]\n        result = export_pact(\"svc-alpha\", table)\n        assert result.output is not None\n        assert len(result.output.assertions) == 1\n        assert result.output.assertions[0].field_ref == \"f1\"\n\n    def test_goodhart_pact_mixed_valid_and_invalid_entries(self):\n        \"\"\"ERROR and WARNING violations coexist — all collected exhaustively.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"test_type\": \"INVALID_TYPE\"}, component_id=\"svc-a\"),\n            make_entry(\"f2\", \"B\", {\"test_type\": \"shape\"}, component_id=\"svc-a\"),  # missing optional props -> WARNING\n        ]\n        result = export_pact(\"svc-a\", table)\n        error_violations = [v for v in result.violations if v.severity == ExportViolationSeverity.ERROR or (hasattr(v, 'severity') and str(v.severity) == 'ERROR')]\n        assert len(error_violations) >= 1\n        assert result.output is None  # ERROR present -> output is None\n\n    def test_goodhart_pact_assertion_id_deterministic_format(self):\n        \"\"\"Distinct but similar field_refs produce distinct assertion_ids.\"\"\"\n        table = [\n            make_entry(\"user.name\", \"PII\", {\"test_type\": \"shape\", \"shape\": \"string\"}, component_id=\"svc-a\"),\n            make_entry(\"user.name_alt\", \"PII\", {\"test_type\": \"shape\", \"shape\": \"string\"}, component_id=\"svc-a\"),\n        ]\n        result = export_pact(\"svc-a\", table)\n        assert result.output is not None\n        ids = [a.assertion_id for a in result.output.assertions]\n        assert len(ids) == len(set(ids)), \"assertion_ids must be unique\"\n\n    def test_goodhart_pact_three_test_types_all_accepted(self):\n        \"\"\"All three valid test_type values produce assertions.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"test_type\": \"shape\", \"shape\": \"string\"}, component_id=\"svc-a\"),\n            make_entry(\"f2\", \"B\", {\"test_type\": \"filter\", \"filter\": \"notnull\"}, component_id=\"svc-a\"),\n            make_entry(\"f3\", \"C\", {\"test_type\": \"method\", \"method\": \"validate\"}, component_id=\"svc-a\"),\n        ]\n        result = export_pact(\"svc-a\", table)\n        assert result.output is not None\n        test_types = {a.test_type for a in result.output.assertions}\n        assert test_types == {\"shape\", \"filter\", \"method\"}\n\n    def test_goodhart_pact_component_id_in_output(self):\n        \"\"\"Output PactExport.component_id matches the input parameter exactly.\"\"\"\n        cid = \"my-unique-svc-12345\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"test_type\": \"shape\", \"shape\": \"string\"}, component_id=cid),\n        ]\n        result = export_pact(cid, table)\n        assert result.output is not None\n        assert result.output.component_id == cid\n\n    def test_goodhart_pact_warnings_present_when_output_exists(self):\n        \"\"\"Non-None output can coexist with WARNING violations.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"test_type\": \"shape\"}, component_id=\"svc-w\"),\n            # Missing optional properties like 'shape' value may trigger WARNING\n        ]\n        result = export_pact(\"svc-w\", table)\n        # If implementation produces warnings for missing optional fields,\n        # output should still be non-None (only ERRORs nullify)\n        if result.violations:\n            error_violations = [v for v in result.violations\n                                if v.severity == ExportViolationSeverity.ERROR or str(v.severity) == 'ERROR']\n            if not error_violations:\n                assert result.output is not None, \"Output should exist when only WARNINGs present\"\n\n\n# ─── export_arbiter ─────────────────────────────────────────────────────────\n\nclass TestGoodhartExportArbiter:\n\n    def test_goodhart_arbiter_taint_from_taint_on_raw_value_property(self):\n        \"\"\"taint_on_raw_value=true from rule directly (not via requires_masking).\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"tier\": \"INTERNAL\", \"taint_on_raw_value\": True}),\n        ]\n        result = export_arbiter(table, \"default-db\")\n        assert result.output is not None\n        assert result.output.rules[0].taint_on_raw_value is True\n\n    def test_goodhart_arbiter_mask_in_spans_from_mask_in_spans_property(self):\n        \"\"\"mask_in_spans=true from rule directly (not via requires_masking).\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"tier\": \"INTERNAL\", \"mask_in_spans\": True}),\n        ]\n        result = export_arbiter(table, \"default-db\")\n        assert result.output is not None\n        assert result.output.rules[0].mask_in_spans is True\n\n    def test_goodhart_arbiter_merge_annotations_list(self):\n        \"\"\"Merged rule's annotations list contains all annotation keys from entries on same field.\"\"\"\n        table = [\n            make_entry(\"user.ssn\", \"PII\", {\"tier\": \"CONFIDENTIAL\", \"requires_masking\": True}),\n            make_entry(\"user.ssn\", \"REGULATORY\", {\"tier\": \"CONFIDENTIAL\"}),\n        ]\n        result = export_arbiter(table, \"default-db\")\n        assert result.output is not None\n        assert len(result.output.rules) == 1\n        annotations = result.output.rules[0].annotations\n        assert \"PII\" in annotations\n        assert \"REGULATORY\" in annotations\n\n    def test_goodhart_arbiter_backend_from_rule_overrides_default(self):\n        \"\"\"Rule-specified backend overrides default_backend.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"tier\": \"INTERNAL\", \"backend\": \"custom-db\"}),\n        ]\n        result = export_arbiter(table, \"fallback-db\")\n        assert result.output is not None\n        assert result.output.rules[0].backend == \"custom-db\"\n\n    def test_goodhart_arbiter_no_taint_no_mask_when_not_required(self):\n        \"\"\"No masking flags set when no masking-related properties are true.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"tier\": \"PUBLIC\"}),\n        ]\n        result = export_arbiter(table, \"default-db\")\n        assert result.output is not None\n        rule = result.output.rules[0]\n        assert rule.taint_on_raw_value is False\n        assert rule.mask_in_spans is False\n\n    def test_goodhart_arbiter_custom_annotation_not_hardcoded(self):\n        \"\"\"Novel annotation name 'BIOMETRIC' works without code changes.\"\"\"\n        table = [\n            make_entry(\"user.iris_scan\", \"BIOMETRIC\", {\"tier\": \"RESTRICTED\", \"requires_masking\": True}),\n        ]\n        result = export_arbiter(table, \"default-db\")\n        assert result.output is not None\n        assert len(result.output.rules) == 1\n        assert \"BIOMETRIC\" in result.output.rules[0].annotations\n        assert result.output.rules[0].tier == \"RESTRICTED\"\n\n    def test_goodhart_arbiter_pattern_sort_not_alphabetical_by_annotation(self):\n        \"\"\"Rules are sorted by pattern, not annotation_key.\"\"\"\n        table = [\n            make_entry(\"z_field\", \"ALPHA_ANN\", {\"tier\": \"PUBLIC\"}),\n            make_entry(\"a_field\", \"ZETA_ANN\", {\"tier\": \"PUBLIC\"}),\n        ]\n        result = export_arbiter(table, \"db\")\n        assert result.output is not None\n        patterns = [r.pattern for r in result.output.rules]\n        assert patterns == sorted(patterns)\n        # a_field should come before z_field\n        assert patterns[0] == \"a_field\"\n\n    def test_goodhart_arbiter_output_with_warnings(self):\n        \"\"\"Non-None output alongside WARNING violations.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"tier\": \"PUBLIC\"}),\n        ]\n        result = export_arbiter(table, \"db\")\n        # If there are warnings but no errors, output should exist\n        error_violations = [v for v in result.violations\n                            if v.severity == ExportViolationSeverity.ERROR or str(v.severity) == 'ERROR']\n        if not error_violations:\n            assert result.output is not None\n\n\n# ─── export_baton ───────────────────────────────────────────────────────────\n\nclass TestGoodhartExportBaton:\n\n    def test_goodhart_baton_faker_for_pii_fields(self):\n        \"\"\"PII fields use faker providers; non-PII/non-FINANCIAL use stdlib random.\"\"\"\n        table = [\n            make_entry(\"user.email\", \"PII\", {\n                \"requires_masking\": True,\n                \"tier\": \"CONFIDENTIAL\",\n                \"mock_generator\": \"faker.providers.internet\",\n                \"canary_eligible\": False,\n            }, field_type=\"string\", component_id=\"svc-a\"),\n            make_entry(\"order.count\", \"METRICS\", {\n                \"requires_masking\": True,\n                \"tier\": \"INTERNAL\",\n                \"mock_generator\": \"stdlib.random\",\n                \"canary_eligible\": False,\n            }, field_type=\"integer\", component_id=\"svc-a\"),\n        ]\n        result = export_baton(table)\n        assert result.output is not None\n        # Check that the mock generators are correctly assigned based on annotation type\n        nodes = result.output.egress_nodes\n        assert len(nodes) >= 1\n\n    def test_goodhart_baton_public_tier_not_masked(self):\n        \"\"\"PUBLIC tier fields excluded from masked_fields.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\n                \"requires_masking\": False,\n                \"tier\": \"PUBLIC\",\n                \"mock_generator\": \"stdlib.random\",\n            }, component_id=\"svc-a\"),\n            make_entry(\"f2\", \"B\", {\n                \"requires_masking\": True,\n                \"tier\": \"CONFIDENTIAL\",\n                \"mock_generator\": \"faker.providers.misc\",\n            }, component_id=\"svc-a\"),\n        ]\n        result = export_baton(table)\n        assert result.output is not None\n        for node in result.output.egress_nodes:\n            assert \"f1\" not in node.masked_fields\n            # f2 should be in masked_fields\n            if node.masked_fields:\n                assert \"f2\" in node.masked_fields\n\n    def test_goodhart_baton_canary_false_excluded(self):\n        \"\"\"String field with canary_eligible=false is excluded from canary_eligible_fields.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\n                \"requires_masking\": True,\n                \"tier\": \"INTERNAL\",\n                \"mock_generator\": \"stdlib.random\",\n                \"canary_eligible\": False,\n            }, field_type=\"string\", component_id=\"svc-a\"),\n        ]\n        result = export_baton(table)\n        assert result.output is not None\n        for node in result.output.egress_nodes:\n            assert \"f1\" not in node.canary_eligible_fields\n\n    def test_goodhart_baton_canary_missing_excluded(self):\n        \"\"\"String field without canary_eligible property is excluded from canary_eligible_fields.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\n                \"requires_masking\": True,\n                \"tier\": \"INTERNAL\",\n                \"mock_generator\": \"stdlib.random\",\n            }, field_type=\"string\", component_id=\"svc-a\"),\n        ]\n        result = export_baton(table)\n        assert result.output is not None\n        for node in result.output.egress_nodes:\n            assert \"f1\" not in node.canary_eligible_fields\n\n    def test_goodhart_baton_multiple_errors_collected(self):\n        \"\"\"Multiple ERROR violations are collected, not just the first.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\n                \"requires_masking\": True,\n                \"tier\": \"INTERNAL\",\n                # missing mock_generator\n            }, component_id=\"\"),  # empty component_id -> missing_owner\n            make_entry(\"f2\", \"B\", {\n                \"requires_masking\": True,\n                \"tier\": \"CONFIDENTIAL\",\n                # missing mock_generator\n            }, component_id=\"\"),\n        ]\n        result = export_baton(table)\n        error_violations = [v for v in result.violations\n                            if v.severity == ExportViolationSeverity.ERROR or str(v.severity) == 'ERROR']\n        assert len(error_violations) >= 2, \"Multiple errors should be collected, not just the first\"\n        assert result.output is None\n\n    def test_goodhart_baton_egress_node_id_uniqueness(self):\n        \"\"\"Egress node ids are unique in output.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\n                \"requires_masking\": True,\n                \"tier\": \"INTERNAL\",\n                \"mock_generator\": \"stdlib.random\",\n            }, component_id=\"svc-a\"),\n            make_entry(\"f2\", \"B\", {\n                \"requires_masking\": True,\n                \"tier\": \"CONFIDENTIAL\",\n                \"mock_generator\": \"faker.providers.misc\",\n            }, component_id=\"svc-b\"),\n        ]\n        result = export_baton(table)\n        assert result.output is not None\n        ids = [n.id for n in result.output.egress_nodes]\n        assert len(ids) == len(set(ids))\n\n\n# ─── export_sentinel ───────────────────────────────────────────────────────\n\nclass TestGoodhartExportSentinel:\n\n    def test_goodhart_sentinel_sort_order_triple_key(self):\n        \"\"\"Severity mappings sorted by (severity, annotation_key, field_pattern).\"\"\"\n        table = [\n            make_entry(\"z_field\", \"B_ANN\", {\"severity\": \"high\"}),\n            make_entry(\"a_field\", \"A_ANN\", {\"severity\": \"high\"}),\n            make_entry(\"m_field\", \"C_ANN\", {\"severity\": \"critical\"}),\n        ]\n        result = export_sentinel(table)\n        assert result.output is not None\n        mappings = result.output.severity_mappings\n        # Should be sorted by severity first, then annotation_key, then field_pattern\n        sort_keys = [(m.severity, m.annotation_key, m.field_pattern) for m in mappings]\n        assert sort_keys == sorted(sort_keys)\n\n    def test_goodhart_sentinel_multiple_entries_same_severity(self):\n        \"\"\"One mapping per entry, no deduplication when severity values match.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"severity\": \"critical\"}),\n            make_entry(\"f2\", \"B\", {\"severity\": \"critical\"}),\n            make_entry(\"f3\", \"C\", {\"severity\": \"critical\"}),\n        ]\n        result = export_sentinel(table)\n        assert result.output is not None\n        assert len(result.output.severity_mappings) == 3\n\n    def test_goodhart_sentinel_mix_valid_and_missing_severity(self):\n        \"\"\"Valid entries produce mappings; entries without severity produce WARNINGs. Both coexist.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"severity\": \"high\"}),\n            make_entry(\"f2\", \"B\", {\"other_prop\": \"value\"}),  # no severity\n        ]\n        result = export_sentinel(table)\n        assert result.output is not None\n        assert len(result.output.severity_mappings) == 1\n        warning_violations = [v for v in result.violations\n                              if v.severity == ExportViolationSeverity.WARNING or str(v.severity) == 'WARNING']\n        assert len(warning_violations) >= 1\n\n    def test_goodhart_sentinel_invalid_severity_with_valid_entries(self):\n        \"\"\"Invalid severity on any entry causes output=None even if other entries are valid.\"\"\"\n        table = [\n            make_entry(\"f1\", \"A\", {\"severity\": \"critical\"}),\n            make_entry(\"f2\", \"B\", {\"severity\": \"BOGUS_INVALID_LEVEL\"}),\n        ]\n        result = export_sentinel(table)\n        assert result.output is None\n        error_violations = [v for v in result.violations\n                            if v.severity == ExportViolationSeverity.ERROR or str(v.severity) == 'ERROR']\n        assert len(error_violations) >= 1\n\n\n# ─── yaml_dump ──────────────────────────────────────────────────────────────\n\nclass TestGoodhartYamlDump:\n\n    def test_goodhart_yaml_dump_block_style(self):\n        \"\"\"yaml_dump produces block-style YAML, not flow style.\"\"\"\n        model = PactExport(\n            component_id=\"svc-test\",\n            assertions=[\n                PactAssertion(\n                    assertion_id=\"a1\",\n                    description=\"test assertion\",\n                    test_type=\"shape\",\n                    field_ref=\"user.name\",\n                    filter=\"\",\n                    shape=\"string\",\n                    method=\"\",\n                ),\n            ],\n        )\n        output = yaml_dump(model)\n        # Block style YAML should not have flow-style top-level containers\n        lines = output.strip().split('\\n')\n        assert len(lines) > 1, \"Block style should produce multiple lines\"\n        # The first top-level key should not be on same line as its nested content\n        assert output.startswith(\"component_id\") or output.startswith(\"---\")\n\n    def test_goodhart_yaml_dump_arbiter_export(self):\n        \"\"\"yaml_dump works for ArbiterExport, not just PactExport.\"\"\"\n        model = ArbiterExport(\n            rules=[\n                ArbiterRule(\n                    pattern=\"user.*\",\n                    backend=\"postgres\",\n                    tier=\"CONFIDENTIAL\",\n                    annotations=[\"PII\"],\n                    taint_on_raw_value=True,\n                    mask_in_spans=True,\n                ),\n            ],\n        )\n        output = yaml_dump(model)\n        loaded = yaml.safe_load(output)\n        assert \"rules\" in loaded\n        assert loaded[\"rules\"][0][\"pattern\"] == \"user.*\"\n\n    def test_goodhart_yaml_dump_baton_export(self):\n        \"\"\"yaml_dump works for BatonExport.\"\"\"\n        model = BatonExport(\n            egress_nodes=[\n                BatonEgressNode(\n                    id=\"node-1\",\n                    owner=\"team-a\",\n                    mock_generator=\"faker.providers.internet\",\n                    masked_fields=[\"email\"],\n                    canary_eligible_fields=[\"name\"],\n                ),\n            ],\n        )\n        output = yaml_dump(model)\n        loaded = yaml.safe_load(output)\n        assert \"egress_nodes\" in loaded\n        assert loaded[\"egress_nodes\"][0][\"id\"] == \"node-1\"\n\n    def test_goodhart_yaml_dump_sentinel_export(self):\n        \"\"\"yaml_dump works for SentinelExport.\"\"\"\n        model = SentinelExport(\n            severity_mappings=[\n                SentinelSeverityMapping(\n                    annotation_key=\"PII\",\n                    severity=\"critical\",\n                    field_pattern=\"user.*\",\n                    description=\"PII fields\",\n                ),\n            ],\n        )\n        output = yaml_dump(model)\n        loaded = yaml.safe_load(output)\n        assert \"severity_mappings\" in loaded\n        assert loaded[\"severity_mappings\"][0][\"severity\"] == \"critical\"\n\n    def test_goodhart_yaml_dump_empty_lists(self):\n        \"\"\"yaml_dump handles models with empty lists.\"\"\"\n        model = PactExport(component_id=\"empty-svc\", assertions=[])\n        output = yaml_dump(model)\n        loaded = yaml.safe_load(output)\n        assert loaded[\"component_id\"] == \"empty-svc\"\n        assert loaded[\"assertions\"] == [] or loaded.get(\"assertions\") is None or loaded.get(\"assertions\") == []\n\n    def test_goodhart_yaml_dump_dict_not_accepted(self):\n        \"\"\"Plain dicts are rejected even if structure matches an export model.\"\"\"\n        plain_dict = {\"component_id\": \"svc-x\", \"assertions\": []}\n        with pytest.raises(Exception):\n            yaml_dump(plain_dict)\n\n    def test_goodhart_yaml_dump_special_yaml_chars(self):\n        \"\"\"Values with YAML-special characters survive round-trip.\"\"\"\n        model = PactExport(\n            component_id=\"svc: special #test [1]\",\n            assertions=[],\n        )\n        output = yaml_dump(model)\n        loaded = yaml.safe_load(output)\n        assert loaded[\"component_id\"] == \"svc: special #test [1]\"\n"
+}

@@ -1,0 +1,1986 @@
+{
+  "component_id": "api",
+  "name": "HTTP API Server",
+  "description": "FastAPI application exposing all Ledger operations as REST endpoints. Provides backend registration (POST /backends), schema registration and query (POST /schemas, GET /schemas/{backend_id}, GET /schemas/{backend_id}/{table}), schema validation (POST /schemas/validate), migration planning and approval (POST /migrations/plan, POST /migrations/{plan_id}/approve), data export (GET /export/{format}), mock data generation (POST /mock/{backend_id}/{table}), annotation query (GET /annotations), and health check (GET /health). Returns JSON responses with appropriate HTTP status codes. Application factory pattern via create_app(config) -> FastAPI. Mounted on uvicorn single-worker, configurable port (default 7701). Lazy schema loading — schemas loaded on demand via Depends(), not at startup — to meet the 3-second startup constraint. Sync route handlers (def, not async def) since all I/O is file-based. Migration plans stored in-memory with UUID IDs and configurable TTL (default 1 hour). The `ledger serve` CLI command starts this server.",
+  "version": 2,
+  "types": [
+    {
+      "name": "HttpMethod",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "GET",
+        "POST"
+      ],
+      "inner_types": [],
+      "description": "HTTP methods used by API routes."
+    },
+    {
+      "name": "Severity",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "error",
+        "warning",
+        "info"
+      ],
+      "inner_types": [],
+      "description": "Severity level for validation violations and migration gate results."
+    },
+    {
+      "name": "ExportFormat",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "json",
+        "csv",
+        "yaml"
+      ],
+      "inner_types": [],
+      "description": "Supported export formats, validated via StrEnum path parameter."
+    },
+    {
+      "name": "PlanStatus",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "pending",
+        "approved",
+        "expired"
+      ],
+      "inner_types": [],
+      "description": "Lifecycle status of a migration plan."
+    },
+    {
+      "name": "Violation",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "field",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Dot-path to the offending field, or empty string for global violations.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of the violation.",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "Severity",
+          "required": true,
+          "default": "",
+          "description": "Severity classification of this violation.",
+          "validators": []
+        },
+        {
+          "name": "code",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Machine-readable violation code, e.g. 'MISSING_PK', 'PII_NO_OBLIGATION'.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single validation or gate violation with structured context."
+    },
+    {
+      "name": "ErrorResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "error",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Top-level error category, e.g. 'SchemaValidationError', 'ResourceNotFoundError'.",
+          "validators": []
+        },
+        {
+          "name": "detail",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable summary of the error.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Complete list of all violations — all are returned, not just the first.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Standard error response body returned for all error HTTP status codes. Contains full list of violations, never just the first."
+    },
+    {
+      "name": "HealthResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "status",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Always 'ok' if the server is running.",
+          "validators": []
+        },
+        {
+          "name": "version",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Ledger version string.",
+          "validators": []
+        },
+        {
+          "name": "port",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Port the server is listening on.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Response body for GET /health. Zero heavy dependencies — no registry load."
+    },
+    {
+      "name": "BackendRegistrationRequest",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique identifier for the backend (e.g. 'pact', 'arbiter').",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[a-z][a-z0-9_-]{1,62}[a-z0-9]$",
+              "error_message": "backend_id must be 3-64 lowercase alphanumeric characters, hyphens, or underscores, starting with a letter."
+            }
+          ]
+        },
+        {
+          "name": "display_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable name for the backend.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "1..256",
+              "error_message": "display_name must be 1-256 characters."
+            }
+          ]
+        },
+        {
+          "name": "description",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Optional description of the backend's purpose.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Request body for POST /backends to register a new backend."
+    },
+    {
+      "name": "BackendRegistrationResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The registered backend's identifier.",
+          "validators": []
+        },
+        {
+          "name": "display_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable name.",
+          "validators": []
+        },
+        {
+          "name": "created",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "True if newly created, false if identical re-registration (200).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Response body for successful backend registration (201 Created)."
+    },
+    {
+      "name": "SchemaRegistrationRequest",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend this schema belongs to.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Fully qualified table name.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[a-z][a-z0-9_.]{0,126}[a-z0-9]$",
+              "error_message": "table_name must be 2-128 chars, lowercase alphanumeric with dots/underscores, starting with a letter."
+            }
+          ]
+        },
+        {
+          "name": "yaml_content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Verbatim YAML text of the schema definition. Stored exactly as provided — no normalization, reformatting, or reordering on ingestion.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "1..1048576",
+              "error_message": "yaml_content must be between 1 byte and 1 MiB."
+            }
+          ]
+        },
+        {
+          "name": "version",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Semantic version of this schema (e.g. '1.0.0').",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^\\d+\\.\\d+\\.\\d+$",
+              "error_message": "version must be semantic versioning format (e.g. '1.0.0')."
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Request body for POST /schemas. The yaml_content field carries the verbatim YAML text of the schema — it is stored as-is, never normalized, reformatted, or reordered."
+    },
+    {
+      "name": "SchemaRegistrationResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend the schema belongs to.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Registered table name.",
+          "validators": []
+        },
+        {
+          "name": "version",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Registered schema version.",
+          "validators": []
+        },
+        {
+          "name": "created",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "True if newly created (201), false if identical re-registration (200).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Response body for successful schema registration."
+    },
+    {
+      "name": "SchemaDetail",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Owning backend.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Table name.",
+          "validators": []
+        },
+        {
+          "name": "version",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Current schema version.",
+          "validators": []
+        },
+        {
+          "name": "yaml_content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Verbatim YAML as originally registered.",
+          "validators": []
+        },
+        {
+          "name": "columns",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Parsed column definitions.",
+          "validators": []
+        },
+        {
+          "name": "annotations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Data obligation annotations applied to this schema.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Full schema detail returned by GET /schemas/{backend_id}/{table}."
+    },
+    {
+      "name": "ColumnInfo",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Column name.",
+          "validators": []
+        },
+        {
+          "name": "data_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Column data type as declared in YAML.",
+          "validators": []
+        },
+        {
+          "name": "nullable",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether the column allows NULL values.",
+          "validators": []
+        },
+        {
+          "name": "primary_key",
+          "type_ref": "bool",
+          "required": true,
+          "default": "false",
+          "description": "Whether this column is part of the primary key.",
+          "validators": []
+        },
+        {
+          "name": "annotations",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Annotation tags on this column (e.g. 'pii:email', 'obligation:retain_30d').",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Parsed column metadata from a schema definition."
+    },
+    {
+      "name": "AnnotationEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "column",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Column this annotation applies to.",
+          "validators": []
+        },
+        {
+          "name": "tag",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Annotation tag (e.g. 'pii:email').",
+          "validators": []
+        },
+        {
+          "name": "source",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Where the annotation originated (e.g. 'schema_definition', 'propagation_rule').",
+          "validators": []
+        },
+        {
+          "name": "propagated",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "True if this annotation was propagated from another schema.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single annotation entry with propagation metadata."
+    },
+    {
+      "name": "SchemaListResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The queried backend.",
+          "validators": []
+        },
+        {
+          "name": "schemas",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of schema summaries.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Response for GET /schemas/{backend_id} listing all schemas for a backend."
+    },
+    {
+      "name": "SchemaSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Table name.",
+          "validators": []
+        },
+        {
+          "name": "version",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Current version.",
+          "validators": []
+        },
+        {
+          "name": "column_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of columns in the schema.",
+          "validators": []
+        },
+        {
+          "name": "annotation_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of annotations on this schema.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Summary of a registered schema without full YAML content."
+    },
+    {
+      "name": "SchemaValidationRequest",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "yaml_content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Verbatim YAML text of the schema to validate.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "1..1048576",
+              "error_message": "yaml_content must be between 1 byte and 1 MiB."
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Request body for POST /schemas/validate — validates without registering."
+    },
+    {
+      "name": "SchemaValidationResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "valid",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "True if schema has zero error-severity violations.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "All violations found, across all severity levels.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Response body for POST /schemas/validate. Returns all violations, not just the first."
+    },
+    {
+      "name": "MigrationPlanRequest",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend the migration targets.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Table being migrated.",
+          "validators": []
+        },
+        {
+          "name": "sql_content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw SQL migration script.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "1..5242880",
+              "error_message": "sql_content must be between 1 byte and 5 MiB."
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Request body for POST /migrations/plan."
+    },
+    {
+      "name": "MigrationDiff",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "operation",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Type of change: 'add_column', 'drop_column', 'alter_type', 'rename_column', 'add_index', 'drop_index', etc.",
+          "validators": []
+        },
+        {
+          "name": "target",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Affected column or constraint name.",
+          "validators": []
+        },
+        {
+          "name": "details",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Operation-specific detail map (e.g. old_type, new_type for alter_type).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single diff entry describing one change in a migration plan."
+    },
+    {
+      "name": "GateResult",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "passed",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "True if no error-severity violations — warnings/info do not block.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Full list of all gate violations across all severity levels.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result of migration gate checks. Includes all violations with severity levels."
+    },
+    {
+      "name": "MigrationPlanResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID identifier for the migration plan.",
+          "validators": []
+        },
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Target backend.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Target table.",
+          "validators": []
+        },
+        {
+          "name": "status",
+          "type_ref": "PlanStatus",
+          "required": true,
+          "default": "",
+          "description": "Initial status, always 'pending'.",
+          "validators": []
+        },
+        {
+          "name": "diffs",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Parsed migration diffs.",
+          "validators": []
+        },
+        {
+          "name": "gate_result",
+          "type_ref": "GateResult",
+          "required": true,
+          "default": "",
+          "description": "Gate check results including all violations.",
+          "validators": []
+        },
+        {
+          "name": "expires_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp when this plan expires (default: creation + 1 hour).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Response body for POST /migrations/plan (201 Created)."
+    },
+    {
+      "name": "MigrationApproveResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The approved plan's UUID.",
+          "validators": []
+        },
+        {
+          "name": "status",
+          "type_ref": "PlanStatus",
+          "required": true,
+          "default": "",
+          "description": "Updated status, 'approved' on success.",
+          "validators": []
+        },
+        {
+          "name": "approved_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of approval.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Response body for POST /migrations/{plan_id}/approve."
+    },
+    {
+      "name": "ExportResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "format",
+          "type_ref": "ExportFormat",
+          "required": true,
+          "default": "",
+          "description": "The export format used.",
+          "validators": []
+        },
+        {
+          "name": "schema_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of schemas included in the export.",
+          "validators": []
+        },
+        {
+          "name": "content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Serialized export content (JSON string, CSV text, or YAML text).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Metadata wrapper for GET /export/{format}. Actual content returned via appropriate Response subclass (JSONResponse, PlainTextResponse for CSV/YAML)."
+    },
+    {
+      "name": "MockGenerationRequest",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "row_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of mock rows to generate.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "1..10000",
+              "error_message": "row_count must be between 1 and 10,000."
+            }
+          ]
+        },
+        {
+          "name": "seed",
+          "type_ref": "int",
+          "required": false,
+          "default": "",
+          "description": "Random seed for reproducibility. If not provided, a random seed is used.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Request body for POST /mock/{backend_id}/{table}."
+    },
+    {
+      "name": "MockGenerationResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend of the schema used.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Table mock data was generated for.",
+          "validators": []
+        },
+        {
+          "name": "row_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Actual number of rows generated.",
+          "validators": []
+        },
+        {
+          "name": "columns",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Column names in order.",
+          "validators": []
+        },
+        {
+          "name": "rows",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of rows, each a list of values matching columns order.",
+          "validators": []
+        },
+        {
+          "name": "seed",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Seed that was used for generation (for reproducibility).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Response body for POST /mock/{backend_id}/{table}."
+    },
+    {
+      "name": "AnnotationsResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "annotations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "All annotations across all backends and tables.",
+          "validators": []
+        },
+        {
+          "name": "total_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Total number of annotations returned.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Response body for GET /annotations."
+    },
+    {
+      "name": "LedgerConfig",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "port",
+          "type_ref": "int",
+          "required": true,
+          "default": "7701",
+          "description": "Port for the HTTP server.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "1..65535",
+              "error_message": "port must be between 1 and 65535."
+            }
+          ]
+        },
+        {
+          "name": "schema_dir",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Directory path where schema YAML files are stored.",
+          "validators": []
+        },
+        {
+          "name": "plan_ttl_seconds",
+          "type_ref": "int",
+          "required": true,
+          "default": "3600",
+          "description": "TTL for in-memory migration plans in seconds.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "60..86400",
+              "error_message": "plan_ttl_seconds must be between 60 and 86400 (1 minute to 24 hours)."
+            }
+          ]
+        },
+        {
+          "name": "arbiter_url",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "URL for the Arbiter API. Empty string means Arbiter integration is disabled.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Configuration loaded from ledger.yaml. Lightweight parse at app creation, not at module import."
+    },
+    {
+      "name": "InMemoryPlanStore",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plans",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Map from plan_id (UUID string) to stored plan data.",
+          "validators": []
+        },
+        {
+          "name": "ttl_seconds",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "TTL for plans, from LedgerConfig.plan_ttl_seconds.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "In-memory storage for migration plans. Plans do not survive server restarts. Expired plans are cleaned up lazily on access."
+    }
+  ],
+  "functions": [
+    {
+      "name": "create_app",
+      "description": "Application factory: creates and configures a FastAPI instance with all routers mounted, exception handlers registered, and lazy-loading dependencies configured. This is the sole entry point for constructing the Ledger HTTP server. Config is parsed once (lightweight YAML read of ledger.yaml). No schema data is loaded — lazy loading via Depends() defers that to first request.",
+      "inputs": [
+        {
+          "name": "config",
+          "type_ref": "LedgerConfig",
+          "required": true,
+          "default": "",
+          "description": "Ledger configuration loaded from ledger.yaml.",
+          "validators": []
+        }
+      ],
+      "output_type": "any",
+      "error_cases": [
+        {
+          "name": "invalid_config",
+          "condition": "config fails Pydantic validation",
+          "error_type": "ValidationError",
+          "error_data": {}
+        },
+        {
+          "name": "yaml_parse_error",
+          "condition": "ledger.yaml is malformed (only if config was loaded from file in this call path)",
+          "error_type": "ValueError",
+          "error_data": {
+            "detail": "Clear parse error message with file path"
+          }
+        }
+      ],
+      "preconditions": [
+        "config is a valid LedgerConfig instance with all required fields populated",
+        "config.schema_dir points to an existing readable directory (not validated at create_app time — validated lazily on first schema access)"
+      ],
+      "postconditions": [
+        "Returned FastAPI app has all 7 routers mounted: backends, schemas, migrations, export, mock, annotations, health",
+        "Exception handlers registered for SchemaValidationError, MigrationGateError, ResourceNotFoundError, ConflictError",
+        "No schema data has been loaded into memory — registry is lazy",
+        "App state contains config reference and uninitialized registry dependency"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure factory function — no I/O, no file reads. Config is passed in pre-loaded."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 100,
+        "max_memory_mb": 10,
+        "complexity": "O(1)"
+      }
+    },
+    {
+      "name": "handle_health",
+      "description": "GET /health handler. Returns server status with zero heavy dependencies — no registry loading, no file I/O. Must respond instantly even if no schemas have been registered.",
+      "inputs": [],
+      "output_type": "HealthResponse",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Response status is always 'ok' if the server is running",
+        "No schema data loaded as a side effect of this call"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure status check — no I/O, no state mutation."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 5,
+        "max_memory_mb": null,
+        "complexity": "O(1)"
+      }
+    },
+    {
+      "name": "handle_register_backend",
+      "description": "POST /backends handler. Registers a new backend. Returns 201 with Location header on new creation, 200 if identical re-registration, 409 if conflicting re-registration (same backend_id, different display_name or description).",
+      "inputs": [
+        {
+          "name": "body",
+          "type_ref": "BackendRegistrationRequest",
+          "required": true,
+          "default": "",
+          "description": "Backend registration payload.",
+          "validators": []
+        }
+      ],
+      "output_type": "BackendRegistrationResponse",
+      "error_cases": [
+        {
+          "name": "conflict",
+          "condition": "backend_id already exists with different display_name or description",
+          "error_type": "ConflictError",
+          "error_data": {
+            "http_status": "409"
+          }
+        },
+        {
+          "name": "validation_error",
+          "condition": "Request body fails Pydantic validation",
+          "error_type": "ValidationError",
+          "error_data": {
+            "http_status": "422"
+          }
+        }
+      ],
+      "preconditions": [
+        "body passes Pydantic validation including backend_id regex and display_name length"
+      ],
+      "postconditions": [
+        "If 201: backend is registered and retrievable; Location header set to /backends/{backend_id}",
+        "If 200: no state change (identical re-registration)",
+        "If 409: no state change (conflicting registration rejected)"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "Mutates in-memory backend registry"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "registry.backends",
+          "description": "Adds new backend entry to in-memory registry if not already present."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "handle_register_schema",
+      "description": "POST /schemas handler. Registers a schema for a backend. The yaml_content is stored verbatim — never normalized, reformatted, or reordered. Returns 201 with Location header on new creation, 200 if identical re-registration, 409 if version conflict.",
+      "inputs": [
+        {
+          "name": "body",
+          "type_ref": "SchemaRegistrationRequest",
+          "required": true,
+          "default": "",
+          "description": "Schema registration payload with verbatim YAML content.",
+          "validators": []
+        }
+      ],
+      "output_type": "SchemaRegistrationResponse",
+      "error_cases": [
+        {
+          "name": "backend_not_found",
+          "condition": "body.backend_id does not reference a registered backend",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "404"
+          }
+        },
+        {
+          "name": "conflict",
+          "condition": "Schema with same backend_id, table_name, version already exists with different content",
+          "error_type": "ConflictError",
+          "error_data": {
+            "http_status": "409"
+          }
+        },
+        {
+          "name": "invalid_yaml",
+          "condition": "yaml_content is not valid YAML",
+          "error_type": "SchemaValidationError",
+          "error_data": {
+            "http_status": "422"
+          }
+        },
+        {
+          "name": "schema_validation_failed",
+          "condition": "Parsed schema fails structural validation",
+          "error_type": "SchemaValidationError",
+          "error_data": {
+            "http_status": "422"
+          }
+        },
+        {
+          "name": "validation_error",
+          "condition": "Request body fails Pydantic field validation",
+          "error_type": "ValidationError",
+          "error_data": {
+            "http_status": "422"
+          }
+        }
+      ],
+      "preconditions": [
+        "body passes Pydantic validation",
+        "body.backend_id references a registered backend",
+        "body.yaml_content is valid YAML (parsed to verify, but stored verbatim)"
+      ],
+      "postconditions": [
+        "If 201: schema is registered, yaml_content stored verbatim, Location header set to /schemas/{backend_id}/{table_name}",
+        "If 200: no state change (identical re-registration with same version and yaml_content)",
+        "If 409: no state change (same backend_id+table_name+version but different yaml_content)",
+        "Annotation propagation is triggered for the newly registered schema"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "Mutates in-memory schema registry",
+        "Reads schema YAML files from disk on lazy init",
+        "Triggers annotation propagation"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "registry.schemas",
+          "description": "Adds or updates schema entry in the in-memory schema registry."
+        },
+        {
+          "kind": "reads_file",
+          "target": "config.schema_dir",
+          "description": "Lazy initialization may read schema directory on first access."
+        },
+        {
+          "kind": "mutates_state",
+          "target": "propagation.annotations",
+          "description": "Triggers annotation propagation rules for the newly registered schema."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "handle_get_schemas_for_backend",
+      "description": "GET /schemas/{backend_id} handler. Returns list of all schemas registered under a backend. Triggers lazy loading of registry if not yet initialized.",
+      "inputs": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend identifier from URL path.",
+          "validators": []
+        }
+      ],
+      "output_type": "SchemaListResponse",
+      "error_cases": [
+        {
+          "name": "backend_not_found",
+          "condition": "backend_id does not reference a registered backend",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "404"
+          }
+        }
+      ],
+      "preconditions": [
+        "backend_id is a non-empty string"
+      ],
+      "postconditions": [
+        "Response contains all schemas for the given backend, possibly empty list if backend exists but has no schemas",
+        "Schema registry is initialized (lazy load triggered if first access)"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "May trigger lazy registry initialization"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "config.schema_dir",
+          "description": "Lazy initialization may read schema directory on first access."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "handle_get_schema_detail",
+      "description": "GET /schemas/{backend_id}/{table} handler. Returns full schema detail including verbatim YAML, parsed columns, and annotations.",
+      "inputs": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend identifier from URL path.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Table name from URL path.",
+          "validators": []
+        }
+      ],
+      "output_type": "SchemaDetail",
+      "error_cases": [
+        {
+          "name": "backend_not_found",
+          "condition": "backend_id does not reference a registered backend",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "404"
+          }
+        },
+        {
+          "name": "schema_not_found",
+          "condition": "No schema registered for this backend_id + table_name combination",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "404"
+          }
+        }
+      ],
+      "preconditions": [
+        "backend_id and table_name are non-empty strings"
+      ],
+      "postconditions": [
+        "Response contains full schema detail with verbatim yaml_content as originally registered",
+        "Annotations include both direct and propagated entries"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "May trigger lazy registry initialization"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "config.schema_dir",
+          "description": "Lazy initialization may read schema directory on first access."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "handle_validate_schema",
+      "description": "POST /schemas/validate handler. Validates a schema YAML without registering it. Always returns 200 with validation results including all violations (not just the first). The valid field is true only if there are zero error-severity violations.",
+      "inputs": [
+        {
+          "name": "body",
+          "type_ref": "SchemaValidationRequest",
+          "required": true,
+          "default": "",
+          "description": "Schema validation payload with verbatim YAML content.",
+          "validators": []
+        }
+      ],
+      "output_type": "SchemaValidationResponse",
+      "error_cases": [
+        {
+          "name": "validation_error",
+          "condition": "Request body fails Pydantic field validation",
+          "error_type": "ValidationError",
+          "error_data": {
+            "http_status": "422"
+          }
+        }
+      ],
+      "preconditions": [
+        "body passes Pydantic field validation (yaml_content is non-empty, within size limit)"
+      ],
+      "postconditions": [
+        "Response.valid is true iff zero Violation entries have severity == 'error'",
+        "All violations are returned, not just the first",
+        "No schema data is persisted — validation only",
+        "No state mutation of any kind"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure validation — no state mutation, no file I/O."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "handle_create_migration_plan",
+      "description": "POST /migrations/plan handler. Parses a SQL migration script, computes diffs against the current registered schema, runs gate checks, and stores the plan in memory with a UUID and TTL. Returns 201 with the plan including all gate violations. Gate failure does NOT produce an error status — it returns 201 with gate_result.passed=false and the full violation list.",
+      "inputs": [
+        {
+          "name": "body",
+          "type_ref": "MigrationPlanRequest",
+          "required": true,
+          "default": "",
+          "description": "Migration plan request with raw SQL.",
+          "validators": []
+        }
+      ],
+      "output_type": "MigrationPlanResponse",
+      "error_cases": [
+        {
+          "name": "backend_not_found",
+          "condition": "backend_id does not reference a registered backend",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "404"
+          }
+        },
+        {
+          "name": "schema_not_found",
+          "condition": "No schema registered for backend_id + table_name",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "404"
+          }
+        },
+        {
+          "name": "sql_parse_error",
+          "condition": "SQL content cannot be parsed into migration diffs",
+          "error_type": "SchemaValidationError",
+          "error_data": {
+            "http_status": "422"
+          }
+        },
+        {
+          "name": "validation_error",
+          "condition": "Request body fails Pydantic field validation",
+          "error_type": "ValidationError",
+          "error_data": {
+            "http_status": "422"
+          }
+        }
+      ],
+      "preconditions": [
+        "body passes Pydantic field validation",
+        "body.backend_id references a registered backend",
+        "body.table_name references a registered schema under that backend"
+      ],
+      "postconditions": [
+        "A new plan with UUID plan_id is stored in InMemoryPlanStore with status 'pending'",
+        "Plan expires_at is set to now + config.plan_ttl_seconds",
+        "gate_result contains ALL violations with severity levels — never truncated",
+        "Expired plans encountered during this call are cleaned up (lazy eviction)"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Creates in-memory migration plan",
+        "Evicts expired plans"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "plan_store.plans",
+          "description": "Stores new migration plan in InMemoryPlanStore with UUID key."
+        },
+        {
+          "kind": "mutates_state",
+          "target": "plan_store.plans (eviction)",
+          "description": "Lazily removes expired plans encountered during access."
+        },
+        {
+          "kind": "reads_file",
+          "target": "config.schema_dir",
+          "description": "May trigger lazy registry init to resolve current schema for diff computation."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "handle_approve_migration_plan",
+      "description": "POST /migrations/{plan_id}/approve handler. Approves a pending migration plan. Only plans with status 'pending' and gate_result.passed=true can be approved.",
+      "inputs": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID of the migration plan to approve, from URL path.",
+          "validators": []
+        }
+      ],
+      "output_type": "MigrationApproveResponse",
+      "error_cases": [
+        {
+          "name": "plan_not_found",
+          "condition": "No plan exists with the given plan_id, or plan has expired",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "404"
+          }
+        },
+        {
+          "name": "plan_not_pending",
+          "condition": "Plan status is not 'pending' (already approved or expired)",
+          "error_type": "ConflictError",
+          "error_data": {
+            "http_status": "409"
+          }
+        },
+        {
+          "name": "gate_failed",
+          "condition": "Plan gate_result.passed is false — cannot approve a plan that failed gate checks",
+          "error_type": "MigrationGateError",
+          "error_data": {
+            "http_status": "422"
+          }
+        }
+      ],
+      "preconditions": [
+        "plan_id is a valid UUID string"
+      ],
+      "postconditions": [
+        "Plan status is updated to 'approved' in InMemoryPlanStore",
+        "approved_at timestamp is set to current UTC time in ISO 8601"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "Mutates in-memory plan status"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "plan_store.plans",
+          "description": "Updates plan status to 'approved' and sets approved_at timestamp."
+        },
+        {
+          "kind": "mutates_state",
+          "target": "plan_store.plans (eviction)",
+          "description": "Lazily removes expired plans encountered during access."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "handle_export",
+      "description": "GET /export/{format} handler. Exports all registered schemas in the specified format. JSON format returns JSONResponse; CSV and YAML formats return PlainTextResponse with appropriate content type.",
+      "inputs": [
+        {
+          "name": "format",
+          "type_ref": "ExportFormat",
+          "required": true,
+          "default": "",
+          "description": "Export format from URL path, validated via StrEnum.",
+          "validators": []
+        }
+      ],
+      "output_type": "ExportResponse",
+      "error_cases": [
+        {
+          "name": "invalid_format",
+          "condition": "format is not a valid ExportFormat variant",
+          "error_type": "ValidationError",
+          "error_data": {
+            "http_status": "422"
+          }
+        }
+      ],
+      "preconditions": [
+        "format is a valid ExportFormat variant (enforced by StrEnum path validation)"
+      ],
+      "postconditions": [
+        "Response contains all currently registered schemas serialized in the requested format",
+        "JSON format: Content-Type application/json",
+        "CSV format: Content-Type text/csv via PlainTextResponse",
+        "YAML format: Content-Type text/yaml via PlainTextResponse",
+        "No state mutation of any kind"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "May trigger lazy registry initialization"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "config.schema_dir",
+          "description": "May trigger lazy registry init to load schemas for export."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "handle_generate_mock",
+      "description": "POST /mock/{backend_id}/{table} handler. Generates mock data rows based on a registered schema's column definitions. Uses faker for PII-annotated columns and stdlib random for all others, per project standards.",
+      "inputs": [
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend identifier from URL path.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Table name from URL path.",
+          "validators": []
+        },
+        {
+          "name": "body",
+          "type_ref": "MockGenerationRequest",
+          "required": true,
+          "default": "",
+          "description": "Mock generation parameters.",
+          "validators": []
+        }
+      ],
+      "output_type": "MockGenerationResponse",
+      "error_cases": [
+        {
+          "name": "backend_not_found",
+          "condition": "backend_id does not reference a registered backend",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "404"
+          }
+        },
+        {
+          "name": "schema_not_found",
+          "condition": "No schema registered for backend_id + table_name",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "404"
+          }
+        },
+        {
+          "name": "validation_error",
+          "condition": "Request body fails Pydantic field validation (row_count out of range)",
+          "error_type": "ValidationError",
+          "error_data": {
+            "http_status": "422"
+          }
+        }
+      ],
+      "preconditions": [
+        "body passes Pydantic validation (row_count 1-10000)",
+        "backend_id references a registered backend",
+        "table_name references a registered schema under that backend"
+      ],
+      "postconditions": [
+        "Response contains exactly body.row_count rows",
+        "Each row has values matching the schema's column order",
+        "PII-annotated columns use faker for realistic mock data",
+        "Non-PII columns use stdlib random",
+        "If seed is provided, output is deterministically reproducible",
+        "No state mutation of any kind"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "May trigger lazy registry initialization"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "config.schema_dir",
+          "description": "May trigger lazy registry init to resolve schema for mock generation."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "handle_get_annotations",
+      "description": "GET /annotations handler. Returns all data obligation annotations across all backends and tables, including both directly declared and propagated annotations.",
+      "inputs": [],
+      "output_type": "AnnotationsResponse",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Response contains all annotations from all registered schemas",
+        "Each annotation indicates whether it was propagated or directly declared",
+        "total_count matches len(annotations)"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "May trigger lazy registry initialization"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "config.schema_dir",
+          "description": "May trigger lazy registry init to resolve annotations."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "serve_cli",
+      "description": "Click command handler for `ledger serve`. Loads config from ledger.yaml, creates the FastAPI app via create_app(), and starts uvicorn with workers=1. This is the CLI entry point, not an HTTP handler.",
+      "inputs": [
+        {
+          "name": "port",
+          "type_ref": "int",
+          "required": false,
+          "default": "7701",
+          "description": "Port to listen on. CLI option --port, defaults to config value or 7701.",
+          "validators": []
+        },
+        {
+          "name": "host",
+          "type_ref": "str",
+          "required": false,
+          "default": "127.0.0.1",
+          "description": "Host to bind to. CLI option --host, defaults to '127.0.0.1'.",
+          "validators": []
+        },
+        {
+          "name": "config_path",
+          "type_ref": "str",
+          "required": false,
+          "default": "ledger.yaml",
+          "description": "Path to ledger.yaml. CLI option --config, defaults to 'ledger.yaml'.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "config_not_found",
+          "condition": "config_path does not exist or is not readable",
+          "error_type": "FileNotFoundError",
+          "error_data": {
+            "detail": "File path included in error message"
+          }
+        },
+        {
+          "name": "invalid_yaml",
+          "condition": "ledger.yaml is malformed YAML",
+          "error_type": "ValueError",
+          "error_data": {
+            "detail": "Clear parse error with file path"
+          }
+        },
+        {
+          "name": "port_in_use",
+          "condition": "The specified port is already bound by another process",
+          "error_type": "OSError",
+          "error_data": {
+            "detail": "Address already in use"
+          }
+        }
+      ],
+      "preconditions": [
+        "config_path points to a readable YAML file",
+        "port is a valid port number (1-65535)"
+      ],
+      "postconditions": [
+        "uvicorn server is running on host:port with workers=1",
+        "Server blocks until interrupted (Ctrl+C / SIGINT)"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Reads ledger.yaml config file",
+        "Starts HTTP server on specified port",
+        "Blocks until terminated"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "config_path (ledger.yaml)",
+          "description": "Reads and parses ledger.yaml configuration file."
+        },
+        {
+          "kind": "network_call",
+          "target": "host:port (uvicorn HTTP server)",
+          "description": "Starts uvicorn HTTP server that binds to the specified host and port, accepting inbound connections."
+        },
+        {
+          "kind": "logging",
+          "target": "stdout/stderr",
+          "description": "uvicorn logs server startup, shutdown, and request activity."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 3000,
+        "max_memory_mb": null,
+        "complexity": "O(1)"
+      }
+    },
+    {
+      "name": "get_registry",
+      "description": "FastAPI dependency (Depends) that provides the schema registry. Lazy-initialized on first call — does not load schemas until a request actually needs them. Subsequent calls return the cached instance. This is the key mechanism for meeting the 3-second startup constraint.",
+      "inputs": [],
+      "output_type": "any",
+      "error_cases": [
+        {
+          "name": "schema_dir_not_found",
+          "condition": "config.schema_dir does not exist or is not readable",
+          "error_type": "ResourceNotFoundError",
+          "error_data": {
+            "http_status": "500",
+            "detail": "Schema directory not found"
+          }
+        },
+        {
+          "name": "schema_dir_unreadable",
+          "condition": "Filesystem permission error reading schema_dir",
+          "error_type": "OSError",
+          "error_data": {
+            "detail": "Permission denied"
+          }
+        }
+      ],
+      "preconditions": [
+        "create_app has been called and app state contains config"
+      ],
+      "postconditions": [
+        "Returns initialized schema registry instance",
+        "On first call: registry is created and schema directory is scanned",
+        "On subsequent calls: cached registry returned with no additional I/O"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "Reads schema directory on first invocation"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "config.schema_dir",
+          "description": "On first invocation, scans schema directory and reads YAML files to populate the registry."
+        },
+        {
+          "kind": "mutates_state",
+          "target": "app.state._registry_cache",
+          "description": "Caches the initialized registry instance in app state for subsequent calls."
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "registry",
+    "migration",
+    "export",
+    "mock",
+    "config",
+    "propagation"
+  ],
+  "dependency_contracts": {
+    "registry": [
+      "register_backend",
+      "register_schema",
+      "get_schema",
+      "get_schemas_for_backend",
+      "validate_schema"
+    ],
+    "migration": [
+      "create_plan",
+      "approve_plan",
+      "get_plan"
+    ],
+    "export": [
+      "export_schemas"
+    ],
+    "mock": [
+      "generate_mock_rows"
+    ],
+    "config": [
+      "load_config"
+    ],
+    "propagation": [
+      "get_annotations"
+    ]
+  },
+  "invariants": [
+    "All HTTP error responses use the ErrorResponse model with a complete list of violations — never just the first violation",
+    "Schema YAML content is stored verbatim — never normalized, reformatted, or reordered on ingestion or retrieval",
+    "POST creation endpoints return 201 with Location header; identical re-registration returns 200; conflicting re-registration returns 409",
+    "Schema validation endpoints return ALL violations across all severity levels in a single response",
+    "Migration gate failures return 200/201 with gate_result.passed=false — they are not HTTP errors",
+    "Migration plans are stored in-memory only and do not survive server restarts",
+    "Expired migration plans are cleaned up lazily on access — no background cleanup thread",
+    "Health endpoint (GET /health) has zero heavy dependencies and responds without triggering schema loading",
+    "Schema registry is lazily initialized on first request, not at app startup, to meet the 3-second startup constraint",
+    "All sync route handlers use def (not async def) since all I/O is file-based",
+    "Server runs with exactly 1 uvicorn worker",
+    "PII-annotated columns in mock generation use faker; all other columns use stdlib random",
+    "Missing Arbiter integration: warn and skip canary registration, never crash",
+    "Invalid YAML: fail with clear parse error and file path in the violation message",
+    "Plan IDs are UUID4 strings",
+    "Export: CSV and YAML formats use PlainTextResponse; JSON uses JSONResponse"
+  ],
+  "requires": [
+    "fastapi",
+    "uvicorn",
+    "pydantic>=2.0",
+    "click",
+    "pyyaml"
+  ],
+  "processing_register": "rigorous-analytical",
+  "data_access": {
+    "reads": [
+      "INTERNAL",
+      "PII"
+    ],
+    "writes": [
+      "INTERNAL"
+    ],
+    "rationale": "Reads schema YAML files from disk (INTERNAL tier) containing table definitions that may include PII column annotations (e.g. 'pii:email', 'pii:ssn'). Reads PII-tier data only in the sense that schema metadata describes which columns contain PII — the API never reads actual PII values from databases. Writes are INTERNAL-tier only: in-memory registration of backends, schemas, and migration plans. Mock data generation produces synthetic PII via faker but never accesses real PII data.",
+    "side_effects": [
+      {
+        "type": "file_read",
+        "classification": "INTERNAL",
+        "fields": [
+          "yaml_content",
+          "schema_dir"
+        ],
+        "rationale": "Reads schema YAML files from the configured schema_dir to populate the lazy-loaded registry. Files contain table structure definitions, column types, and annotation tags."
+      },
+      {
+        "type": "state_mutation",
+        "classification": "INTERNAL",
+        "fields": [
+          "backends",
+          "schemas",
+          "plans"
+        ],
+        "rationale": "Mutates in-memory state for backend registration, schema registration, and migration plan storage. All in-memory, no database writes."
+      },
+      {
+        "type": "network_listen",
+        "classification": "INTERNAL",
+        "fields": [
+          "host",
+          "port"
+        ],
+        "rationale": "Binds to a network port via uvicorn to accept inbound HTTP requests. Single-worker, configurable port (default 7701)."
+      },
+      {
+        "type": "mock_pii_generation",
+        "classification": "PII",
+        "fields": [
+          "rows"
+        ],
+        "rationale": "Generates synthetic PII data (emails, names, SSNs, etc.) via faker library for mock data endpoints. This is synthetic data only — no real PII is read or stored."
+      }
+    ]
+  },
+  "authority": {
+    "domains": [
+      "api.http_routes",
+      "api.error_responses",
+      "api.plan_lifecycle"
+    ],
+    "rationale": "The API component is authoritative for: (1) HTTP route definitions, status code contracts, and request/response models for all Ledger REST endpoints; (2) the ErrorResponse/Violation schema used by all error responses across the application; (3) the in-memory migration plan lifecycle including UUID generation, TTL management, lazy eviction, and status transitions (pending -> approved -> expired)."
+  }
+}

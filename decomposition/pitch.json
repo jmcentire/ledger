@@ -1,0 +1,499 @@
+{
+  "problem": "Data obligations (classification tiers, encryption requirements, PII handling, audit rules) are scattered across five tools in the distributed stack — Arbiter, Pact, Baton, Sentinel, and Constrain — each maintaining its own partial copy of schema truth. This drift creates compliance gaps: a field marked PII in one tool may be treated as PUBLIC in another, encrypted_at_rest annotations don't reach mock data generators, and migration changes to sensitive columns bypass gate checks because no central authority knows the full picture. Engineers discover mismatches in production or during audits rather than at schema registration time. There is no single place to answer \"what does this data look like and what are its rules?\" and no mechanism to propagate annotation changes into the control plane automatically.",
+  "appetite": "big",
+  "solution_breadboard": {
+    "places": [
+      {
+        "name": "CLI Entry Point",
+        "description": "Click-based CLI dispatching to init, backend, schema, migrate, mock, export, and serve subcommands"
+      },
+      {
+        "name": "Ledger Init",
+        "description": "Creates .ledger/ directory structure: registry/, plans/, changelog.jsonl"
+      },
+      {
+        "name": "Backend Registry",
+        "description": "Flat YAML store under .ledger/registry/ tracking backend id, type, and owner component. Enforces unique backend ids and exclusive component ownership"
+      },
+      {
+        "name": "Schema Store",
+        "description": "Stores schema YAML files verbatim under .ledger/registry/<backend_id>/. Supports multi-table files. Append-only changelog records every schema addition"
+      },
+      {
+        "name": "Schema Validator",
+        "description": "Validates all registered schemas: checks annotation conflict pairs (immutable+gdpr_erasable, audit_field+gdpr_erasable, soft_delete_marker+immutable), REQUIRES satisfaction rules, backend ownership exclusivity. Returns all violations, not just the first"
+      },
+      {
+        "name": "Annotation Propagation Table",
+        "description": "Data-driven table mapping each annotation to its propagation targets (Pact assertion type, Arbiter tier behavior, Baton masking rule, Sentinel severity). Custom annotations from ledger.yaml extend this table without code changes"
+      },
+      {
+        "name": "Migration Parser",
+        "description": "Regex-based SQL DDL parser extracting ADD COLUMN, DROP COLUMN, ALTER COLUMN with field names, types, and constraints from PostgreSQL/ANSI SQL migration files"
+      },
+      {
+        "name": "Migration Planner",
+        "description": "Computes schema diff between current registry state and parsed migration. Applies gate logic: audit_field drop → BLOCKED, immutable modify → BLOCKED, encryption removal → HUMAN_GATE, tier outside component data_access → HUMAN_GATE, PUBLIC-only to declared component → AUTO_PROCEED. Stores plan as JSON in .ledger/plans/"
+      },
+      {
+        "name": "Migration Approval",
+        "description": "Records human approval for HUMAN_GATE plans with required review reference and rationale. Updates plan status in .ledger/plans/"
+      },
+      {
+        "name": "Pact Exporter",
+        "description": "Generates component-scoped contract assertion YAML from schema annotations and propagation table"
+      },
+      {
+        "name": "Arbiter Exporter",
+        "description": "Generates field-level classification rules YAML with pattern, backend, tier, annotations, taint and mask flags"
+      },
+      {
+        "name": "Baton Exporter",
+        "description": "Generates egress node config YAML with masked_fields and canary_eligible_fields (string-typed PII/FINANCIAL fields only)"
+      },
+      {
+        "name": "Sentinel Exporter",
+        "description": "Generates severity mapping YAML derived from annotation propagation rules"
+      },
+      {
+        "name": "Mock Generator",
+        "description": "Generates N mock records for a backend table. Uses seed from config or --seed override for determinism. Faker for PII, stdlib random for everything else. Token-shaped values for encrypted_at_rest and tokenized fields. Canary mode generates fingerprinted values and optionally registers with Arbiter"
+      },
+      {
+        "name": "HTTP API",
+        "description": "FastAPI + uvicorn server on configurable port (default 7701). Exposes all registry, schema, migration, export, and mock operations as REST endpoints. Starts in under 3 seconds"
+      },
+      {
+        "name": "Config Loader",
+        "description": "Reads ledger.yaml from project root. Provides registry path, API port, integration endpoints (arbiter, pact, stigmergy), mock seed, migration parser list, and custom annotation definitions"
+      },
+      {
+        "name": "Changelog",
+        "description": "Append-only JSONL file at .ledger/changelog.jsonl recording every schema change, backend registration, migration plan, and approval with timestamps"
+      }
+    ],
+    "affordances": [
+      {
+        "name": "ledger init",
+        "description": "Creates .ledger/ directory with empty registry, plans dir, and changelog"
+      },
+      {
+        "name": "ledger backend add",
+        "description": "Registers a storage backend with --type and --owner flags. Fails if backend id already exists"
+      },
+      {
+        "name": "ledger schema add",
+        "description": "Accepts a schema YAML file path, validates YAML syntax, stores verbatim, appends to changelog"
+      },
+      {
+        "name": "ledger schema show",
+        "description": "Displays registered schema for a backend, optionally filtered to a single table"
+      },
+      {
+        "name": "ledger schema validate",
+        "description": "Runs full validation across all schemas: conflict pairs, REQUIRES rules, ownership exclusivity. Returns all violations"
+      },
+      {
+        "name": "ledger migrate plan",
+        "description": "Parses migration file, computes diff against current schema, returns MigrationGate (BLOCKED/HUMAN_GATE/AUTO_PROCEED) with full violation list"
+      },
+      {
+        "name": "ledger migrate approve",
+        "description": "Approves a HUMAN_GATE plan with --review reference id and rationale text"
+      },
+      {
+        "name": "ledger export",
+        "description": "Exports annotations in target format: --format pact|arbiter|baton|sentinel with optional --component filter"
+      },
+      {
+        "name": "ledger mock",
+        "description": "Generates mock records for a table with --count, --seed, and --purpose (canary) options"
+      },
+      {
+        "name": "ledger serve",
+        "description": "Starts FastAPI server on configured port"
+      },
+      {
+        "name": "validate annotations",
+        "description": "Internal: checks field annotations against CONFLICTS and REQUIRES tables"
+      },
+      {
+        "name": "parse SQL DDL",
+        "description": "Internal: regex-based extraction of ADD/DROP/ALTER COLUMN from SQL migration files"
+      },
+      {
+        "name": "compute schema diff",
+        "description": "Internal: diffs parsed migration against registered schema to identify affected fields and their annotations"
+      },
+      {
+        "name": "apply gate logic",
+        "description": "Internal: evaluates diff against gate rules to produce BLOCKED/HUMAN_GATE/AUTO_PROCEED with rationale"
+      },
+      {
+        "name": "resolve propagation",
+        "description": "Internal: looks up annotation in propagation table and returns target-specific config fragments"
+      },
+      {
+        "name": "generate token-shaped value",
+        "description": "Internal: produces tok_{base64url_24chars} for encrypted_at_rest and tokenized fields"
+      },
+      {
+        "name": "generate canary fingerprint",
+        "description": "Internal: produces ledger-canary-{tier}-{hex8} shaped to field type for canary-eligible string fields"
+      },
+      {
+        "name": "register canary with Arbiter",
+        "description": "Internal: POSTs canary fingerprints to Arbiter API if configured, warns and skips if not"
+      },
+      {
+        "name": "acquire file lock",
+        "description": "Internal: fcntl-based file locking for changelog and plans directory writes"
+      }
+    ],
+    "connections": [
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Ledger Init",
+        "affordance": "ledger init",
+        "description": null
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Backend Registry",
+        "affordance": "ledger backend add",
+        "description": null
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Schema Store",
+        "affordance": "ledger schema add",
+        "description": null
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Schema Store",
+        "affordance": "ledger schema show",
+        "description": null
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Schema Validator",
+        "affordance": "ledger schema validate",
+        "description": null
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Migration Planner",
+        "affordance": "ledger migrate plan",
+        "description": null
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Migration Approval",
+        "affordance": "ledger migrate approve",
+        "description": null
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Pact Exporter",
+        "affordance": "ledger export",
+        "description": "When --format pact"
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Arbiter Exporter",
+        "affordance": "ledger export",
+        "description": "When --format arbiter"
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Baton Exporter",
+        "affordance": "ledger export",
+        "description": "When --format baton"
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Sentinel Exporter",
+        "affordance": "ledger export",
+        "description": "When --format sentinel"
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "Mock Generator",
+        "affordance": "ledger mock",
+        "description": null
+      },
+      {
+        "from_place": "CLI Entry Point",
+        "to_place": "HTTP API",
+        "affordance": "ledger serve",
+        "description": null
+      },
+      {
+        "from_place": "Schema Store",
+        "to_place": "Changelog",
+        "affordance": "acquire file lock",
+        "description": "Every schema addition appends to changelog.jsonl"
+      },
+      {
+        "from_place": "Backend Registry",
+        "to_place": "Changelog",
+        "affordance": "acquire file lock",
+        "description": "Every backend registration appends to changelog.jsonl"
+      },
+      {
+        "from_place": "Schema Validator",
+        "to_place": "Schema Store",
+        "affordance": "validate annotations",
+        "description": "Reads all registered schemas for cross-schema validation"
+      },
+      {
+        "from_place": "Schema Validator",
+        "to_place": "Annotation Propagation Table",
+        "affordance": "validate annotations",
+        "description": "Checks annotations against CONFLICTS and REQUIRES tables"
+      },
+      {
+        "from_place": "Migration Planner",
+        "to_place": "Migration Parser",
+        "affordance": "parse SQL DDL",
+        "description": "Parses the migration file into structured changes"
+      },
+      {
+        "from_place": "Migration Planner",
+        "to_place": "Schema Store",
+        "affordance": "compute schema diff",
+        "description": "Loads current schema to diff against migration changes"
+      },
+      {
+        "from_place": "Migration Planner",
+        "to_place": "Migration Planner",
+        "affordance": "apply gate logic",
+        "description": "Evaluates diff to produce gate decision"
+      },
+      {
+        "from_place": "Migration Planner",
+        "to_place": "Changelog",
+        "affordance": "acquire file lock",
+        "description": "Records migration plan in changelog and .ledger/plans/"
+      },
+      {
+        "from_place": "Migration Approval",
+        "to_place": "Changelog",
+        "affordance": "acquire file lock",
+        "description": "Records approval decision in changelog"
+      },
+      {
+        "from_place": "Pact Exporter",
+        "to_place": "Schema Store",
+        "affordance": "resolve propagation",
+        "description": "Reads schema and applies Pact propagation rules"
+      },
+      {
+        "from_place": "Pact Exporter",
+        "to_place": "Annotation Propagation Table",
+        "affordance": "resolve propagation",
+        "description": null
+      },
+      {
+        "from_place": "Arbiter Exporter",
+        "to_place": "Schema Store",
+        "affordance": "resolve propagation",
+        "description": "Reads schema and applies Arbiter propagation rules"
+      },
+      {
+        "from_place": "Arbiter Exporter",
+        "to_place": "Annotation Propagation Table",
+        "affordance": "resolve propagation",
+        "description": null
+      },
+      {
+        "from_place": "Baton Exporter",
+        "to_place": "Schema Store",
+        "affordance": "resolve propagation",
+        "description": "Reads schema and applies Baton propagation rules"
+      },
+      {
+        "from_place": "Baton Exporter",
+        "to_place": "Annotation Propagation Table",
+        "affordance": "resolve propagation",
+        "description": null
+      },
+      {
+        "from_place": "Sentinel Exporter",
+        "to_place": "Schema Store",
+        "affordance": "resolve propagation",
+        "description": "Reads schema and applies Sentinel propagation rules"
+      },
+      {
+        "from_place": "Sentinel Exporter",
+        "to_place": "Annotation Propagation Table",
+        "affordance": "resolve propagation",
+        "description": null
+      },
+      {
+        "from_place": "Mock Generator",
+        "to_place": "Schema Store",
+        "affordance": "ledger schema show",
+        "description": "Loads table schema to determine field types and annotations"
+      },
+      {
+        "from_place": "Mock Generator",
+        "to_place": "Mock Generator",
+        "affordance": "generate token-shaped value",
+        "description": "For encrypted_at_rest and tokenized fields"
+      },
+      {
+        "from_place": "Mock Generator",
+        "to_place": "Mock Generator",
+        "affordance": "generate canary fingerprint",
+        "description": "When --purpose canary for eligible string fields"
+      },
+      {
+        "from_place": "Mock Generator",
+        "to_place": "HTTP API",
+        "affordance": "register canary with Arbiter",
+        "description": "POSTs canary fingerprints if Arbiter is configured"
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Backend Registry",
+        "affordance": "ledger backend add",
+        "description": "REST endpoint proxies to registry"
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Schema Store",
+        "affordance": "ledger schema add",
+        "description": "REST endpoint proxies to schema store"
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Schema Store",
+        "affordance": "ledger schema show",
+        "description": "REST endpoint proxies to schema query"
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Schema Validator",
+        "affordance": "ledger schema validate",
+        "description": "REST endpoint proxies to validator"
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Migration Planner",
+        "affordance": "ledger migrate plan",
+        "description": "REST endpoint proxies to planner"
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Migration Approval",
+        "affordance": "ledger migrate approve",
+        "description": "REST endpoint proxies to approval"
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Pact Exporter",
+        "affordance": "ledger export",
+        "description": null
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Arbiter Exporter",
+        "affordance": "ledger export",
+        "description": null
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Baton Exporter",
+        "affordance": "ledger export",
+        "description": null
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Sentinel Exporter",
+        "affordance": "ledger export",
+        "description": null
+      },
+      {
+        "from_place": "HTTP API",
+        "to_place": "Mock Generator",
+        "affordance": "ledger mock",
+        "description": null
+      },
+      {
+        "from_place": "Config Loader",
+        "to_place": "Annotation Propagation Table",
+        "affordance": "resolve propagation",
+        "description": "Custom annotations from ledger.yaml extend the propagation table at startup"
+      }
+    ]
+  },
+  "solution_region_map": null,
+  "rabbit_holes": [
+    {
+      "description": "SQL migration parser scope creep: regex-based DDL parsing for PostgreSQL is tractable for ADD/DROP/ALTER COLUMN in ALTER TABLE statements, but edge cases (multi-line statements, comments, quoted identifiers, conditional DDL with IF EXISTS, column renames via multiple statements) could consume the entire cycle if we try to handle them all.",
+      "status": "patched",
+      "mitigation": "Scope v1 parser to: ALTER TABLE ADD COLUMN, ALTER TABLE DROP COLUMN, ALTER TABLE ALTER COLUMN (type change, SET/DROP NOT NULL, SET/DROP DEFAULT). Ignore CREATE TABLE (that's initial schema, not migration). Ignore RENAME COLUMN (treat as DROP + ADD in the diff). Regex patterns tested against a fixed corpus of 15-20 known SQL inputs. Anything unparseable returns HUMAN_GATE with 'unparseable statement' reason rather than crashing or silently ignoring."
+    },
+    {
+      "description": "Annotation propagation table design: making propagation fully data-driven (so custom annotations work without code changes) requires the export format generators to be generic enough to handle arbitrary propagation targets, but each export format (Pact, Arbiter, Baton, Sentinel) has a different output shape. There's a tension between 'no code changes for custom annotations' and 'each exporter has specific output structure'.",
+      "status": "patched",
+      "mitigation": "Each exporter has a fixed output template structure, but annotation-to-field mappings within that template are driven by the propagation table. Custom annotations can declare which propagation targets they affect and what values to inject (e.g., arbiter_tier_override, sentinel_severity, pact_contract_assertion). The exporter looks up the propagation table for each field annotation and merges the results into its fixed template. New propagation targets (beyond the four built-in) are out of scope."
+    },
+    {
+      "description": "Foreign key blast radius in migration analysis: the spec says 'Foreign key annotations include referenced table in blast radius.' Tracing FK references across tables means the migration planner must load and cross-reference all schemas, not just the one being migrated. If FK chains are deep (A→B→C), we could spend significant time on a graph traversal engine.",
+      "status": "patched",
+      "mitigation": "Limit blast radius to one hop: if a migration affects table A, and table B has a foreign_key annotation referencing A, table B is included in the blast radius. Do not follow transitive FK chains (B→C is not included). The blast radius is informational — it appears in the migration plan output but does not change the gate decision. Gate logic only evaluates annotations on the directly modified columns."
+    },
+    {
+      "description": "HTTP API startup time constraint (under 3 seconds): FastAPI + uvicorn startup is normally fast, but if Ledger eagerly loads and validates all schemas at startup, a large registry could blow the 3-second budget.",
+      "status": "patched",
+      "mitigation": "Lazy loading: the API server starts with only config parsed and routes registered. Schema store and validation are loaded on first request, not at startup. The /health endpoint responds immediately. Measure startup time in CI with a 500-schema registry to catch regressions."
+    },
+    {
+      "description": "Deterministic mock data with Faker: Faker's seeding behavior can be brittle across versions. If the number of fields or their order changes, the same seed produces different output for unchanged fields because Faker's internal RNG state has shifted.",
+      "status": "patched",
+      "mitigation": "Create a separate Faker instance per field (not per table) seeded with hash(global_seed + backend_id + table + field_name). This isolates each field's random stream so that adding/removing other fields doesn't change existing field outputs. Document this as a contract: same seed + same field definition = same value, regardless of other fields in the table."
+    },
+    {
+      "description": "File-level locking with fcntl: fcntl locks are advisory on most systems and don't work on Windows or across NFS mounts. If anyone runs Ledger on Windows or on a shared filesystem, the locking is silently ineffective.",
+      "status": "patched",
+      "mitigation": "Acceptable for v1: the spec says single-process uvicorn and CLI commands acquire locks before writing. Document that Ledger requires a POSIX filesystem. Windows support is explicitly out of scope for this cycle. For NFS, recommend running Ledger local to the .ledger/ directory."
+    },
+    {
+      "description": "REQUIRES satisfaction semantics are underspecified for the OR case: ('gdpr_erasable', 'soft_delete_marker', 'OR', 'erasure_method_declared') — does the OR mean the same field must have erasure_method_declared, or any field in the table? And REQUIRES violations are warnings, not errors, which means they're easy to ignore and the validation output format needs to distinguish severity levels.",
+      "status": "patched",
+      "mitigation": "Implement as: if field has gdpr_erasable, check (a) the same table has a field with soft_delete_marker annotation, OR (b) the same field has erasure_method_declared annotation. The OR binds the two alternatives: table-level for the first, field-level for the second. Validation output uses a Severity enum (ERROR for CONFLICTS, WARNING for REQUIRES) so callers can filter. The CLI exits 0 on warnings-only, non-zero on errors."
+    },
+    {
+      "description": "Canary registration with Arbiter: the spec says canary fingerprints are registered with Arbiter if configured, but the Arbiter API contract is not defined. We could spend time designing and implementing an HTTP client for an API that doesn't exist yet or changes under us.",
+      "status": "patched",
+      "mitigation": "Define a minimal CanaryRegistrar interface (register_canary(fingerprint, metadata) -> bool). Implement a real HTTP client that POSTs to arbiter_api from config, and a no-op stub that logs a warning. The HTTP client uses httpx with a 5-second timeout. If Arbiter returns non-2xx or is unreachable, log warning and continue. Test with httpx mock fixtures only. Do not block mock generation on Arbiter availability."
+    },
+    {
+      "description": "Export format fidelity: the spec references 'complete YAML examples' in the brief for all four export formats, but we only have high-level descriptions. If the consuming tools (Pact, Arbiter, Baton, Sentinel) expect exact field names or structures, our exports could be silently incompatible.",
+      "status": "patched",
+      "mitigation": "Define Pydantic models for each export format based on the descriptions provided (PactAssertion, ArbiterRule, BatonEgressNode, SentinelMapping). These models ARE the contract. Export tests validate that output round-trips through the Pydantic model. If consuming tools need adjustments, the Pydantic model is the single place to update. Ship with example output files in docs/ for each format."
+    },
+    {
+      "description": "Append-only changelog growth: JSONL changelog with every schema change, backend registration, migration plan, and approval will grow unbounded. On a long-lived project this file could become very large, slowing down any operation that needs to read history.",
+      "status": "patched",
+      "mitigation": "No operation in v1 reads the full changelog — it is write-only for audit purposes. Schema state is reconstructed from the registry files, not the changelog. Document that the changelog is for audit/compliance trail only. A future 'ledger changelog compact' command can archive old entries, but it's out of scope for this cycle."
+    }
+  ],
+  "no_gos": [
+    "No microservices — Ledger is a single Python package with CLI and embedded HTTP API",
+    "No ORM and no database connections — Ledger reads and stores schema YAML, it never connects to actual storage backends",
+    "No schema YAML normalization — files are stored verbatim, never reformatted or reordered on ingestion",
+    "No MySQL, Flyway, or Liquibase parser support in this cycle — SQL (PostgreSQL/ANSI) only, Alembic second if time permits",
+    "No component lifecycle management — Ledger tracks backend ownership via --owner flag, it does not manage component registration",
+    "No configurable classification tiers — the five-tier enumeration (PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE) is fixed and hardcoded",
+    "No real encryption or tokenization — Ledger generates token-shaped mock values (tok_ prefix) but does not perform actual cryptographic operations",
+    "No multi-worker API deployment — uvicorn runs single-process; concurrent write safety uses file-level locking only",
+    "No SQL execution — the migration parser extracts structural DDL changes via regex/pattern matching, never runs queries",
+    "No sqlglot or AST-based SQL parsing — regex-based extraction is acceptable for v1"
+  ],
+  "fit_check": null,
+  "status": "shaped"
+}

@@ -1,0 +1,1452 @@
+{
+  "component_id": "migration",
+  "name": "Migration Parser & Planner",
+  "description": "Parses SQL migration files (PostgreSQL/ANSI SQL) using regex-based extraction to identify ADD COLUMN, DROP COLUMN, and ALTER COLUMN operations from ALTER TABLE statements. Computes schema diffs against the current registry state and applies gate logic to produce migration plans. Gate decisions are ordered AUTO_PROCEED < HUMAN_GATE < BLOCKED. Plans are persisted as JSON in .ledger/plans/ with UUID-based plan IDs. Supports human approval workflow for HUMAN_GATE plans with required review reference and rationale. Blast radius computed via single-hop FK expansion from registry annotations.",
+  "version": 1,
+  "types": [
+    {
+      "name": "OperationType",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "ADD_COLUMN",
+        "DROP_COLUMN",
+        "ALTER_COLUMN"
+      ],
+      "inner_types": [],
+      "description": "Discriminator for the type of column operation extracted from SQL."
+    },
+    {
+      "name": "GateDecision",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "AUTO_PROCEED",
+        "HUMAN_GATE",
+        "BLOCKED"
+      ],
+      "inner_types": [],
+      "description": "Ordered severity enum for migration gate outcomes. AUTO_PROCEED < HUMAN_GATE < BLOCKED."
+    },
+    {
+      "name": "PlanStatus",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "PENDING",
+        "APPROVED",
+        "REJECTED"
+      ],
+      "inner_types": [],
+      "description": "Lifecycle status of a migration plan."
+    },
+    {
+      "name": "ViolationSeverity",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "INFO",
+        "WARN",
+        "BLOCK"
+      ],
+      "inner_types": [],
+      "description": "Severity level for gate violations, aligned with GateDecision."
+    },
+    {
+      "name": "ColumnConstraint",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "constraint_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The type of constraint, e.g. 'NOT_NULL', 'DEFAULT', 'UNIQUE', 'PRIMARY_KEY', 'REFERENCES', 'CHECK'.",
+          "validators": []
+        },
+        {
+          "name": "value",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Optional constraint value, e.g. the default expression or referenced table.column for REFERENCES.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single constraint parsed from a column definition in SQL (e.g., NOT NULL, DEFAULT, UNIQUE, PRIMARY KEY, REFERENCES)."
+    },
+    {
+      "name": "ColumnOperation",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "op_type",
+          "type_ref": "OperationType",
+          "required": true,
+          "default": "",
+          "description": "Discriminator: ADD_COLUMN, DROP_COLUMN, or ALTER_COLUMN.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Fully qualified or unqualified table name from the ALTER TABLE statement.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "table_name must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "column_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Name of the column being added, dropped, or altered.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "column_name must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "new_type",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "The SQL type for ADD_COLUMN or the new type for ALTER_COLUMN. Empty for DROP_COLUMN.",
+          "validators": []
+        },
+        {
+          "name": "old_type",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "The previous SQL type for ALTER_COLUMN (populated from registry context during diff). Empty for ADD/DROP.",
+          "validators": []
+        },
+        {
+          "name": "constraints",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Parsed constraints for the column (NOT NULL, DEFAULT, etc.). Empty list if none.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single column-level operation extracted from an ALTER TABLE SQL statement. Discriminated by op_type field."
+    },
+    {
+      "name": "ParseWarning",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "line_number",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "1-based line number in the source SQL where the warning occurred.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of the parse warning.",
+          "validators": []
+        },
+        {
+          "name": "raw_statement",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "The raw SQL statement fragment that triggered the warning.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A non-fatal warning emitted during SQL parsing, e.g., unrecognized statement or ambiguous syntax."
+    },
+    {
+      "name": "ParsedMigration",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "operations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Ordered list of column operations extracted from the SQL file.",
+          "validators": []
+        },
+        {
+          "name": "source_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Filesystem path of the source SQL migration file.",
+          "validators": []
+        },
+        {
+          "name": "source_hash",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "SHA-256 hex digest of the raw SQL content for integrity tracking.",
+          "validators": []
+        },
+        {
+          "name": "statement_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Total number of semicolon-delimited statements found in the file (including non-ALTER statements).",
+          "validators": []
+        },
+        {
+          "name": "warnings",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Non-fatal parse warnings. Empty if parsing was clean.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result of parsing a SQL migration file. Contains all extracted column operations, source metadata, and any parse warnings."
+    },
+    {
+      "name": "FieldAnnotation",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "classification_tier",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Data classification tier: PUBLIC, INTERNAL, PII, RESTRICTED.",
+          "validators": []
+        },
+        {
+          "name": "is_audit_field",
+          "type_ref": "bool",
+          "required": true,
+          "default": "false",
+          "description": "Whether this field is marked as an audit field in the registry.",
+          "validators": []
+        },
+        {
+          "name": "is_immutable",
+          "type_ref": "bool",
+          "required": true,
+          "default": "false",
+          "description": "Whether this field is marked as immutable in the registry.",
+          "validators": []
+        },
+        {
+          "name": "is_encrypted",
+          "type_ref": "bool",
+          "required": true,
+          "default": "false",
+          "description": "Whether this field is marked as requiring encryption in the registry.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Registry-sourced annotation context for a specific field, used during diff enrichment and gate evaluation."
+    },
+    {
+      "name": "DiffEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "operation",
+          "type_ref": "ColumnOperation",
+          "required": true,
+          "default": "",
+          "description": "The parsed column operation from SQL.",
+          "validators": []
+        },
+        {
+          "name": "annotation",
+          "type_ref": "FieldAnnotation",
+          "required": false,
+          "default": "",
+          "description": "Registry-sourced annotation for this field. None if the field is new (ADD) or not found in registry.",
+          "validators": []
+        },
+        {
+          "name": "is_new_field",
+          "type_ref": "bool",
+          "required": true,
+          "default": "false",
+          "description": "True if this is an ADD_COLUMN for a field not currently in the registry.",
+          "validators": []
+        },
+        {
+          "name": "is_field_removal",
+          "type_ref": "bool",
+          "required": true,
+          "default": "false",
+          "description": "True if this is a DROP_COLUMN for a field that exists in the registry.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single operation enriched with registry context. Combines the parsed SQL operation with annotation metadata from the schema registry."
+    },
+    {
+      "name": "SchemaDiff",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "entries",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Ordered list of enriched diff entries.",
+          "validators": []
+        },
+        {
+          "name": "affected_tables",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Deduplicated list of table names directly affected by the migration operations.",
+          "validators": []
+        },
+        {
+          "name": "source_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Source migration file path, propagated from ParsedMigration.",
+          "validators": []
+        },
+        {
+          "name": "source_hash",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Source file hash, propagated from ParsedMigration.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Complete diff between a parsed migration and the current registry state, enriched with annotation context."
+    },
+    {
+      "name": "GateViolation",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "rule_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique identifier for the gate rule that was violated (e.g., 'audit_field_drop', 'immutable_modify', 'encryption_removal').",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "GateDecision",
+          "required": true,
+          "default": "",
+          "description": "The gate decision severity for this violation: BLOCKED, HUMAN_GATE, or AUTO_PROCEED.",
+          "validators": []
+        },
+        {
+          "name": "table_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The table containing the violating field.",
+          "validators": []
+        },
+        {
+          "name": "column_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The column that triggered the violation.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable explanation of why this violation was raised.",
+          "validators": []
+        },
+        {
+          "name": "context",
+          "type_ref": "dict",
+          "required": false,
+          "default": "{}",
+          "description": "Additional structured context (e.g., current tier, requested tier, annotation details).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single gate rule violation detected during migration gate evaluation."
+    },
+    {
+      "name": "GateRuleEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "condition_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The condition identifier, e.g., 'audit_field_drop', 'immutable_modify', 'encryption_removal', 'tier_mismatch', 'public_only_change'.",
+          "validators": []
+        },
+        {
+          "name": "decision",
+          "type_ref": "GateDecision",
+          "required": true,
+          "default": "",
+          "description": "The gate decision to apply when this condition is matched.",
+          "validators": []
+        },
+        {
+          "name": "description",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of the rule for audit and display purposes.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single row in the gate rule data table mapping a condition type and field annotation pattern to a gate decision."
+    },
+    {
+      "name": "ComponentContext",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "component_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The component_id of the component whose migration is being evaluated.",
+          "validators": []
+        },
+        {
+          "name": "declared_data_access_tiers",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "The list of data classification tiers this component has declared in its data_access (e.g., ['PUBLIC', 'INTERNAL']).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Context about the component requesting the migration, used to evaluate tier-based gate rules."
+    },
+    {
+      "name": "MigrationPlan",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID v4 string uniquely identifying this plan.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "error_message": "plan_id must be a valid UUID v4"
+            }
+          ]
+        },
+        {
+          "name": "schema_version",
+          "type_ref": "int",
+          "required": true,
+          "default": "1",
+          "description": "Version counter for the plan schema format, for forward-compatible deserialization.",
+          "validators": []
+        },
+        {
+          "name": "diff",
+          "type_ref": "SchemaDiff",
+          "required": true,
+          "default": "",
+          "description": "The enriched schema diff this plan was computed from.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "All gate violations detected. May be empty for AUTO_PROCEED plans.",
+          "validators": []
+        },
+        {
+          "name": "overall_gate",
+          "type_ref": "GateDecision",
+          "required": true,
+          "default": "",
+          "description": "The highest-severity gate decision across all violations. AUTO_PROCEED if no violations.",
+          "validators": []
+        },
+        {
+          "name": "blast_radius",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Set of table names in the blast radius: directly affected tables plus single-hop FK-referenced tables.",
+          "validators": []
+        },
+        {
+          "name": "status",
+          "type_ref": "PlanStatus",
+          "required": true,
+          "default": "",
+          "description": "Current lifecycle status of the plan.",
+          "validators": []
+        },
+        {
+          "name": "created_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of plan creation.",
+          "validators": []
+        },
+        {
+          "name": "updated_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of last status update.",
+          "validators": []
+        },
+        {
+          "name": "source_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Original migration SQL file path.",
+          "validators": []
+        },
+        {
+          "name": "source_hash",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "SHA-256 hash of the original SQL file for integrity verification.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A complete migration plan: diff, violations, overall gate decision, blast radius, and lifecycle status. Persisted as JSON in .ledger/plans/<plan_id>.json."
+    },
+    {
+      "name": "ApprovalRecord",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID of the plan being approved.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "error_message": "plan_id must be a valid UUID v4"
+            }
+          ]
+        },
+        {
+          "name": "reviewer",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Identity of the reviewer approving the plan.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "reviewer must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "review_reference",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "External review reference (e.g., ticket ID, PR URL) passed via --review flag.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "review_reference must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "rationale",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-written rationale for why this migration is approved despite gate violations.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "rationale must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "timestamp",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of approval.",
+          "validators": []
+        },
+        {
+          "name": "new_status",
+          "type_ref": "PlanStatus",
+          "required": true,
+          "default": "",
+          "description": "The status the plan transitions to (APPROVED).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Records human approval of a HUMAN_GATE migration plan, including the required review reference and rationale."
+    },
+    {
+      "name": "MigrationParseError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Path to the SQL file that failed to parse.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable error description.",
+          "validators": []
+        },
+        {
+          "name": "line_number",
+          "type_ref": "int",
+          "required": false,
+          "default": "",
+          "description": "Line number where the fatal error occurred, if applicable.",
+          "validators": []
+        },
+        {
+          "name": "raw_content",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "The raw content fragment that caused the failure.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Raised when SQL parsing fails catastrophically (e.g., file not found, encoding error, completely unparseable content). Contains structured context."
+    },
+    {
+      "name": "PlanNotFoundError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The UUID that was not found.",
+          "validators": []
+        },
+        {
+          "name": "search_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The filesystem path that was searched.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Raised when a plan_id does not correspond to any persisted plan in .ledger/plans/."
+    },
+    {
+      "name": "InvalidPlanTransitionError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The UUID of the plan with the invalid transition.",
+          "validators": []
+        },
+        {
+          "name": "current_status",
+          "type_ref": "PlanStatus",
+          "required": true,
+          "default": "",
+          "description": "The current status of the plan.",
+          "validators": []
+        },
+        {
+          "name": "requested_status",
+          "type_ref": "PlanStatus",
+          "required": true,
+          "default": "",
+          "description": "The status that was requested.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Explanation of why the transition is invalid.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Raised when an attempted plan status transition is not valid (e.g., approving an already-approved plan or approving a BLOCKED plan)."
+    },
+    {
+      "name": "PlanPersistenceError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The UUID of the plan that failed to persist.",
+          "validators": []
+        },
+        {
+          "name": "target_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The filesystem path where the write was attempted.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable error description.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Raised when atomic file write for plan persistence fails (disk full, permission denied, etc.)."
+    }
+  ],
+  "functions": [
+    {
+      "name": "parse_migration",
+      "description": "Parses a SQL migration file using regex-based extraction targeting PostgreSQL/ANSI SQL. Strips comments (single-line -- and block /* */), splits on semicolons, and extracts ADD COLUMN, DROP COLUMN, and ALTER COLUMN operations from ALTER TABLE statements. Returns all operations and warnings; never short-circuits on the first warning.",
+      "inputs": [
+        {
+          "name": "sql",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw SQL content of the migration file.",
+          "validators": []
+        },
+        {
+          "name": "source_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Filesystem path of the source SQL file, for error reporting and metadata.",
+          "validators": []
+        }
+      ],
+      "output_type": "ParsedMigration",
+      "error_cases": [
+        {
+          "name": "empty_sql",
+          "condition": "sql is empty or contains only whitespace/comments",
+          "error_type": "MigrationParseError",
+          "error_data": {
+            "message": "SQL content is empty or contains only comments"
+          }
+        },
+        {
+          "name": "encoding_error",
+          "condition": "sql contains invalid characters that prevent regex extraction",
+          "error_type": "MigrationParseError",
+          "error_data": {
+            "message": "SQL content contains invalid characters"
+          }
+        }
+      ],
+      "preconditions": [
+        "sql is a non-empty string",
+        "source_path is a non-empty string representing a valid filesystem path"
+      ],
+      "postconditions": [
+        "Returned ParsedMigration.source_path equals the input source_path",
+        "Returned ParsedMigration.source_hash is the SHA-256 hex digest of the input sql string",
+        "Returned ParsedMigration.operations contains only ADD_COLUMN, DROP_COLUMN, or ALTER_COLUMN operations",
+        "All parse warnings are collected in ParsedMigration.warnings — parsing does not stop at first warning",
+        "Statement count reflects total semicolon-delimited statements including non-ALTER statements"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function: parses in-memory SQL string, no I/O."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 100,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is the length of the SQL string"
+      }
+    },
+    {
+      "name": "compute_diff",
+      "description": "Computes a schema diff between a parsed migration and the current registry state. Each parsed operation is enriched with field annotations from the registry (classification tier, audit/immutable/encrypted flags). Produces the list of affected tables from the migration operations.",
+      "inputs": [
+        {
+          "name": "parsed",
+          "type_ref": "ParsedMigration",
+          "required": true,
+          "default": "",
+          "description": "The parsed migration result from parse_migration.",
+          "validators": []
+        },
+        {
+          "name": "registry",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "SchemaRegistry instance providing get_field_annotations and get_schema lookups.",
+          "validators": []
+        }
+      ],
+      "output_type": "SchemaDiff",
+      "error_cases": [
+        {
+          "name": "empty_operations",
+          "condition": "parsed.operations is empty",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Cannot compute diff from a migration with zero operations"
+          }
+        },
+        {
+          "name": "registry_lookup_failure",
+          "condition": "Registry raises an error when looking up schema or annotations for a table",
+          "error_type": "MigrationParseError",
+          "error_data": {
+            "message": "Failed to retrieve registry data for table"
+          }
+        }
+      ],
+      "preconditions": [
+        "parsed is a valid ParsedMigration with at least one operation",
+        "registry is a valid SchemaRegistry instance with accessible schema data"
+      ],
+      "postconditions": [
+        "Returned SchemaDiff.entries has same length as parsed.operations",
+        "Each DiffEntry.operation corresponds to the same-index operation in parsed.operations",
+        "DiffEntry.annotation is populated from registry for existing fields, None for new fields",
+        "DiffEntry.is_new_field is True iff op_type is ADD_COLUMN and field not in registry",
+        "DiffEntry.is_field_removal is True iff op_type is DROP_COLUMN and field exists in registry",
+        "SchemaDiff.affected_tables contains all unique table names from the operations",
+        "SchemaDiff.source_path and source_hash propagated from parsed"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "registry",
+          "description": "Reads registry state in-memory; does not mutate registry. Registry access is via method calls, not I/O."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 200,
+        "max_memory_mb": null,
+        "complexity": "O(n * m) where n is number of operations and m is average registry lookup cost"
+      }
+    },
+    {
+      "name": "evaluate_gates",
+      "description": "Applies the gate rule data table against every entry in a SchemaDiff, using the component's declared data access tiers for tier-based rules. Returns ALL violations found — never short-circuits. Gate rules: audit_field drop → BLOCKED, immutable field modify → BLOCKED, encryption removal → HUMAN_GATE, classification tier not in component's data_access → HUMAN_GATE, PUBLIC-only change to declared-PUBLIC component → AUTO_PROCEED.",
+      "inputs": [
+        {
+          "name": "diff",
+          "type_ref": "SchemaDiff",
+          "required": true,
+          "default": "",
+          "description": "The enriched schema diff to evaluate.",
+          "validators": []
+        },
+        {
+          "name": "component_context",
+          "type_ref": "ComponentContext",
+          "required": true,
+          "default": "",
+          "description": "Context about the component requesting the migration, including declared data access tiers.",
+          "validators": []
+        }
+      ],
+      "output_type": "list",
+      "error_cases": [
+        {
+          "name": "empty_diff",
+          "condition": "diff.entries is empty",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Cannot evaluate gates on an empty diff"
+          }
+        }
+      ],
+      "preconditions": [
+        "diff is a valid SchemaDiff with at least one entry",
+        "component_context.component_id is non-empty",
+        "component_context.declared_data_access_tiers is non-empty"
+      ],
+      "postconditions": [
+        "Returned list contains all GateViolation instances — every rule is evaluated against every diff entry",
+        "Each GateViolation has a valid rule_id corresponding to a rule in the gate rule table",
+        "If no violations are found, an empty list is returned (implies AUTO_PROCEED overall)",
+        "Violations are ordered by severity descending (BLOCKED first, then HUMAN_GATE, then AUTO_PROCEED)"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function: evaluates rules against in-memory diff data, no I/O."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 50,
+        "max_memory_mb": null,
+        "complexity": "O(n * r) where n is number of diff entries and r is number of gate rules"
+      }
+    },
+    {
+      "name": "create_plan",
+      "description": "Assembles a MigrationPlan from a SchemaDiff and list of GateViolations, computes the blast radius (affected tables + single-hop FK expansion from registry), assigns a UUID v4 plan_id, sets status to PENDING, and persists the plan as JSON to .ledger/plans/<plan_id>.json using atomic file write (write to temp, then rename).",
+      "inputs": [
+        {
+          "name": "diff",
+          "type_ref": "SchemaDiff",
+          "required": true,
+          "default": "",
+          "description": "The enriched schema diff for this plan.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "All GateViolation instances from evaluate_gates. May be empty.",
+          "validators": []
+        },
+        {
+          "name": "registry",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "SchemaRegistry instance for FK lookups to compute blast radius.",
+          "validators": []
+        },
+        {
+          "name": "plans_dir",
+          "type_ref": "str",
+          "required": true,
+          "default": ".ledger/plans",
+          "description": "Filesystem path to the .ledger/plans/ directory.",
+          "validators": []
+        }
+      ],
+      "output_type": "MigrationPlan",
+      "error_cases": [
+        {
+          "name": "plans_dir_not_writable",
+          "condition": "The plans_dir does not exist or is not writable",
+          "error_type": "PlanPersistenceError",
+          "error_data": {
+            "message": "Cannot write to plans directory"
+          }
+        },
+        {
+          "name": "atomic_write_failure",
+          "condition": "Atomic file write (temp + rename) fails due to disk error or permissions",
+          "error_type": "PlanPersistenceError",
+          "error_data": {
+            "message": "Atomic write of plan file failed"
+          }
+        },
+        {
+          "name": "registry_fk_lookup_failure",
+          "condition": "Registry raises an error when looking up foreign key annotations for blast radius",
+          "error_type": "MigrationParseError",
+          "error_data": {
+            "message": "Failed to retrieve FK annotations for blast radius computation"
+          }
+        }
+      ],
+      "preconditions": [
+        "diff is a valid SchemaDiff",
+        "violations is a list of GateViolation (may be empty)",
+        "plans_dir is a writable directory path",
+        "registry is a valid SchemaRegistry for FK lookups"
+      ],
+      "postconditions": [
+        "Returned MigrationPlan.plan_id is a valid UUID v4 string",
+        "Returned MigrationPlan.status is PENDING",
+        "Returned MigrationPlan.overall_gate is the max severity across all violations, or AUTO_PROCEED if violations is empty",
+        "Returned MigrationPlan.blast_radius includes all affected_tables from diff plus single-hop FK-referenced tables",
+        "Blast radius does NOT include transitive FK references (single hop only)",
+        "A JSON file exists at plans_dir/<plan_id>.json containing the serialized plan",
+        "File write is atomic: partial writes do not leave corrupt plan files",
+        "created_at and updated_at are set to the same ISO 8601 timestamp at creation time"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Writes plan JSON file to .ledger/plans/<plan_id>.json"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "writes_file",
+          "target": ".ledger/plans/<plan_id>.json",
+          "description": "Persists the migration plan as a JSON file using atomic write (write to temp file, then os.rename)."
+        },
+        {
+          "kind": "reads_file",
+          "target": ".ledger/plans/",
+          "description": "Checks plans directory exists and is writable before persisting."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 500,
+        "max_memory_mb": 50,
+        "complexity": null
+      }
+    },
+    {
+      "name": "approve_plan",
+      "description": "Records human approval for a HUMAN_GATE migration plan. Validates the plan exists and is in PENDING status with overall_gate == HUMAN_GATE, then transitions status to APPROVED, updates the plan JSON, and appends an ApprovalRecord to the changelog. Requires a --review reference and rationale.",
+      "inputs": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID v4 of the plan to approve.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "error_message": "plan_id must be a valid UUID v4"
+            }
+          ]
+        },
+        {
+          "name": "reviewer",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Identity of the approving reviewer.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "reviewer must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "review_ref",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "External review reference (ticket ID, PR URL, etc.).",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "review_ref must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "rationale",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-written rationale for approving despite violations.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "rationale must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "plans_dir",
+          "type_ref": "str",
+          "required": true,
+          "default": ".ledger/plans",
+          "description": "Filesystem path to the .ledger/plans/ directory.",
+          "validators": []
+        }
+      ],
+      "output_type": "MigrationPlan",
+      "error_cases": [
+        {
+          "name": "plan_not_found",
+          "condition": "No plan file exists for the given plan_id in plans_dir",
+          "error_type": "PlanNotFoundError",
+          "error_data": {
+            "plan_id": "<plan_id>",
+            "search_path": "<plans_dir>"
+          }
+        },
+        {
+          "name": "plan_already_approved",
+          "condition": "Plan status is already APPROVED",
+          "error_type": "InvalidPlanTransitionError",
+          "error_data": {
+            "current_status": "APPROVED",
+            "requested_status": "APPROVED",
+            "message": "Plan is already approved"
+          }
+        },
+        {
+          "name": "plan_already_rejected",
+          "condition": "Plan status is REJECTED",
+          "error_type": "InvalidPlanTransitionError",
+          "error_data": {
+            "current_status": "REJECTED",
+            "requested_status": "APPROVED",
+            "message": "Cannot approve a rejected plan"
+          }
+        },
+        {
+          "name": "plan_is_blocked",
+          "condition": "Plan overall_gate is BLOCKED — BLOCKED plans cannot be approved",
+          "error_type": "InvalidPlanTransitionError",
+          "error_data": {
+            "current_status": "PENDING",
+            "requested_status": "APPROVED",
+            "message": "Cannot approve a BLOCKED plan — migration must be modified to remove blocking violations"
+          }
+        },
+        {
+          "name": "plan_is_auto_proceed",
+          "condition": "Plan overall_gate is AUTO_PROCEED — does not require approval",
+          "error_type": "InvalidPlanTransitionError",
+          "error_data": {
+            "current_status": "PENDING",
+            "requested_status": "APPROVED",
+            "message": "AUTO_PROCEED plans do not require manual approval"
+          }
+        },
+        {
+          "name": "atomic_write_failure",
+          "condition": "Atomic file write for updated plan or changelog fails",
+          "error_type": "PlanPersistenceError",
+          "error_data": {
+            "message": "Failed to persist approval update"
+          }
+        }
+      ],
+      "preconditions": [
+        "plan_id is a valid UUID v4",
+        "reviewer, review_ref, and rationale are non-empty strings",
+        "A plan file exists at plans_dir/<plan_id>.json",
+        "The plan's current status is PENDING",
+        "The plan's overall_gate is HUMAN_GATE (BLOCKED plans cannot be approved; AUTO_PROCEED plans do not need approval)"
+      ],
+      "postconditions": [
+        "Returned MigrationPlan.status is APPROVED",
+        "Returned MigrationPlan.updated_at reflects the approval timestamp",
+        "The plan JSON file at plans_dir/<plan_id>.json is updated atomically with new status",
+        "An ApprovalRecord is appended to the changelog",
+        "The plan_id, diff, violations, and overall_gate are unchanged from the original plan"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Updates plan JSON file at .ledger/plans/<plan_id>.json",
+        "Appends ApprovalRecord to changelog"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "writes_file",
+          "target": ".ledger/plans/<plan_id>.json",
+          "description": "Atomically updates the plan JSON file with APPROVED status and updated_at timestamp."
+        },
+        {
+          "kind": "writes_file",
+          "target": ".ledger/plans/changelog.jsonl",
+          "description": "Appends a JSON-lines entry with the ApprovalRecord for audit trail."
+        },
+        {
+          "kind": "reads_file",
+          "target": ".ledger/plans/<plan_id>.json",
+          "description": "Reads the existing plan to validate current status and overall_gate before transition."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "load_plan",
+      "description": "Loads a persisted MigrationPlan from .ledger/plans/<plan_id>.json. Deserializes from JSON and validates the plan schema version.",
+      "inputs": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID v4 of the plan to load.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "error_message": "plan_id must be a valid UUID v4"
+            }
+          ]
+        },
+        {
+          "name": "plans_dir",
+          "type_ref": "str",
+          "required": true,
+          "default": ".ledger/plans",
+          "description": "Filesystem path to the .ledger/plans/ directory.",
+          "validators": []
+        }
+      ],
+      "output_type": "MigrationPlan",
+      "error_cases": [
+        {
+          "name": "plan_not_found",
+          "condition": "No JSON file exists at plans_dir/<plan_id>.json",
+          "error_type": "PlanNotFoundError",
+          "error_data": {
+            "plan_id": "<plan_id>",
+            "search_path": "<plans_dir>"
+          }
+        },
+        {
+          "name": "corrupted_plan_file",
+          "condition": "The JSON file exists but cannot be deserialized into a valid MigrationPlan (invalid JSON, missing fields, schema mismatch)",
+          "error_type": "MigrationParseError",
+          "error_data": {
+            "message": "Plan file is corrupted or has incompatible schema version"
+          }
+        },
+        {
+          "name": "file_read_error",
+          "condition": "File exists but cannot be read (permissions, encoding error)",
+          "error_type": "PlanPersistenceError",
+          "error_data": {
+            "message": "Cannot read plan file"
+          }
+        }
+      ],
+      "preconditions": [
+        "plan_id is a valid UUID v4",
+        "plans_dir exists and is readable"
+      ],
+      "postconditions": [
+        "Returned MigrationPlan.plan_id equals the input plan_id",
+        "Returned MigrationPlan passes Pydantic validation for all fields",
+        "Returned MigrationPlan.schema_version is compatible with the current code version"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".ledger/plans/<plan_id>.json",
+          "description": "Reads and deserializes the plan JSON file from disk."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 50,
+        "max_memory_mb": 20,
+        "complexity": null
+      }
+    }
+  ],
+  "dependencies": [
+    "registry"
+  ],
+  "dependency_contracts": {
+    "registry": [
+      "get_schema",
+      "get_field_annotations",
+      "get_foreign_keys",
+      "get_component_context"
+    ]
+  },
+  "invariants": [
+    "Gate decisions are totally ordered: AUTO_PROCEED < HUMAN_GATE < BLOCKED. The overall gate for a plan is always the highest-severity gate across all violations.",
+    "Plan status transitions are strictly: PENDING -> APPROVED or PENDING -> REJECTED. No other transitions are valid. APPROVED and REJECTED are terminal states.",
+    "Blast radius includes all directly affected tables from the parsed migration plus single-hop FK-referenced tables from registry annotations. Transitive FK chasing is never performed.",
+    "SQL parsing uses regex extraction only — no full SQL parser. Only ALTER TABLE with ADD COLUMN, DROP COLUMN, and ALTER COLUMN operations are recognized.",
+    "Schema YAML and SQL source content are never normalized, reformatted, or reordered during parsing.",
+    "All parse and validation functions return complete lists of warnings/violations, never short-circuiting on the first error.",
+    "Plan files are written atomically to .ledger/plans/ to prevent partial writes on crash.",
+    "Plan IDs are UUID v4, guaranteed unique per plan.",
+    "Gate rules are defined as a data table (dict mapping condition to decision), not as code branches."
+  ],
+  "requires": [
+    "registry"
+  ],
+  "processing_register": "rigorous-analytical",
+  "data_access": {
+    "reads": [
+      "INTERNAL",
+      "PII",
+      "PUBLIC"
+    ],
+    "writes": [
+      "INTERNAL"
+    ],
+    "rationale": "Reads SQL migration files containing schema DDL (PUBLIC/INTERNAL) and reads registry field annotations which may reference PII classification tiers to evaluate gate rules. Writes migration plan JSON files and approval changelog entries to .ledger/plans/ (INTERNAL tier — plans contain schema structure metadata, gate decisions, and reviewer identities but no actual row data).",
+    "side_effects": [
+      {
+        "type": "read_file",
+        "classification": "PUBLIC",
+        "fields": [
+          "sql_source_path"
+        ],
+        "rationale": "Reads SQL migration files from disk to extract column operations via regex parsing."
+      },
+      {
+        "type": "read_registry",
+        "classification": "PII",
+        "fields": [
+          "field_annotations",
+          "classification_tier",
+          "audit_field",
+          "immutable",
+          "encrypted",
+          "foreign_keys"
+        ],
+        "rationale": "Reads registry schema metadata and field annotations to enrich diffs with context needed for gate evaluation, including PII-classified field annotations."
+      },
+      {
+        "type": "write_file",
+        "classification": "INTERNAL",
+        "fields": [
+          "plan_id",
+          "diff",
+          "violations",
+          "overall_gate",
+          "blast_radius",
+          "status",
+          "reviewer",
+          "review_reference",
+          "rationale"
+        ],
+        "rationale": "Persists migration plan JSON and approval records to .ledger/plans/ directory with atomic file writes."
+      },
+      {
+        "type": "append_changelog",
+        "classification": "INTERNAL",
+        "fields": [
+          "plan_id",
+          "reviewer",
+          "review_reference",
+          "rationale",
+          "timestamp",
+          "new_status"
+        ],
+        "rationale": "Appends approval record entries to the migration changelog when a HUMAN_GATE plan is approved."
+      }
+    ]
+  },
+  "authority": {
+    "domains": [
+      "migration_plans",
+      "migration_approvals"
+    ],
+    "rationale": "The migration component is the sole authority for creating, persisting, and transitioning the lifecycle state of migration plans and approval records stored in .ledger/plans/. No other component may write or modify plan JSON files or approval changelog entries."
+  }
+}

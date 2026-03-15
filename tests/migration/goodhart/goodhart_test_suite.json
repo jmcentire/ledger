@@ -1,0 +1,750 @@
+{
+  "component_id": "migration",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "test_goodhart_parse_case_insensitive_keywords",
+      "description": "SQL keywords like ALTER TABLE, ADD COLUMN should be recognized regardless of case (mixed case, lowercase) since SQL is case-insensitive for keywords",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL with mixed-case keywords like 'alter table users add column name varchar(100);'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "operations list has exactly one ADD_COLUMN operation",
+        "table_name and column_name are correctly extracted"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_multiple_columns_same_alter",
+      "description": "A single ALTER TABLE statement with multiple ADD COLUMN clauses should produce multiple operations, not just the first one",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL like 'ALTER TABLE users ADD COLUMN a INT, ADD COLUMN b TEXT;'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Two separate ADD_COLUMN operations are extracted",
+        "Both reference the same table"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_schema_qualified_table",
+      "description": "Schema-qualified table names (e.g., public.users) should be handled in ALTER TABLE statements",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: ALTER TABLE public.users ADD COLUMN email VARCHAR(255);",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Operation is extracted successfully",
+        "table_name includes or correctly handles the schema qualification"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_statement_count_mixed",
+      "description": "Statement count must reflect ALL semicolon-delimited statements including CREATE TABLE, INSERT, and other non-ALTER statements, not just ALTER TABLE statements",
+      "function": "parse_migration",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL with 5 statements: CREATE TABLE, INSERT, ALTER TABLE ADD COLUMN, UPDATE, ALTER TABLE DROP COLUMN",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "statement_count == 5",
+        "len(operations) == 2",
+        "Only ADD_COLUMN and DROP_COLUMN operations present"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_source_path_passthrough_unusual",
+      "description": "source_path must be returned exactly as provided, including unusual but valid paths with spaces, unicode, or deep nesting",
+      "function": "parse_migration",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "source_path = '/opt/migrations/2024 Q1/schéma/V001__add_cols.sql' with valid SQL",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.source_path exactly equals the input source_path string"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_hash_deterministic_different_sql",
+      "description": "source_hash must be a true SHA-256 of the exact input sql string, not a hardcoded value; different SQL inputs must produce different hashes",
+      "function": "parse_migration",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Two different SQL strings parsed separately",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "hash1 != hash2",
+        "Both are valid 64-char hex strings",
+        "Each matches hashlib.sha256(sql.encode()).hexdigest()"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_hash_includes_comments",
+      "description": "source_hash is computed on the raw input sql string including comments, not on the comment-stripped version",
+      "function": "parse_migration",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL with comments: '-- comment\\nALTER TABLE t ADD COLUMN c INT;'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "source_hash equals SHA-256 of the full input string including comments"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_nested_block_comments",
+      "description": "Block comments (/* */) should be properly stripped even when they appear mid-statement or contain SQL-like text",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: 'ALTER TABLE users /* adding email */ ADD COLUMN email VARCHAR(255);'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "One ADD_COLUMN operation is extracted",
+        "column_name is 'email'"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_drop_column_extracts_name",
+      "description": "DROP COLUMN operations must correctly extract the column name being dropped",
+      "function": "parse_migration",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: ALTER TABLE orders DROP COLUMN legacy_status;",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "One DROP_COLUMN operation",
+        "column_name == 'legacy_status'",
+        "table_name == 'orders'"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_alter_column_type_change",
+      "description": "ALTER COLUMN TYPE operations should extract both the column name and the new type",
+      "function": "parse_migration",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: ALTER TABLE products ALTER COLUMN price TYPE NUMERIC(10,2);",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "One ALTER_COLUMN operation",
+        "column_name == 'price'",
+        "new_type contains 'NUMERIC'"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_semicolons_in_strings_or_defaults",
+      "description": "Statement splitting on semicolons should handle edge cases where semicolons might appear in DEFAULT values or string literals",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL with ALTER TABLE containing DEFAULT value, followed by another statement",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Correct number of statements detected",
+        "Operations are properly extracted"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_empty_after_comment_stripping",
+      "description": "SQL that contains only comments (no actual statements after stripping) should raise empty_sql error, not return empty operations",
+      "function": "parse_migration",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: '/* this is all comments */ -- and this too'",
+      "expected_output_description": "",
+      "expected_error": "MigrationParseError with empty_sql indication",
+      "assertions": [
+        "MigrationParseError is raised"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_constraints_unique_primary_key",
+      "description": "Constraints beyond NOT NULL and DEFAULT (like UNIQUE, PRIMARY KEY, REFERENCES) should also be extracted from ADD COLUMN",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: ALTER TABLE users ADD COLUMN username VARCHAR(50) UNIQUE NOT NULL;",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "constraints list contains entries for both UNIQUE and NOT NULL"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_quoted_identifiers",
+      "description": "Quoted identifiers (double-quoted table/column names) should be handled since PostgreSQL uses them for case-sensitive or reserved-word identifiers",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: ALTER TABLE \"User\" ADD COLUMN \"Order\" INTEGER;",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Operation is extracted",
+        "table and column names are captured (with or without quotes)"
+      ]
+    },
+    {
+      "id": "test_goodhart_diff_add_column_existing_field_not_new",
+      "description": "ADD_COLUMN for a field that already exists in registry should have is_new_field=False and annotation populated, since the contract says is_new_field is True only if ADD_COLUMN AND field not in registry",
+      "function": "compute_diff",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns annotation for the field (field exists)"
+      },
+      "input_values": {},
+      "input_description": "ParsedMigration with ADD_COLUMN for a field that already exists in registry",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "DiffEntry.is_new_field is False",
+        "DiffEntry.annotation is not None"
+      ]
+    },
+    {
+      "id": "test_goodhart_diff_drop_nonexistent_field",
+      "description": "DROP_COLUMN for a field that does NOT exist in registry should have is_field_removal=False since the contract says it's True only if field exists in registry",
+      "function": "compute_diff",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns None/not found for the field"
+      },
+      "input_values": {},
+      "input_description": "ParsedMigration with DROP_COLUMN for a field not in registry",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "DiffEntry.is_field_removal is False",
+        "DiffEntry.annotation is None"
+      ]
+    },
+    {
+      "id": "test_goodhart_diff_alter_column_not_new_not_removal",
+      "description": "ALTER_COLUMN operations should never set is_new_field or is_field_removal to True regardless of registry state",
+      "function": "compute_diff",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns annotation for the field"
+      },
+      "input_values": {},
+      "input_description": "ParsedMigration with ALTER_COLUMN operation, field exists in registry",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "DiffEntry.is_new_field is False",
+        "DiffEntry.is_field_removal is False"
+      ]
+    },
+    {
+      "id": "test_goodhart_diff_preserves_operation_order",
+      "description": "DiffEntry ordering must match the exact order of operations in the parsed migration, not be reordered by table name or operation type",
+      "function": "compute_diff",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns appropriate annotations for each"
+      },
+      "input_values": {},
+      "input_description": "ParsedMigration with operations on tables [B, A, C] in that order",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "entries[0].operation.table_name == 'B'",
+        "entries[1].operation.table_name == 'A'",
+        "entries[2].operation.table_name == 'C'"
+      ]
+    },
+    {
+      "id": "test_goodhart_diff_multiple_ops_same_table",
+      "description": "Multiple operations on the same table should produce multiple DiffEntry objects but the table appears only once in affected_tables",
+      "function": "compute_diff",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns annotations for users table"
+      },
+      "input_values": {},
+      "input_description": "ParsedMigration with 3 operations all on table 'users'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "len(entries) == 3",
+        "len(affected_tables) == 1",
+        "'users' in affected_tables"
+      ]
+    },
+    {
+      "id": "test_goodhart_gates_audit_field_add_not_blocked",
+      "description": "Adding an audit field (not dropping) should NOT trigger the audit_field_drop BLOCKED rule - the rule is specific to drops",
+      "function": "evaluate_gates",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SchemaDiff with ADD_COLUMN entry where annotation.is_audit_field=True, component declares appropriate tiers",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No BLOCKED violation for audit_field_drop rule"
+      ]
+    },
+    {
+      "id": "test_goodhart_gates_immutable_drop_vs_modify",
+      "description": "Dropping an immutable field (not modifying) should not trigger the immutable_field_modify BLOCKED rule since the rule is specifically about modification",
+      "function": "evaluate_gates",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SchemaDiff with DROP_COLUMN entry where annotation.is_immutable=True (but not is_audit_field)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No BLOCKED violation for immutable_field_modify rule specifically"
+      ]
+    },
+    {
+      "id": "test_goodhart_gates_multiple_tiers_component",
+      "description": "A component declaring multiple data access tiers should only get tier mismatch violations for tiers NOT in its declared list",
+      "function": "evaluate_gates",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ComponentContext with declared_data_access_tiers=['PUBLIC', 'INTERNAL'], diff entry with classification_tier='INTERNAL'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No tier mismatch violation for the INTERNAL-classified field"
+      ]
+    },
+    {
+      "id": "test_goodhart_gates_encryption_removal_detection",
+      "description": "Encryption removal should be detected when an ALTER_COLUMN changes a field from encrypted to not-encrypted, based on annotation.is_encrypted being True and the operation modifying the column",
+      "function": "evaluate_gates",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SchemaDiff with ALTER_COLUMN entry where old annotation has is_encrypted=True and the operation suggests removing encryption",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "HUMAN_GATE violation for encryption removal is present"
+      ]
+    },
+    {
+      "id": "test_goodhart_gates_combined_audit_and_immutable",
+      "description": "A field that is both an audit field and immutable, when dropped, should produce violations for BOTH rules (audit drop AND potentially immutable-related rules) since all rules are evaluated against all entries",
+      "function": "evaluate_gates",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SchemaDiff with DROP_COLUMN for a field that is both is_audit_field=True and is_immutable=True",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "At least one BLOCKED violation is present",
+        "Violations list is not short-circuited"
+      ]
+    },
+    {
+      "id": "test_goodhart_gates_violation_contains_table_and_column",
+      "description": "Each GateViolation must reference the correct table_name and column_name from the diff entry that triggered it",
+      "function": "evaluate_gates",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SchemaDiff with entries on different tables/columns triggering different violations",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Each violation's table_name matches the entry's operation table_name",
+        "Each violation's column_name matches the entry's operation column_name"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_plan_multiple_plans_unique_ids",
+      "description": "Creating multiple plans in sequence must produce unique UUID v4 plan_ids for each, not reuse or return a hardcoded ID",
+      "function": "create_plan",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns empty FK references"
+      },
+      "input_values": {},
+      "input_description": "Call create_plan twice with the same diff and violations",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "plan1.plan_id != plan2.plan_id",
+        "Both are valid UUID v4"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_plan_blast_radius_no_fk_equals_affected",
+      "description": "When registry returns no FK references for any affected table, blast_radius should equal exactly the affected_tables from the diff",
+      "function": "create_plan",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns empty FK references for all tables"
+      },
+      "input_values": {},
+      "input_description": "Diff with affected_tables=['orders', 'users'], registry returns no FK refs",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "blast_radius contains exactly 'orders' and 'users'",
+        "No additional tables in blast_radius"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_plan_blast_radius_deduplication",
+      "description": "If multiple affected tables have FK references to the same table, that FK-referenced table should appear only once in blast_radius",
+      "function": "create_plan",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns 'customers' as FK ref for both tables"
+      },
+      "input_values": {},
+      "input_description": "Diff with affected_tables=['orders', 'invoices'], both FK-reference 'customers'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "'customers' appears exactly once in blast_radius"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_plan_overall_gate_human_gate_only",
+      "description": "When all violations are HUMAN_GATE (none BLOCKED), overall_gate should be HUMAN_GATE not BLOCKED",
+      "function": "create_plan",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns empty FK references"
+      },
+      "input_values": {},
+      "input_description": "List of 3 violations all with severity HUMAN_GATE",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "plan.overall_gate == GateDecision.HUMAN_GATE"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_plan_overall_gate_mixed_blocked_wins",
+      "description": "When violations include both HUMAN_GATE and BLOCKED, overall_gate must be BLOCKED (max severity)",
+      "function": "create_plan",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns empty FK references"
+      },
+      "input_values": {},
+      "input_description": "Violations list with one HUMAN_GATE and one BLOCKED",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "plan.overall_gate == GateDecision.BLOCKED"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_plan_source_propagated",
+      "description": "MigrationPlan.source_path and source_hash must be propagated from the SchemaDiff, not hardcoded or empty",
+      "function": "create_plan",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns empty FK references"
+      },
+      "input_values": {},
+      "input_description": "Diff with specific source_path and source_hash values",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "plan.source_path == diff.source_path",
+        "plan.source_hash == diff.source_hash"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_plan_timestamps_iso8601_format",
+      "description": "created_at and updated_at timestamps must be valid ISO 8601 formatted strings, not arbitrary formats",
+      "function": "create_plan",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns empty FK references"
+      },
+      "input_values": {},
+      "input_description": "Standard create_plan call",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "created_at parses as valid ISO 8601",
+        "updated_at parses as valid ISO 8601"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_plan_persisted_file_deserializable",
+      "description": "The JSON file persisted at plans_dir/<plan_id>.json must be valid JSON that deserializes back into the same plan structure",
+      "function": "create_plan",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns empty FK references"
+      },
+      "input_values": {},
+      "input_description": "Standard create_plan call, then read the file back",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "File content is valid JSON",
+        "Deserialized content matches returned plan fields"
+      ]
+    },
+    {
+      "id": "test_goodhart_approve_changelog_appended",
+      "description": "Approval must append an ApprovalRecord to the changelog file (changelog.jsonl), not just update the plan file",
+      "function": "approve_plan",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Approve a PENDING HUMAN_GATE plan, then check changelog.jsonl exists and contains the approval record",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "changelog.jsonl exists in plans_dir",
+        "Contains an entry with the plan_id, reviewer, review_ref, and rationale"
+      ]
+    },
+    {
+      "id": "test_goodhart_approve_reviewer_and_rationale_preserved",
+      "description": "The approval record must preserve the exact reviewer, review_ref, and rationale strings provided, not truncate or modify them",
+      "function": "approve_plan",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Approve with reviewer='security-team@corp.com', review_ref='JIRA-12345', rationale='Reviewed encryption changes in detail'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "ApprovalRecord in changelog contains exact reviewer string",
+        "review_reference matches",
+        "rationale matches"
+      ]
+    },
+    {
+      "id": "test_goodhart_approve_updated_at_after_created_at",
+      "description": "After approval, updated_at must be different from (and logically after) created_at, reflecting the approval timestamp not the creation timestamp",
+      "function": "approve_plan",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create a HUMAN_GATE plan, then approve it",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "approved_plan.updated_at != approved_plan.created_at",
+        "updated_at >= created_at chronologically"
+      ]
+    },
+    {
+      "id": "test_goodhart_load_plan_id_matches_input",
+      "description": "Loaded plan's plan_id must equal the plan_id used to request the load, preventing ID swaps or mismatches",
+      "function": "load_plan",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create two plans, load each by its ID",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "loaded_plan.plan_id == requested_plan_id for each"
+      ]
+    },
+    {
+      "id": "test_goodhart_load_corrupted_missing_required_fields",
+      "description": "A JSON file that is valid JSON but missing required MigrationPlan fields (e.g., no plan_id or no status) should raise corrupted_plan_file error",
+      "function": "load_plan",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Write a JSON file with {\"some_field\": \"value\"} to plans_dir/<uuid>.json, then try to load it",
+      "expected_output_description": "",
+      "expected_error": "corrupted_plan_file error",
+      "assertions": [
+        "Appropriate error is raised for schema mismatch"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_whitespace_between_keywords",
+      "description": "Extra whitespace, tabs, and newlines between SQL keywords should not prevent extraction",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: 'ALTER   TABLE\\n  users\\n  ADD   COLUMN\\n  email   VARCHAR(255);'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "One ADD_COLUMN operation extracted successfully"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_multiple_constraints_default_with_value",
+      "description": "DEFAULT constraint with a specific value should be extracted with the value preserved",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active';",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "constraints includes NOT NULL",
+        "constraints includes DEFAULT with value containing 'active'"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_if_exists_if_not_exists",
+      "description": "ALTER TABLE with IF EXISTS or ADD COLUMN IF NOT EXISTS clauses should still be parsed correctly",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS email VARCHAR(255);",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Operation is extracted with correct table and column names"
+      ]
+    },
+    {
+      "id": "test_goodhart_gates_three_entries_all_different_violations",
+      "description": "When three diff entries trigger three different rule types (audit drop, immutable modify, tier mismatch), all three violations must be returned with correct severity ordering",
+      "function": "evaluate_gates",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SchemaDiff with 3 entries: one audit drop, one immutable modify, one tier mismatch",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Three violations returned",
+        "First two are BLOCKED (audit + immutable)",
+        "Third is HUMAN_GATE (tier mismatch)",
+        "Ordered by severity descending"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_plan_blast_radius_fk_table_not_in_affected",
+      "description": "FK-referenced tables that are NOT in the direct affected_tables should still appear in blast_radius (single-hop expansion adds new tables)",
+      "function": "create_plan",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Returns ['products'] as FK references for 'orders'"
+      },
+      "input_values": {},
+      "input_description": "Diff with affected_tables=['orders'], registry says orders FK-references 'products'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "'products' in blast_radius",
+        "'orders' in blast_radius"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_no_operations_but_valid_statements",
+      "description": "SQL with valid statements but no ALTER TABLE operations should return empty operations list with correct statement_count and no errors",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: 'CREATE TABLE t (id INT); INSERT INTO t VALUES (1); SELECT 1;'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "operations is empty list",
+        "statement_count == 3",
+        "No error raised"
+      ]
+    },
+    {
+      "id": "test_goodhart_parse_references_constraint_extracted",
+      "description": "REFERENCES constraint (foreign key) should be extracted from ADD COLUMN definitions",
+      "function": "parse_migration",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SQL: ALTER TABLE orders ADD COLUMN user_id INTEGER REFERENCES users(id);",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "constraints list includes a REFERENCES entry"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\n\"\"\"\nAdversarial hidden acceptance tests for Migration Parser & Planner component.\nThese tests target gaps in visible test coverage to detect implementations that\nhardcode returns or take shortcuts matching only visible test inputs.\n\"\"\"\nimport hashlib\nimport json\nimport os\nimport tempfile\nimport uuid\nfrom datetime import datetime\nfrom unittest.mock import MagicMock, PropertyMock, patch\n\nimport pytest\n\nfrom src.migration import (\n    ApprovalRecord,\n    ColumnConstraint,\n    ColumnOperation,\n    ComponentContext,\n    DiffEntry,\n    FieldAnnotation,\n    GateDecision,\n    GateViolation,\n    InvalidPlanTransitionError,\n    MigrationParseError,\n    MigrationPlan,\n    OperationType,\n    ParsedMigration,\n    PlanNotFoundError,\n    PlanPersistenceError,\n    PlanStatus,\n    SchemaDiff,\n    approve_plan,\n    compute_diff,\n    create_plan,\n    evaluate_gates,\n    load_plan,\n    parse_migration,\n)\n\n\n# ============================================================\n# PARSE_MIGRATION TESTS\n# ============================================================\n\n\nclass TestGoodhartParseMigration:\n    \"\"\"Adversarial tests for parse_migration function.\"\"\"\n\n    def test_goodhart_parse_case_insensitive_keywords(self):\n        \"\"\"SQL keywords like ALTER TABLE, ADD COLUMN should be recognized regardless of case.\"\"\"\n        sql = \"alter table users add column name varchar(100);\"\n        result = parse_migration(sql, \"/migrations/V001.sql\")\n        assert len(result.operations) == 1\n        op = result.operations[0]\n        assert op.op_type == OperationType.ADD_COLUMN\n        assert op.table_name.lower() == \"users\"\n        assert op.column_name.lower() == \"name\"\n\n    def test_goodhart_parse_case_insensitive_mixed(self):\n        \"\"\"Mixed case SQL keywords should be recognized (e.g., Alter Table, Drop Column).\"\"\"\n        sql = \"Alter Table orders Drop Column legacy_flag;\"\n        result = parse_migration(sql, \"/migrations/V002.sql\")\n        assert len(result.operations) == 1\n        assert result.operations[0].op_type == OperationType.DROP_COLUMN\n\n    def test_goodhart_parse_multiple_columns_same_alter(self):\n        \"\"\"A single ALTER TABLE with multiple ADD COLUMN clauses must produce multiple operations.\"\"\"\n        sql = \"ALTER TABLE users ADD COLUMN first_name VARCHAR(50), ADD COLUMN last_name VARCHAR(50);\"\n        result = parse_migration(sql, \"/migrations/V003.sql\")\n        assert len(result.operations) >= 2\n        for op in result.operations:\n            assert op.op_type == OperationType.ADD_COLUMN\n            assert op.table_name.lower() == \"users\"\n\n    def test_goodhart_parse_schema_qualified_table(self):\n        \"\"\"Schema-qualified table names should be handled in ALTER TABLE statements.\"\"\"\n        sql = \"ALTER TABLE public.users ADD COLUMN email VARCHAR(255);\"\n        result = parse_migration(sql, \"/migrations/V004.sql\")\n        assert len(result.operations) == 1\n        op = result.operations[0]\n        assert op.op_type == OperationType.ADD_COLUMN\n        # table_name should contain the schema-qualified name or at least 'users'\n        assert \"users\" in op.table_name.lower()\n\n    def test_goodhart_parse_statement_count_mixed_types(self):\n        \"\"\"Statement count must reflect ALL semicolon-delimited statements, not just ALTER TABLE.\"\"\"\n        sql = (\n            \"CREATE TABLE tmp (id INT);\\n\"\n            \"INSERT INTO tmp VALUES (1);\\n\"\n            \"ALTER TABLE users ADD COLUMN age INT;\\n\"\n            \"UPDATE tmp SET id = 2;\\n\"\n            \"ALTER TABLE users DROP COLUMN old_field;\\n\"\n        )\n        result = parse_migration(sql, \"/migrations/V005.sql\")\n        assert result.statement_count == 5\n        assert len(result.operations) == 2\n        op_types = {op.op_type for op in result.operations}\n        assert OperationType.ADD_COLUMN in op_types\n        assert OperationType.DROP_COLUMN in op_types\n\n    def test_goodhart_parse_source_path_passthrough_unusual(self):\n        \"\"\"source_path must be returned exactly as provided, even with unusual characters.\"\"\"\n        unusual_path = \"/opt/migrations/2024 Q1/deep/nested/V001__add_cols.sql\"\n        sql = \"ALTER TABLE t ADD COLUMN c INT;\"\n        result = parse_migration(sql, unusual_path)\n        assert result.source_path == unusual_path\n\n    def test_goodhart_parse_hash_deterministic_different_sql(self):\n        \"\"\"Different SQL inputs must produce different SHA-256 hashes.\"\"\"\n        sql1 = \"ALTER TABLE a ADD COLUMN x INT;\"\n        sql2 = \"ALTER TABLE b ADD COLUMN y TEXT;\"\n        result1 = parse_migration(sql1, \"/m/v1.sql\")\n        result2 = parse_migration(sql2, \"/m/v2.sql\")\n        assert result1.source_hash != result2.source_hash\n        assert len(result1.source_hash) == 64\n        assert len(result2.source_hash) == 64\n        assert result1.source_hash == hashlib.sha256(sql1.encode()).hexdigest()\n        assert result2.source_hash == hashlib.sha256(sql2.encode()).hexdigest()\n\n    def test_goodhart_parse_hash_includes_comments(self):\n        \"\"\"source_hash is computed on the raw input sql string including comments.\"\"\"\n        sql_with_comments = \"-- this is a comment\\nALTER TABLE t ADD COLUMN c INT;\"\n        sql_without_comments = \"ALTER TABLE t ADD COLUMN c INT;\"\n        result_with = parse_migration(sql_with_comments, \"/m/v1.sql\")\n        result_without = parse_migration(sql_without_comments, \"/m/v2.sql\")\n        # Hash should be of raw input\n        assert result_with.source_hash == hashlib.sha256(sql_with_comments.encode()).hexdigest()\n        assert result_without.source_hash == hashlib.sha256(sql_without_comments.encode()).hexdigest()\n        # They should differ since the inputs differ\n        assert result_with.source_hash != result_without.source_hash\n\n    def test_goodhart_parse_nested_block_comments(self):\n        \"\"\"Block comments mid-statement should be stripped and parsing should continue.\"\"\"\n        sql = \"ALTER TABLE users /* adding email column */ ADD COLUMN email VARCHAR(255);\"\n        result = parse_migration(sql, \"/m/v1.sql\")\n        assert len(result.operations) == 1\n        assert result.operations[0].column_name.lower() == \"email\"\n\n    def test_goodhart_parse_drop_column_extracts_name(self):\n        \"\"\"DROP COLUMN must correctly extract the column name being dropped.\"\"\"\n        sql = \"ALTER TABLE orders DROP COLUMN legacy_status;\"\n        result = parse_migration(sql, \"/m/v1.sql\")\n        assert len(result.operations) == 1\n        op = result.operations[0]\n        assert op.op_type == OperationType.DROP_COLUMN\n        assert op.column_name.lower() == \"legacy_status\"\n        assert op.table_name.lower() == \"orders\"\n\n    def test_goodhart_parse_alter_column_type_change(self):\n        \"\"\"ALTER COLUMN TYPE operations should extract column name and new type.\"\"\"\n        sql = \"ALTER TABLE products ALTER COLUMN price TYPE NUMERIC(10,2);\"\n        result = parse_migration(sql, \"/m/v1.sql\")\n        assert len(result.operations) == 1\n        op = result.operations[0]\n        assert op.op_type == OperationType.ALTER_COLUMN\n        assert op.column_name.lower() == \"price\"\n        assert \"numeric\" in op.new_type.lower() or \"NUMERIC\" in op.new_type\n\n    def test_goodhart_parse_empty_after_comment_stripping(self):\n        \"\"\"SQL containing only comments (no actual statements) should raise empty_sql error.\"\"\"\n        sql = \"/* this is all comments */\\n-- and this too\\n/* another block */\"\n        with pytest.raises(MigrationParseError):\n            parse_migration(sql, \"/m/v1.sql\")\n\n    def test_goodhart_parse_constraints_unique(self):\n        \"\"\"UNIQUE constraint should be extracted from ADD COLUMN.\"\"\"\n        sql = \"ALTER TABLE users ADD COLUMN username VARCHAR(50) UNIQUE NOT NULL;\"\n        result = parse_migration(sql, \"/m/v1.sql\")\n        assert len(result.operations) == 1\n        constraint_types = [c.constraint_type.upper() for c in result.operations[0].constraints]\n        assert \"UNIQUE\" in constraint_types or \"unique\" in [c.constraint_type.lower() for c in result.operations[0].constraints]\n        assert \"NOT NULL\" in constraint_types or \"not null\" in [c.constraint_type.lower() for c in result.operations[0].constraints] or \"NOT_NULL\" in constraint_types\n\n    def test_goodhart_parse_whitespace_between_keywords(self):\n        \"\"\"Extra whitespace, tabs, and newlines between SQL keywords should not prevent extraction.\"\"\"\n        sql = \"ALTER   TABLE\\n  users\\n  ADD   COLUMN\\n  email   VARCHAR(255);\"\n        result = parse_migration(sql, \"/m/v1.sql\")\n        assert len(result.operations) == 1\n        assert result.operations[0].op_type == OperationType.ADD_COLUMN\n\n    def test_goodhart_parse_default_with_value(self):\n        \"\"\"DEFAULT constraint with a specific value should be extracted with the value.\"\"\"\n        sql = \"ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active';\"\n        result = parse_migration(sql, \"/m/v1.sql\")\n        assert len(result.operations) == 1\n        constraints = result.operations[0].constraints\n        has_default = any(\"default\" in c.constraint_type.lower() for c in constraints)\n        has_not_null = any(\"not\" in c.constraint_type.lower() and \"null\" in c.constraint_type.lower() for c in constraints) or any(\"not_null\" == c.constraint_type.lower() for c in constraints)\n        assert has_default, f\"DEFAULT constraint not found in {constraints}\"\n        assert has_not_null, f\"NOT NULL constraint not found in {constraints}\"\n\n    def test_goodhart_parse_no_operations_but_valid_statements(self):\n        \"\"\"SQL with valid non-ALTER statements should return empty operations and correct statement count.\"\"\"\n        sql = \"CREATE TABLE t (id INT);\\nINSERT INTO t VALUES (1);\\nSELECT 1;\"\n        result = parse_migration(sql, \"/m/v1.sql\")\n        assert len(result.operations) == 0\n        assert result.statement_count == 3\n\n    def test_goodhart_parse_references_constraint(self):\n        \"\"\"REFERENCES constraint (FK) should be extracted from ADD COLUMN.\"\"\"\n        sql = \"ALTER TABLE orders ADD COLUMN user_id INTEGER REFERENCES users(id);\"\n        result = parse_migration(sql, \"/m/v1.sql\")\n        assert len(result.operations) == 1\n        constraints = result.operations[0].constraints\n        has_references = any(\"reference\" in c.constraint_type.lower() for c in constraints)\n        assert has_references, f\"REFERENCES constraint not found in {[c.constraint_type for c in constraints]}\"\n\n    def test_goodhart_parse_quoted_identifiers(self):\n        \"\"\"Quoted identifiers should be handled for table and column names.\"\"\"\n        sql = 'ALTER TABLE \"User\" ADD COLUMN \"Order\" INTEGER;'\n        result = parse_migration(sql, \"/m/v1.sql\")\n        assert len(result.operations) >= 1\n        op = result.operations[0]\n        assert op.op_type == OperationType.ADD_COLUMN\n\n    def test_goodhart_parse_if_exists_clause(self):\n        \"\"\"IF EXISTS / IF NOT EXISTS clauses should not prevent operation extraction.\"\"\"\n        sql = \"ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS email VARCHAR(255);\"\n        result = parse_migration(sql, \"/m/v1.sql\")\n        # Should extract at least the operation (may or may not strip IF NOT EXISTS)\n        assert len(result.operations) >= 1\n        op = result.operations[0]\n        assert op.op_type == OperationType.ADD_COLUMN\n        assert \"users\" in op.table_name.lower()\n\n\n# ============================================================\n# COMPUTE_DIFF TESTS\n# ============================================================\n\n\nclass TestGoodhartComputeDiff:\n\n    def _make_parsed(self, operations, source_path=\"/m/v1.sql\", source_hash=\"abc123\"):\n        return ParsedMigration(\n            operations=operations,\n            source_path=source_path,\n            source_hash=source_hash,\n            statement_count=len(operations),\n            warnings=[],\n        )\n\n    def _make_registry(self, field_map=None, raise_on_lookup=False):\n        \"\"\"Create a mock registry.\n        field_map: dict of (table, column) -> FieldAnnotation or None\n        \"\"\"\n        registry = MagicMock()\n        if raise_on_lookup:\n            registry.get_field_annotation = MagicMock(side_effect=Exception(\"registry failure\"))\n            registry.lookup_field = MagicMock(side_effect=Exception(\"registry failure\"))\n        elif field_map is not None:\n            def lookup(table, column):\n                return field_map.get((table.lower(), column.lower()))\n            registry.get_field_annotation = MagicMock(side_effect=lookup)\n            registry.lookup_field = MagicMock(side_effect=lookup)\n            registry.field_exists = MagicMock(side_effect=lambda t, c: (t.lower(), c.lower()) in field_map and field_map[(t.lower(), c.lower())] is not None)\n            registry.has_field = MagicMock(side_effect=lambda t, c: (t.lower(), c.lower()) in field_map and field_map[(t.lower(), c.lower())] is not None)\n        return registry\n\n    def test_goodhart_diff_add_column_existing_field_not_new(self):\n        \"\"\"ADD_COLUMN for a field already in registry should have is_new_field=False and annotation populated.\"\"\"\n        annotation = FieldAnnotation(\n            classification_tier=\"INTERNAL\",\n            is_audit_field=False,\n            is_immutable=False,\n            is_encrypted=False,\n        )\n        op = ColumnOperation(\n            op_type=OperationType.ADD_COLUMN,\n            table_name=\"users\",\n            column_name=\"email\",\n            new_type=\"VARCHAR(255)\",\n            old_type=\"\",\n            constraints=[],\n        )\n        parsed = self._make_parsed([op])\n        registry = self._make_registry({(\"users\", \"email\"): annotation})\n        diff = compute_diff(parsed, registry)\n        assert len(diff.entries) == 1\n        entry = diff.entries[0]\n        assert entry.is_new_field is False\n        assert entry.annotation is not None\n\n    def test_goodhart_diff_drop_nonexistent_field(self):\n        \"\"\"DROP_COLUMN for a field NOT in registry should have is_field_removal=False.\"\"\"\n        op = ColumnOperation(\n            op_type=OperationType.DROP_COLUMN,\n            table_name=\"users\",\n            column_name=\"nonexistent\",\n            new_type=\"\",\n            old_type=\"\",\n            constraints=[],\n        )\n        parsed = self._make_parsed([op])\n        registry = self._make_registry({})  # empty registry\n        diff = compute_diff(parsed, registry)\n        assert len(diff.entries) == 1\n        entry = diff.entries[0]\n        assert entry.is_field_removal is False\n        assert entry.annotation is None\n\n    def test_goodhart_diff_alter_column_not_new_not_removal(self):\n        \"\"\"ALTER_COLUMN should never set is_new_field or is_field_removal to True.\"\"\"\n        annotation = FieldAnnotation(\n            classification_tier=\"PUBLIC\",\n            is_audit_field=False,\n            is_immutable=False,\n            is_encrypted=False,\n        )\n        op = ColumnOperation(\n            op_type=OperationType.ALTER_COLUMN,\n            table_name=\"users\",\n            column_name=\"status\",\n            new_type=\"TEXT\",\n            old_type=\"VARCHAR(20)\",\n            constraints=[],\n        )\n        parsed = self._make_parsed([op])\n        registry = self._make_registry({(\"users\", \"status\"): annotation})\n        diff = compute_diff(parsed, registry)\n        assert len(diff.entries) == 1\n        entry = diff.entries[0]\n        assert entry.is_new_field is False\n        assert entry.is_field_removal is False\n\n    def test_goodhart_diff_preserves_operation_order(self):\n        \"\"\"DiffEntry ordering must match the exact order of operations, not reordered.\"\"\"\n        ops = [\n            ColumnOperation(op_type=OperationType.ADD_COLUMN, table_name=\"beta\", column_name=\"c1\", new_type=\"INT\", old_type=\"\", constraints=[]),\n            ColumnOperation(op_type=OperationType.ADD_COLUMN, table_name=\"alpha\", column_name=\"c2\", new_type=\"INT\", old_type=\"\", constraints=[]),\n            ColumnOperation(op_type=OperationType.ADD_COLUMN, table_name=\"gamma\", column_name=\"c3\", new_type=\"INT\", old_type=\"\", constraints=[]),\n        ]\n        parsed = self._make_parsed(ops)\n        registry = self._make_registry({})\n        diff = compute_diff(parsed, registry)\n        assert len(diff.entries) == 3\n        assert diff.entries[0].operation.table_name == \"beta\"\n        assert diff.entries[1].operation.table_name == \"alpha\"\n        assert diff.entries[2].operation.table_name == \"gamma\"\n\n    def test_goodhart_diff_multiple_ops_same_table(self):\n        \"\"\"Multiple operations on same table produce multiple entries but table appears once in affected_tables.\"\"\"\n        ops = [\n            ColumnOperation(op_type=OperationType.ADD_COLUMN, table_name=\"users\", column_name=\"a\", new_type=\"INT\", old_type=\"\", constraints=[]),\n            ColumnOperation(op_type=OperationType.DROP_COLUMN, table_name=\"users\", column_name=\"b\", new_type=\"\", old_type=\"\", constraints=[]),\n            ColumnOperation(op_type=OperationType.ALTER_COLUMN, table_name=\"users\", column_name=\"c\", new_type=\"TEXT\", old_type=\"INT\", constraints=[]),\n        ]\n        parsed = self._make_parsed(ops)\n        registry = self._make_registry({})\n        diff = compute_diff(parsed, registry)\n        assert len(diff.entries) == 3\n        assert len(diff.affected_tables) == 1\n        assert \"users\" in [t.lower() for t in diff.affected_tables]\n\n\n# ============================================================\n# EVALUATE_GATES TESTS\n# ============================================================\n\n\nclass TestGoodhartEvaluateGates:\n\n    def _make_diff_entry(self, op_type, table, column, annotation, is_new=False, is_removal=False):\n        op = ColumnOperation(\n            op_type=op_type,\n            table_name=table,\n            column_name=column,\n            new_type=\"TEXT\" if op_type != OperationType.DROP_COLUMN else \"\",\n            old_type=\"\" if op_type == OperationType.ADD_COLUMN else \"VARCHAR(50)\",\n            constraints=[],\n        )\n        return DiffEntry(\n            operation=op,\n            annotation=annotation,\n            is_new_field=is_new,\n            is_field_removal=is_removal,\n        )\n\n    def _make_diff(self, entries, tables=None):\n        if tables is None:\n            tables = list({e.operation.table_name for e in entries})\n        return SchemaDiff(\n            entries=entries,\n            affected_tables=tables,\n            source_path=\"/m/v1.sql\",\n            source_hash=\"abc123def456\",\n        )\n\n    def test_goodhart_gates_audit_field_add_not_blocked(self):\n        \"\"\"Adding an audit field should NOT trigger audit_field_drop BLOCKED rule.\"\"\"\n        annotation = FieldAnnotation(\n            classification_tier=\"PUBLIC\",\n            is_audit_field=True,\n            is_immutable=False,\n            is_encrypted=False,\n        )\n        entry = self._make_diff_entry(\n            OperationType.ADD_COLUMN, \"audit_log\", \"created_by\", annotation, is_new=True\n        )\n        diff = self._make_diff([entry])\n        ctx = ComponentContext(component_id=\"svc-test\", declared_data_access_tiers=[\"PUBLIC\"])\n        violations = evaluate_gates(diff, ctx)\n        # Should NOT have a BLOCKED violation for audit field drop\n        blocked_audit = [v for v in violations if v.severity == GateDecision.BLOCKED and \"audit\" in v.rule_id.lower()]\n        assert len(blocked_audit) == 0\n\n    def test_goodhart_gates_immutable_drop_not_modify_blocked(self):\n        \"\"\"Dropping an immutable (non-audit) field should NOT trigger immutable_field_modify BLOCKED rule.\"\"\"\n        annotation = FieldAnnotation(\n            classification_tier=\"PUBLIC\",\n            is_audit_field=False,\n            is_immutable=True,\n            is_encrypted=False,\n        )\n        entry = self._make_diff_entry(\n            OperationType.DROP_COLUMN, \"users\", \"created_at\", annotation, is_removal=True\n        )\n        diff = self._make_diff([entry])\n        ctx = ComponentContext(component_id=\"svc-test\", declared_data_access_tiers=[\"PUBLIC\"])\n        violations = evaluate_gates(diff, ctx)\n        # The immutable_modify rule should NOT fire for a DROP\n        immutable_modify = [v for v in violations if v.severity == GateDecision.BLOCKED and \"immutable\" in v.rule_id.lower() and \"modif\" in v.rule_id.lower()]\n        assert len(immutable_modify) == 0\n\n    def test_goodhart_gates_multiple_tiers_component(self):\n        \"\"\"Component declaring multiple tiers should not get violations for declared tiers.\"\"\"\n        annotation = FieldAnnotation(\n            classification_tier=\"INTERNAL\",\n            is_audit_field=False,\n            is_immutable=False,\n            is_encrypted=False,\n        )\n        entry = self._make_diff_entry(\n            OperationType.ADD_COLUMN, \"orders\", \"details\", annotation, is_new=True\n        )\n        diff = self._make_diff([entry])\n        ctx = ComponentContext(\n            component_id=\"svc-test\",\n            declared_data_access_tiers=[\"PUBLIC\", \"INTERNAL\"],\n        )\n        violations = evaluate_gates(diff, ctx)\n        tier_violations = [v for v in violations if \"tier\" in v.rule_id.lower() or \"tier\" in v.message.lower()]\n        assert len(tier_violations) == 0\n\n    def test_goodhart_gates_combined_audit_and_immutable_drop(self):\n        \"\"\"Dropping a field that is both audit AND immutable should produce at least a BLOCKED violation (audit drop).\"\"\"\n        annotation = FieldAnnotation(\n            classification_tier=\"PUBLIC\",\n            is_audit_field=True,\n            is_immutable=True,\n            is_encrypted=False,\n        )\n        entry = self._make_diff_entry(\n            OperationType.DROP_COLUMN, \"audit_log\", \"created_at\", annotation, is_removal=True\n        )\n        diff = self._make_diff([entry])\n        ctx = ComponentContext(component_id=\"svc-test\", declared_data_access_tiers=[\"PUBLIC\"])\n        violations = evaluate_gates(diff, ctx)\n        blocked = [v for v in violations if v.severity == GateDecision.BLOCKED]\n        assert len(blocked) >= 1\n\n    def test_goodhart_gates_violation_references_correct_table_column(self):\n        \"\"\"Each GateViolation must reference the correct table_name and column_name from its triggering entry.\"\"\"\n        annotation1 = FieldAnnotation(\n            classification_tier=\"CONFIDENTIAL\",\n            is_audit_field=True,\n            is_immutable=False,\n            is_encrypted=False,\n        )\n        annotation2 = FieldAnnotation(\n            classification_tier=\"RESTRICTED\",\n            is_audit_field=False,\n            is_immutable=True,\n            is_encrypted=False,\n        )\n        entry1 = self._make_diff_entry(\n            OperationType.DROP_COLUMN, \"table_alpha\", \"col_one\", annotation1, is_removal=True\n        )\n        entry2 = self._make_diff_entry(\n            OperationType.ALTER_COLUMN, \"table_beta\", \"col_two\", annotation2\n        )\n        diff = self._make_diff([entry1, entry2])\n        ctx = ComponentContext(component_id=\"svc-test\", declared_data_access_tiers=[\"PUBLIC\"])\n        violations = evaluate_gates(diff, ctx)\n        # All violations should reference one of the entry tables/columns\n        valid_pairs = {\n            (\"table_alpha\", \"col_one\"),\n            (\"table_beta\", \"col_two\"),\n        }\n        for v in violations:\n            assert (v.table_name, v.column_name) in valid_pairs\n\n    def test_goodhart_gates_three_entries_all_different_violations(self):\n        \"\"\"Three entries triggering different rules should all produce violations, ordered by severity.\"\"\"\n        audit_ann = FieldAnnotation(classification_tier=\"PUBLIC\", is_audit_field=True, is_immutable=False, is_encrypted=False)\n        immutable_ann = FieldAnnotation(classification_tier=\"PUBLIC\", is_audit_field=False, is_immutable=True, is_encrypted=False)\n        tier_ann = FieldAnnotation(classification_tier=\"RESTRICTED\", is_audit_field=False, is_immutable=False, is_encrypted=False)\n\n        entry_audit = self._make_diff_entry(OperationType.DROP_COLUMN, \"t1\", \"c1\", audit_ann, is_removal=True)\n        entry_immutable = self._make_diff_entry(OperationType.ALTER_COLUMN, \"t2\", \"c2\", immutable_ann)\n        entry_tier = self._make_diff_entry(OperationType.ADD_COLUMN, \"t3\", \"c3\", tier_ann, is_new=True)\n\n        diff = self._make_diff([entry_audit, entry_immutable, entry_tier])\n        ctx = ComponentContext(component_id=\"svc-test\", declared_data_access_tiers=[\"PUBLIC\"])\n        violations = evaluate_gates(diff, ctx)\n\n        assert len(violations) >= 3\n        # Verify ordering: BLOCKED first, then HUMAN_GATE\n        severity_order = [v.severity for v in violations]\n        for i in range(len(severity_order) - 1):\n            if severity_order[i] == GateDecision.HUMAN_GATE:\n                assert severity_order[i + 1] != GateDecision.BLOCKED, \"BLOCKED should come before HUMAN_GATE\"\n\n\n# ============================================================\n# CREATE_PLAN TESTS\n# ============================================================\n\n\nclass TestGoodhartCreatePlan:\n\n    def _make_diff(self, tables=None):\n        if tables is None:\n            tables = [\"orders\"]\n        op = ColumnOperation(\n            op_type=OperationType.ADD_COLUMN,\n            table_name=tables[0],\n            column_name=\"new_col\",\n            new_type=\"INT\",\n            old_type=\"\",\n            constraints=[],\n        )\n        entries = [\n            DiffEntry(\n                operation=op,\n                annotation=None,\n                is_new_field=True,\n                is_field_removal=False,\n            )\n        ]\n        return SchemaDiff(\n            entries=entries,\n            affected_tables=tables,\n            source_path=\"/m/test.sql\",\n            source_hash=\"deadbeef\" * 8,\n        )\n\n    def _make_registry(self, fk_map=None):\n        \"\"\"Mock registry for FK lookups.\n        fk_map: dict of table -> list of FK-referenced tables\n        \"\"\"\n        registry = MagicMock()\n        if fk_map is None:\n            fk_map = {}\n\n        def get_fk(table):\n            return fk_map.get(table, [])\n\n        registry.get_foreign_key_references = MagicMock(side_effect=get_fk)\n        registry.get_fk_references = MagicMock(side_effect=get_fk)\n        registry.lookup_fk = MagicMock(side_effect=get_fk)\n        return registry\n\n    def test_goodhart_create_plan_multiple_plans_unique_ids(self):\n        \"\"\"Creating multiple plans must produce unique UUID v4 plan_ids.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            diff = self._make_diff()\n            reg = self._make_registry()\n            plan1 = create_plan(diff, [], reg, tmpdir)\n            plan2 = create_plan(diff, [], reg, tmpdir)\n            assert plan1.plan_id != plan2.plan_id\n            # Both should be valid UUID v4\n            uuid.UUID(plan1.plan_id, version=4)\n            uuid.UUID(plan2.plan_id, version=4)\n\n    def test_goodhart_create_plan_blast_radius_no_fk(self):\n        \"\"\"When no FK references exist, blast_radius should equal affected_tables exactly.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            diff = self._make_diff([\"orders\", \"users\"])\n            # Add a second entry for users\n            op2 = ColumnOperation(op_type=OperationType.ADD_COLUMN, table_name=\"users\", column_name=\"c2\", new_type=\"INT\", old_type=\"\", constraints=[])\n            diff.entries.append(DiffEntry(operation=op2, annotation=None, is_new_field=True, is_field_removal=False))\n            reg = self._make_registry({})\n            plan = create_plan(diff, [], reg, tmpdir)\n            blast = set(t.lower() for t in plan.blast_radius)\n            assert blast == {\"orders\", \"users\"}\n\n    def test_goodhart_create_plan_blast_radius_deduplication(self):\n        \"\"\"FK-referenced tables should appear only once in blast_radius even if referenced from multiple affected tables.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            diff = self._make_diff([\"orders\", \"invoices\"])\n            op2 = ColumnOperation(op_type=OperationType.ADD_COLUMN, table_name=\"invoices\", column_name=\"c2\", new_type=\"INT\", old_type=\"\", constraints=[])\n            diff.entries.append(DiffEntry(operation=op2, annotation=None, is_new_field=True, is_field_removal=False))\n            reg = self._make_registry({\"orders\": [\"customers\"], \"invoices\": [\"customers\"]})\n            plan = create_plan(diff, [], reg, tmpdir)\n            blast_lower = [t.lower() for t in plan.blast_radius]\n            assert blast_lower.count(\"customers\") == 1\n            assert \"orders\" in blast_lower\n            assert \"invoices\" in blast_lower\n\n    def test_goodhart_create_plan_overall_gate_human_gate_only(self):\n        \"\"\"When all violations are HUMAN_GATE, overall_gate should be HUMAN_GATE.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            diff = self._make_diff()\n            violations = [\n                GateViolation(rule_id=\"r1\", severity=GateDecision.HUMAN_GATE, table_name=\"t\", column_name=\"c\", message=\"v1\", context={}),\n                GateViolation(rule_id=\"r2\", severity=GateDecision.HUMAN_GATE, table_name=\"t\", column_name=\"c\", message=\"v2\", context={}),\n            ]\n            reg = self._make_registry()\n            plan = create_plan(diff, violations, reg, tmpdir)\n            assert plan.overall_gate == GateDecision.HUMAN_GATE\n\n    def test_goodhart_create_plan_overall_gate_mixed_blocked_wins(self):\n        \"\"\"When violations include HUMAN_GATE and BLOCKED, overall_gate must be BLOCKED.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            diff = self._make_diff()\n            violations = [\n                GateViolation(rule_id=\"r1\", severity=GateDecision.HUMAN_GATE, table_name=\"t\", column_name=\"c\", message=\"v1\", context={}),\n                GateViolation(rule_id=\"r2\", severity=GateDecision.BLOCKED, table_name=\"t\", column_name=\"c\", message=\"v2\", context={}),\n            ]\n            reg = self._make_registry()\n            plan = create_plan(diff, violations, reg, tmpdir)\n            assert plan.overall_gate == GateDecision.BLOCKED\n\n    def test_goodhart_create_plan_source_propagated(self):\n        \"\"\"Plan source_path and source_hash must come from the diff, not be hardcoded.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            diff = self._make_diff()\n            diff.source_path = \"/custom/path/migration_xyz.sql\"\n            diff.source_hash = \"a1b2c3d4\" * 8\n            reg = self._make_registry()\n            plan = create_plan(diff, [], reg, tmpdir)\n            assert plan.source_path == \"/custom/path/migration_xyz.sql\"\n            assert plan.source_hash == \"a1b2c3d4\" * 8\n\n    def test_goodhart_create_plan_timestamps_iso8601(self):\n        \"\"\"Timestamps must be valid ISO 8601 format.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            diff = self._make_diff()\n            reg = self._make_registry()\n            plan = create_plan(diff, [], reg, tmpdir)\n            # Should be parseable as ISO 8601\n            dt_created = datetime.fromisoformat(plan.created_at.replace(\"Z\", \"+00:00\"))\n            dt_updated = datetime.fromisoformat(plan.updated_at.replace(\"Z\", \"+00:00\"))\n            assert dt_created is not None\n            assert dt_updated is not None\n            assert plan.created_at == plan.updated_at\n\n    def test_goodhart_create_plan_persisted_file_deserializable(self):\n        \"\"\"The persisted JSON file must be valid and deserializable back into the plan.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            diff = self._make_diff()\n            reg = self._make_registry()\n            plan = create_plan(diff, [], reg, tmpdir)\n            plan_file = os.path.join(tmpdir, f\"{plan.plan_id}.json\")\n            assert os.path.exists(plan_file)\n            with open(plan_file, \"r\") as f:\n                data = json.load(f)\n            assert data is not None\n            # Verify key fields match\n            assert data.get(\"plan_id\") == plan.plan_id or data.get(\"plan_id\", \"\") == plan.plan_id\n\n    def test_goodhart_create_plan_blast_radius_fk_table_not_in_affected(self):\n        \"\"\"FK-referenced tables not in affected_tables should still appear in blast_radius.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            diff = self._make_diff([\"orders\"])\n            reg = self._make_registry({\"orders\": [\"products\", \"warehouses\"]})\n            plan = create_plan(diff, [], reg, tmpdir)\n            blast_lower = [t.lower() for t in plan.blast_radius]\n            assert \"products\" in blast_lower\n            assert \"warehouses\" in blast_lower\n            assert \"orders\" in blast_lower\n\n\n# ============================================================\n# APPROVE_PLAN TESTS\n# ============================================================\n\n\nclass TestGoodhartApprovePlan:\n\n    def _create_human_gate_plan(self, tmpdir):\n        \"\"\"Helper to create a PENDING HUMAN_GATE plan for approval tests.\"\"\"\n        op = ColumnOperation(\n            op_type=OperationType.ALTER_COLUMN,\n            table_name=\"users\",\n            column_name=\"email\",\n            new_type=\"TEXT\",\n            old_type=\"VARCHAR\",\n            constraints=[],\n        )\n        entry = DiffEntry(\n            operation=op,\n            annotation=FieldAnnotation(\n                classification_tier=\"INTERNAL\",\n                is_audit_field=False,\n                is_immutable=False,\n                is_encrypted=True,\n            ),\n            is_new_field=False,\n            is_field_removal=False,\n        )\n        diff = SchemaDiff(\n            entries=[entry],\n            affected_tables=[\"users\"],\n            source_path=\"/m/v1.sql\",\n            source_hash=\"abc\" * 20 + \"ab\",\n        )\n        violations = [\n            GateViolation(\n                rule_id=\"encryption_removal\",\n                severity=GateDecision.HUMAN_GATE,\n                table_name=\"users\",\n                column_name=\"email\",\n                message=\"Encryption removal detected\",\n                context={},\n            )\n        ]\n        registry = MagicMock()\n        registry.get_foreign_key_references = MagicMock(return_value=[])\n        registry.get_fk_references = MagicMock(return_value=[])\n        registry.lookup_fk = MagicMock(return_value=[])\n        plan = create_plan(diff, violations, registry, tmpdir)\n        return plan\n\n    def test_goodhart_approve_changelog_appended(self):\n        \"\"\"Approval must append an ApprovalRecord to changelog.jsonl.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            plan = self._create_human_gate_plan(tmpdir)\n            approved = approve_plan(\n                plan.plan_id,\n                \"reviewer@example.com\",\n                \"JIRA-999\",\n                \"Reviewed and approved\",\n                tmpdir,\n            )\n            changelog_path = os.path.join(tmpdir, \"changelog.jsonl\")\n            assert os.path.exists(changelog_path), \"changelog.jsonl should be created after approval\"\n            with open(changelog_path, \"r\") as f:\n                content = f.read().strip()\n            assert len(content) > 0\n            # Should contain the plan_id\n            assert plan.plan_id in content\n\n    def test_goodhart_approve_reviewer_and_rationale_preserved(self):\n        \"\"\"Approval record must preserve exact reviewer, review_ref, and rationale.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            plan = self._create_human_gate_plan(tmpdir)\n            approved = approve_plan(\n                plan.plan_id,\n                \"security-team@corp.com\",\n                \"JIRA-12345\",\n                \"Reviewed encryption changes in detail\",\n                tmpdir,\n            )\n            changelog_path = os.path.join(tmpdir, \"changelog.jsonl\")\n            with open(changelog_path, \"r\") as f:\n                lines = [l.strip() for l in f.readlines() if l.strip()]\n            found = False\n            for line in lines:\n                record = json.loads(line)\n                if record.get(\"plan_id\") == plan.plan_id:\n                    assert record.get(\"reviewer\") == \"security-team@corp.com\" or record.get(\"reviewer\", \"\") == \"security-team@corp.com\"\n                    found = True\n            assert found, \"Approval record not found in changelog\"\n\n    def test_goodhart_approve_updated_at_after_created_at(self):\n        \"\"\"After approval, updated_at must differ from created_at.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            plan = self._create_human_gate_plan(tmpdir)\n            import time\n            time.sleep(0.01)  # Ensure time passes\n            approved = approve_plan(\n                plan.plan_id,\n                \"reviewer@test.com\",\n                \"REF-001\",\n                \"Approved\",\n                tmpdir,\n            )\n            assert approved.status == PlanStatus.APPROVED\n            # updated_at should reflect the approval time, which should be >= created_at\n            created = datetime.fromisoformat(approved.created_at.replace(\"Z\", \"+00:00\"))\n            updated = datetime.fromisoformat(approved.updated_at.replace(\"Z\", \"+00:00\"))\n            assert updated >= created\n\n\n# ============================================================\n# LOAD_PLAN TESTS\n# ============================================================\n\n\nclass TestGoodhartLoadPlan:\n\n    def test_goodhart_load_plan_id_matches_input(self):\n        \"\"\"Loaded plan's plan_id must equal the requested plan_id.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            op = ColumnOperation(\n                op_type=OperationType.ADD_COLUMN,\n                table_name=\"t\",\n                column_name=\"c\",\n                new_type=\"INT\",\n                old_type=\"\",\n                constraints=[],\n            )\n            entry = DiffEntry(operation=op, annotation=None, is_new_field=True, is_field_removal=False)\n            diff = SchemaDiff(entries=[entry], affected_tables=[\"t\"], source_path=\"/m/v.sql\", source_hash=\"h\" * 64)\n            reg = MagicMock()\n            reg.get_foreign_key_references = MagicMock(return_value=[])\n            reg.get_fk_references = MagicMock(return_value=[])\n            reg.lookup_fk = MagicMock(return_value=[])\n\n            plan1 = create_plan(diff, [], reg, tmpdir)\n            plan2 = create_plan(diff, [], reg, tmpdir)\n\n            loaded1 = load_plan(plan1.plan_id, tmpdir)\n            loaded2 = load_plan(plan2.plan_id, tmpdir)\n\n            assert loaded1.plan_id == plan1.plan_id\n            assert loaded2.plan_id == plan2.plan_id\n            assert loaded1.plan_id != loaded2.plan_id\n\n    def test_goodhart_load_corrupted_missing_required_fields(self):\n        \"\"\"Valid JSON but missing required MigrationPlan fields should raise corrupted_plan_file error.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            fake_id = str(uuid.uuid4())\n            plan_file = os.path.join(tmpdir, f\"{fake_id}.json\")\n            with open(plan_file, \"w\") as f:\n                json.dump({\"some_field\": \"value\", \"another\": 42}, f)\n            with pytest.raises(Exception):\n                load_plan(fake_id, tmpdir)\n\n    def test_goodhart_load_plan_preserves_all_fields_after_round_trip(self):\n        \"\"\"A plan with violations should round-trip correctly through create_plan and load_plan.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            op = ColumnOperation(\n                op_type=OperationType.ADD_COLUMN,\n                table_name=\"orders\",\n                column_name=\"total\",\n                new_type=\"NUMERIC(10,2)\",\n                old_type=\"\",\n                constraints=[],\n            )\n            entry = DiffEntry(operation=op, annotation=None, is_new_field=True, is_field_removal=False)\n            diff = SchemaDiff(entries=[entry], affected_tables=[\"orders\"], source_path=\"/m/v99.sql\", source_hash=\"f\" * 64)\n            violations = [\n                GateViolation(rule_id=\"tier_mismatch\", severity=GateDecision.HUMAN_GATE, table_name=\"orders\", column_name=\"total\", message=\"tier issue\", context={\"tier\": \"RESTRICTED\"})\n            ]\n            reg = MagicMock()\n            reg.get_foreign_key_references = MagicMock(return_value=[\"products\"])\n            reg.get_fk_references = MagicMock(return_value=[\"products\"])\n            reg.lookup_fk = MagicMock(return_value=[\"products\"])\n\n            plan = create_plan(diff, violations, reg, tmpdir)\n            loaded = load_plan(plan.plan_id, tmpdir)\n\n            assert loaded.plan_id == plan.plan_id\n            assert loaded.status == plan.status\n            assert loaded.overall_gate == plan.overall_gate\n            assert loaded.source_path == plan.source_path\n            assert loaded.source_hash == plan.source_hash\n"
+}

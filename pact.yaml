@@ -1,0 +1,5 @@
+budget: 50.0
+build_mode: hierarchy
+shaping: true
+parallel_components: true
+max_concurrent_agents: 3

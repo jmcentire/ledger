@@ -1,0 +1,125 @@
+version: "1.0"
+generated_by: constrain
+system: ledger
+
+trust:
+  floor: 0.10
+  authority_override_floor: 0.40
+  decay_lambda: 0.05
+  taint_lock_tiers: [PII, FINANCIAL, AUTH, COMPLIANCE]
+  conflict_trust_delta_threshold: 0.20
+
+classifications:
+  - field_pattern: "*.email"
+    tier: PII
+    authoritative_component: null
+    canary_eligible: true
+    canary_pattern: "ledger-canary-pii-{hex8}@canary.invalid"
+    rationale: Email addresses are personal identifiers subject to GDPR erasure
+
+  - field_pattern: "*.phone"
+    tier: PII
+    authoritative_component: null
+    canary_eligible: true
+    canary_pattern: "ledger-canary-pii-{hex8}"
+    rationale: Phone numbers are personal identifiers
+
+  - field_pattern: "*.payment_token"
+    tier: FINANCIAL
+    authoritative_component: null
+    canary_eligible: false
+    canary_pattern: null
+    rationale: Payment tokens reference financial instruments — always encrypted and tokenized
+
+  - field_pattern: "*.ssn"
+    tier: PII
+    authoritative_component: null
+    canary_eligible: true
+    canary_pattern: "ledger-canary-pii-{hex8}"
+    rationale: Social security numbers are high-sensitivity PII
+
+  - field_pattern: "*.password_hash"
+    tier: AUTH
+    authoritative_component: null
+    canary_eligible: false
+    canary_pattern: null
+    rationale: Authentication credentials must never appear in spans or exports
+
+  - field_pattern: "*.api_key"
+    tier: AUTH
+    authoritative_component: null
+    canary_eligible: false
+    canary_pattern: null
+    rationale: API keys are authentication material
+
+  - field_pattern: "*.created_at"
+    tier: PUBLIC
+    authoritative_component: null
+    canary_eligible: false
+    canary_pattern: null
+    rationale: Timestamps are operational metadata but may carry audit_field annotation
+
+  - field_pattern: "*.deleted_at"
+    tier: PUBLIC
+    authoritative_component: null
+    canary_eligible: false
+    canary_pattern: null
+    rationale: Soft delete markers are operational — tier comes from annotation, not field name
+
+soak:
+  base_durations:
+    PUBLIC: 1h
+    PII: 6h
+    FINANCIAL: 24h
+    AUTH: 48h
+    COMPLIANCE: 72h
+  target_requests: 1000
+
+authority_map:
+  - component: registry
+    domains: [schema_storage, annotation_index, backend_registry]
+    rationale: Registry is the single source of truth for schema definitions and annotations
+
+  - component: migration
+    domains: [migration_analysis, migration_gating, migration_approval]
+    rationale: Migration component owns all analysis and gating logic for schema changes
+
+  - component: propagation
+    domains: [annotation_rules, annotation_export]
+    rationale: Propagation engine owns the rules that translate annotations into control plane behavior
+
+  - component: mock
+    domains: [mock_generation, canary_fingerprinting]
+    rationale: Mock component owns data generation and canary value creation
+
+  - component: api
+    domains: [http_interface, integration_endpoints]
+    rationale: API component owns all HTTP endpoints consumed by peer tools
+
+  - component: cli
+    domains: [operator_interface]
+    rationale: CLI owns the human operator interface — all interactive commands route through it
+
+  - component: inference
+    domains: [schema_inference]
+    rationale: Owns all live backend introspection and draft schema generation
+
+  - component: builtins
+    domains: [builtin_annotation_maps]
+    rationale: Owns curated annotation maps for known external services
+
+  - component: export
+    domains: []
+    rationale: Export adapters format data but hold no authority — propagation owns the rules
+
+  - component: config
+    domains: []
+    rationale: Configuration loader is a utility with no authority over data domains
+
+human_gates:
+  always:
+    - tier: FINANCIAL
+    - tier: AUTH
+    - tier: COMPLIANCE
+  on_low_trust_authoritative: true
+  on_unresolvable_conflict: true

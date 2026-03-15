@@ -1,0 +1,725 @@
+{
+  "component_id": "config",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "goodhart_conflicts_pairs_are_frozensets_of_two",
+      "description": "Each element in the CONFLICTS constant must be a frozenset containing exactly two annotation name strings, ensuring the pairs are truly pairs and not singletons or larger sets",
+      "function": "get_conflicts",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Each inner frozenset has exactly 2 elements",
+        "Each element within inner frozensets is a str"
+      ]
+    },
+    {
+      "id": "goodhart_conflicts_contains_specific_strings",
+      "description": "The CONFLICTS constant must contain the exact annotation name strings specified in the contract, not aliases or alternative spellings",
+      "function": "get_conflicts",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All six annotation names across the three pairs are present: immutable, gdpr_erasable, audit_field, soft_delete_marker"
+      ]
+    },
+    {
+      "id": "goodhart_builtin_table_values_are_propagation_rules",
+      "description": "Every value in the builtin propagation table must be a PropagationRule instance with all required fields populated as strings",
+      "function": "get_builtin_propagation_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Each value is a PropagationRule",
+        "Each PropagationRule has annotation_name, pact_assertion_type, arbiter_tier_behavior, baton_masking_rule, sentinel_severity"
+      ]
+    },
+    {
+      "id": "goodhart_builtin_table_keys_match_annotation_names",
+      "description": "Each key in the builtin propagation table must match the annotation_name field of its corresponding PropagationRule value",
+      "function": "get_builtin_propagation_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "For every (k, v) pair: k == v.annotation_name"
+      ]
+    },
+    {
+      "id": "goodhart_builtin_table_has_conflict_annotations",
+      "description": "The builtin propagation table must contain entries for all annotation names referenced in the CONFLICTS constant",
+      "function": "get_builtin_propagation_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "immutable in table",
+        "gdpr_erasable in table",
+        "audit_field in table",
+        "soft_delete_marker in table"
+      ]
+    },
+    {
+      "id": "goodhart_builtin_table_has_requires_annotations",
+      "description": "The builtin propagation table must contain entries for all annotation names referenced as keys in the REQUIRES constant",
+      "function": "get_requires",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Every key in REQUIRES is also a key in get_builtin_propagation_table()"
+      ]
+    },
+    {
+      "id": "goodhart_validate_annotations_unknown_names_no_crash",
+      "description": "validate_annotation_set should handle annotation names not present in the propagation table without crashing — it validates only CONFLICTS/REQUIRES constraints",
+      "function": "validate_annotation_set",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "annotations": "[\"totally_unknown_xyz_annotation\"]"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns a list (possibly empty)",
+        "Does not raise an exception"
+      ]
+    },
+    {
+      "id": "goodhart_validate_conflict_violation_type_field",
+      "description": "When a CONFLICTS violation is detected, the returned ConstraintViolation must have violation_type set to 'conflict' and its annotations field must contain both conflicting annotation names",
+      "function": "validate_annotation_set",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "annotations": "[\"immutable\", \"gdpr_erasable\"]"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exactly one violation returned",
+        "violation.violation_type == 'conflict'",
+        "Both 'immutable' and 'gdpr_erasable' appear in violation.annotations"
+      ]
+    },
+    {
+      "id": "goodhart_validate_missing_required_violation_type_field",
+      "description": "When a REQUIRES violation is detected, the returned ConstraintViolation must have violation_type set to 'missing_required' and its annotations field must reference the relevant annotations",
+      "function": "validate_annotation_set",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "violation.violation_type == 'missing_required'",
+        "violation.annotations is a list of strings"
+      ]
+    },
+    {
+      "id": "goodhart_validate_duplicate_annotations_in_input",
+      "description": "validate_annotation_set should treat duplicate annotation names in the input as a set — duplicates should not cause double-counting of violations",
+      "function": "validate_annotation_set",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "annotations": "[\"immutable\", \"gdpr_erasable\", \"immutable\"]"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exactly one conflict violation for {immutable, gdpr_erasable}",
+        "No spurious extra violations from the duplicate"
+      ]
+    },
+    {
+      "id": "goodhart_validate_no_false_conflicts_for_non_conflicting",
+      "description": "Annotations that are not in any CONFLICTS pair should never produce conflict violations, even when combined with many other annotations",
+      "function": "validate_annotation_set",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "annotations": "[\"audit_field\", \"soft_delete_marker\"]"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No 'conflict' violations returned since {audit_field, soft_delete_marker} is not a CONFLICTS pair"
+      ]
+    },
+    {
+      "id": "goodhart_build_table_multiple_custom_annotations",
+      "description": "build_propagation_table should correctly merge multiple distinct custom annotations, each accessible by its name key in the returned table",
+      "function": "build_propagation_table",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Each custom annotation is present in the result keyed by its name",
+        "All builtins still present",
+        "Total count equals builtins + number of custom annotations"
+      ]
+    },
+    {
+      "id": "goodhart_build_table_custom_values_are_propagation_rules",
+      "description": "Custom annotations merged into the propagation table must be represented as PropagationRule instances, not raw dicts or CustomAnnotationDef instances",
+      "function": "build_propagation_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "The value for each custom annotation key is a PropagationRule instance"
+      ]
+    },
+    {
+      "id": "goodhart_build_table_collision_detects_any_builtin",
+      "description": "build_propagation_table must detect collision with any builtin name, not just hardcoded specific names visible in tests",
+      "function": "build_propagation_table",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Collision is detected for every builtin name, not just commonly tested ones"
+      ]
+    },
+    {
+      "id": "goodhart_classification_tier_is_strenum",
+      "description": "ClassificationTier members must be usable as strings (StrEnum), so their string value should match the expected tier name",
+      "function": "ClassificationTier",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "str(ClassificationTier.PUBLIC) contains 'PUBLIC' or equals a lowercase/uppercase variant",
+        "Each member is an instance of str"
+      ]
+    },
+    {
+      "id": "goodhart_classification_tier_membership_test",
+      "description": "ClassificationTier should support 'in' membership testing for all five defined values and reject non-members",
+      "function": "ClassificationTier",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All five values are valid members",
+        "'SECRET' is not a valid member",
+        "'INTERNAL' is not a valid member"
+      ]
+    },
+    {
+      "id": "goodhart_field_model_frozen",
+      "description": "Field model must be truly frozen — rejecting attribute assignment for all fields, not just 'name'",
+      "function": "Field",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting field_type raises error",
+        "Setting classification raises error",
+        "Setting nullable raises error",
+        "Setting annotations raises error"
+      ]
+    },
+    {
+      "id": "goodhart_annotation_model_frozen",
+      "description": "Annotation model must be frozen, rejecting attribute assignment on both name and params",
+      "function": "Annotation",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting name raises error",
+        "Setting params raises error"
+      ]
+    },
+    {
+      "id": "goodhart_schema_file_model_frozen",
+      "description": "SchemaFile model must be frozen, rejecting attribute assignment on all fields including raw_yaml and source_path",
+      "function": "SchemaFile",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting raw_yaml raises error",
+        "Setting source_path raises error",
+        "Setting version raises error"
+      ]
+    },
+    {
+      "id": "goodhart_backend_model_frozen",
+      "description": "Backend model must be frozen, rejecting attribute assignment on fields like enabled and timeout_ms",
+      "function": "Backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting enabled raises error",
+        "Setting timeout_ms raises error"
+      ]
+    },
+    {
+      "id": "goodhart_migration_gate_model_frozen",
+      "description": "MigrationGate model must be frozen and reject attribute assignment",
+      "function": "MigrationGate",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting passed raises error",
+        "Setting severity raises error"
+      ]
+    },
+    {
+      "id": "goodhart_migration_plan_model_frozen",
+      "description": "MigrationPlan model must be frozen and reject attribute assignment",
+      "function": "MigrationPlan",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting approved raises error",
+        "Setting plan_id raises error"
+      ]
+    },
+    {
+      "id": "goodhart_changelog_entry_model_frozen",
+      "description": "ChangelogEntry model must be frozen and reject attribute assignment",
+      "function": "ChangelogEntry",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting description raises error",
+        "Setting change_type raises error"
+      ]
+    },
+    {
+      "id": "goodhart_constraint_violation_model_frozen",
+      "description": "ConstraintViolation model must be frozen and reject attribute assignment",
+      "function": "ConstraintViolation",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting violation_type raises error",
+        "Setting message raises error"
+      ]
+    },
+    {
+      "id": "goodhart_propagation_rule_model_frozen",
+      "description": "PropagationRule model must be frozen and reject attribute assignment",
+      "function": "PropagationRule",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting annotation_name raises error",
+        "Setting sentinel_severity raises error"
+      ]
+    },
+    {
+      "id": "goodhart_ledger_config_model_frozen",
+      "description": "LedgerConfig model must be frozen and reject attribute assignment on all fields",
+      "function": "LedgerConfig",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting project_name raises error",
+        "Setting propagation_table raises error"
+      ]
+    },
+    {
+      "id": "goodhart_get_builtin_table_called_twice_returns_same",
+      "description": "Multiple calls to get_builtin_propagation_table should return tables with identical contents, ensuring stability",
+      "function": "get_builtin_propagation_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Two successive calls return tables with the same keys",
+        "Two successive calls return tables with identical values"
+      ]
+    },
+    {
+      "id": "goodhart_get_conflicts_called_twice_identical",
+      "description": "Multiple calls to get_conflicts must return the exact same frozenset object or an identical copy, ensuring the constant is stable",
+      "function": "get_conflicts",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Two calls return equal values",
+        "Both are frozenset instances"
+      ]
+    },
+    {
+      "id": "goodhart_get_requires_called_twice_identical",
+      "description": "Multiple calls to get_requires must return the exact same mapping, ensuring the constant is stable",
+      "function": "get_requires",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Two calls return equal values"
+      ]
+    },
+    {
+      "id": "goodhart_validate_conflict_is_symmetric",
+      "description": "CONFLICTS violations should be symmetric: the order of annotations in the input should not affect whether a conflict is detected",
+      "function": "validate_annotation_set",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "annotations_a": "[\"gdpr_erasable\", \"audit_field\"]",
+        "annotations_b": "[\"audit_field\", \"gdpr_erasable\"]"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Both orderings produce the same number and type of violations"
+      ]
+    },
+    {
+      "id": "goodhart_validate_empty_string_among_valid",
+      "description": "validate_annotation_set should detect empty string even when mixed with valid annotation names, not just when the list contains only empty strings",
+      "function": "validate_annotation_set",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "annotations": "[\"immutable\", \"\", \"audit_field\"]"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "empty_annotation_name",
+      "assertions": [
+        "Raises error for the empty string even though other names are valid"
+      ]
+    },
+    {
+      "id": "goodhart_build_table_returns_new_mapping_each_call",
+      "description": "build_propagation_table should return a fresh MappingProxyType on each call, not a shared mutable reference that could lead to cross-contamination",
+      "function": "build_propagation_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Two calls with different custom annotations return different tables",
+        "Modifying one does not affect the other"
+      ]
+    },
+    {
+      "id": "goodhart_builtin_table_non_empty",
+      "description": "The builtin propagation table must contain at least the annotations referenced in CONFLICTS and REQUIRES, ensuring it is not an empty stub",
+      "function": "get_builtin_propagation_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Table has at least 4 entries (immutable, gdpr_erasable, audit_field, soft_delete_marker)",
+        "len(table) > 0"
+      ]
+    },
+    {
+      "id": "goodhart_requires_keys_are_strings",
+      "description": "All keys in the REQUIRES dict must be non-empty strings representing annotation names",
+      "function": "get_requires",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All keys are str",
+        "All keys are non-empty",
+        "All values are frozenset instances containing only strings"
+      ]
+    },
+    {
+      "id": "goodhart_validate_requires_with_all_satisfied",
+      "description": "When all annotations required by a REQUIRES rule are present alongside the source annotation, no missing_required violation should be produced for that rule",
+      "function": "validate_annotation_set",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No missing_required violations when all required co-annotations are present"
+      ]
+    },
+    {
+      "id": "goodhart_file_lock_sidecar_naming",
+      "description": "The .lock sidecar file should be created adjacent to the given path with a .lock extension, not in a temp directory or with a different naming scheme",
+      "function": "file_lock",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "The sidecar file path ends with .lock",
+        "The sidecar file is in the same directory as the original path"
+      ]
+    },
+    {
+      "id": "goodhart_file_lock_does_not_modify_original",
+      "description": "Using file_lock should never modify the content or metadata of the original file being locked",
+      "function": "file_lock",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Original file content is unchanged after lock/unlock cycle",
+        "Original file still exists after lock/unlock cycle"
+      ]
+    },
+    {
+      "id": "goodhart_file_lock_fd_closed_after_exit",
+      "description": "After exiting the file_lock context manager, the file descriptor in FileLockHandle should be closed and no longer usable",
+      "function": "file_lock",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "File descriptor is closed after context exit",
+        "Attempting to use fd after exit raises an error"
+      ]
+    },
+    {
+      "id": "goodhart_classification_tier_values_are_strings",
+      "description": "Each ClassificationTier enum member's value should be a string (StrEnum behavior), enabling direct string comparison",
+      "function": "ClassificationTier",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "isinstance(ClassificationTier.PUBLIC, str) is True",
+        "isinstance(ClassificationTier.PII, str) is True"
+      ]
+    },
+    {
+      "id": "goodhart_build_table_three_duplicate_custom_names",
+      "description": "build_propagation_table should detect duplicate custom names even when there are three or more customs with the same name, not just exactly two",
+      "function": "build_propagation_table",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "duplicate_custom_names",
+      "assertions": [
+        "Error raised for three customs sharing the same name"
+      ]
+    },
+    {
+      "id": "goodhart_validate_only_conflict_no_false_requires",
+      "description": "An annotation set that triggers a CONFLICTS violation should not also produce spurious REQUIRES violations unless a genuine REQUIRES rule is also violated",
+      "function": "validate_annotation_set",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "annotations": "[\"immutable\", \"gdpr_erasable\"]"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Only conflict violations are returned if no REQUIRES rules are violated"
+      ]
+    },
+    {
+      "id": "goodhart_parse_schema_raw_yaml_preserves_comments",
+      "description": "parse_schema_file must preserve YAML comments in raw_yaml since it stores exact bytes from disk, and yaml.safe_load would strip them",
+      "function": "parse_schema_file",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "raw_yaml contains comment characters (#) if the original file had them",
+        "raw_yaml is not the output of yaml.dump"
+      ]
+    },
+    {
+      "id": "goodhart_parse_schema_preserves_trailing_newline",
+      "description": "parse_schema_file must preserve trailing newlines in raw_yaml exactly as they exist on disk",
+      "function": "parse_schema_file",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "If original file ends with newline, raw_yaml ends with newline",
+        "If original file ends with multiple newlines, all are preserved"
+      ]
+    },
+    {
+      "id": "goodhart_file_lock_handle_has_expected_fields",
+      "description": "The FileLockHandle returned by entering file_lock context should have lock_path, fd, and exclusive fields with appropriate types",
+      "function": "file_lock",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "handle.lock_path is a string ending with .lock",
+        "handle.fd is an int",
+        "handle.exclusive is a bool matching the requested mode"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nAdversarial hidden acceptance tests for Configuration & Data Models.\n\nThese tests target gaps in visible test coverage, catching implementations\nthat hardcode returns or shortcut validation rather than truly satisfying\nthe contract.\n\"\"\"\nimport os\nimport sys\nimport tempfile\nimport textwrap\nfrom types import MappingProxyType\nfrom unittest.mock import patch\n\nimport pytest\n\nfrom src.config import (\n    Annotation,\n    Backend,\n    ChangelogEntry,\n    ClassificationTier,\n    ConstraintViolation,\n    CustomAnnotationDef,\n    Field,\n    LedgerConfig,\n    MigrationGate,\n    MigrationPlan,\n    PropagationRule,\n    SchemaFile,\n    build_propagation_table,\n    file_lock,\n    get_builtin_propagation_table,\n    get_conflicts,\n    get_requires,\n    parse_schema_file,\n    validate_annotation_set,\n)\n\n\n# ---------------------------------------------------------------------------\n# CONFLICTS invariant tests\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartConflicts:\n\n    def test_goodhart_conflicts_pairs_are_frozensets_of_two(self):\n        \"\"\"Each element in CONFLICTS must be a frozenset of exactly 2 strings.\"\"\"\n        conflicts = get_conflicts()\n        assert isinstance(conflicts, frozenset)\n        for pair in conflicts:\n            assert isinstance(pair, frozenset), f\"Inner element {pair!r} is not a frozenset\"\n            assert len(pair) == 2, f\"Inner element has {len(pair)} members, expected 2\"\n            for name in pair:\n                assert isinstance(name, str), f\"Element {name!r} in pair is not a str\"\n\n    def test_goodhart_conflicts_contains_specific_strings(self):\n        \"\"\"CONFLICTS must reference the exact annotation names from the contract.\"\"\"\n        conflicts = get_conflicts()\n        all_names = set()\n        for pair in conflicts:\n            all_names.update(pair)\n        assert \"immutable\" in all_names\n        assert \"gdpr_erasable\" in all_names\n        assert \"audit_field\" in all_names\n        assert \"soft_delete_marker\" in all_names\n\n    def test_goodhart_get_conflicts_called_twice_identical(self):\n        \"\"\"Multiple calls to get_conflicts must return equal frozensets.\"\"\"\n        c1 = get_conflicts()\n        c2 = get_conflicts()\n        assert c1 == c2\n        assert isinstance(c1, frozenset)\n        assert isinstance(c2, frozenset)\n\n\n# ---------------------------------------------------------------------------\n# REQUIRES invariant tests\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartRequires:\n\n    def test_goodhart_get_requires_called_twice_identical(self):\n        \"\"\"Multiple calls to get_requires must return equal mappings.\"\"\"\n        r1 = get_requires()\n        r2 = get_requires()\n        assert r1 == r2\n\n    def test_goodhart_requires_keys_are_strings(self):\n        \"\"\"All keys in REQUIRES must be non-empty strings; values must be frozenset[str].\"\"\"\n        requires = get_requires()\n        for k, v in requires.items():\n            assert isinstance(k, str) and len(k) > 0, f\"Key {k!r} invalid\"\n            assert isinstance(v, frozenset), f\"Value for {k!r} is not a frozenset\"\n            for elem in v:\n                assert isinstance(elem, str), f\"Element {elem!r} in requires[{k!r}] is not str\"\n\n    def test_goodhart_builtin_table_has_requires_annotations(self):\n        \"\"\"Every annotation name that is a key in REQUIRES must exist in the builtin propagation table.\"\"\"\n        requires = get_requires()\n        table = get_builtin_propagation_table()\n        for key in requires:\n            assert key in table, f\"REQUIRES key {key!r} not found in builtin table\"\n\n\n# ---------------------------------------------------------------------------\n# Builtin propagation table tests\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartBuiltinTable:\n\n    def test_goodhart_builtin_table_values_are_propagation_rules(self):\n        \"\"\"Every value in the builtin table must be a PropagationRule with all required fields.\"\"\"\n        table = get_builtin_propagation_table()\n        assert len(table) > 0, \"Builtin table should not be empty\"\n        for key, rule in table.items():\n            assert isinstance(rule, PropagationRule), f\"Value for {key!r} is not PropagationRule\"\n            assert hasattr(rule, \"annotation_name\")\n            assert hasattr(rule, \"pact_assertion_type\")\n            assert hasattr(rule, \"arbiter_tier_behavior\")\n            assert hasattr(rule, \"baton_masking_rule\")\n            assert hasattr(rule, \"sentinel_severity\")\n\n    def test_goodhart_builtin_table_keys_match_annotation_names(self):\n        \"\"\"Each key in the builtin table must equal the annotation_name of its PropagationRule.\"\"\"\n        table = get_builtin_propagation_table()\n        for key, rule in table.items():\n            assert key == rule.annotation_name, (\n                f\"Key {key!r} does not match rule.annotation_name {rule.annotation_name!r}\"\n            )\n\n    def test_goodhart_builtin_table_has_conflict_annotations(self):\n        \"\"\"The builtin table must contain all annotations referenced in CONFLICTS.\"\"\"\n        table = get_builtin_propagation_table()\n        conflicts = get_conflicts()\n        for pair in conflicts:\n            for name in pair:\n                assert name in table, f\"Conflict annotation {name!r} not in builtin table\"\n\n    def test_goodhart_builtin_table_non_empty(self):\n        \"\"\"The builtin table must have at least 4 entries (the conflict annotations at minimum).\"\"\"\n        table = get_builtin_propagation_table()\n        assert len(table) >= 4\n\n    def test_goodhart_get_builtin_table_called_twice_returns_same(self):\n        \"\"\"Two calls to get_builtin_propagation_table should return tables with identical contents.\"\"\"\n        t1 = get_builtin_propagation_table()\n        t2 = get_builtin_propagation_table()\n        assert set(t1.keys()) == set(t2.keys())\n        for k in t1:\n            assert t1[k] == t2[k]\n\n\n# ---------------------------------------------------------------------------\n# build_propagation_table tests\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartBuildPropagationTable:\n\n    def test_goodhart_build_table_multiple_custom_annotations(self):\n        \"\"\"Multiple distinct custom annotations should all appear in the merged table.\"\"\"\n        customs = [\n            CustomAnnotationDef(\n                name=\"custom_alpha\",\n                pact_assertion_type=\"check\",\n                arbiter_tier_behavior=\"allow\",\n                baton_masking_rule=\"none\",\n                sentinel_severity=\"low\",\n            ),\n            CustomAnnotationDef(\n                name=\"custom_beta\",\n                pact_assertion_type=\"verify\",\n                arbiter_tier_behavior=\"deny\",\n                baton_masking_rule=\"full\",\n                sentinel_severity=\"high\",\n            ),\n            CustomAnnotationDef(\n                name=\"custom_gamma\",\n                pact_assertion_type=\"assert\",\n                arbiter_tier_behavior=\"warn\",\n                baton_masking_rule=\"partial\",\n                sentinel_severity=\"medium\",\n            ),\n        ]\n        table = build_propagation_table(customs)\n        builtins = get_builtin_propagation_table()\n        for c in customs:\n            assert c.name in table, f\"Custom annotation {c.name!r} missing from merged table\"\n        for bk in builtins:\n            assert bk in table, f\"Builtin {bk!r} missing after merge\"\n        assert len(table) == len(builtins) + len(customs)\n\n    def test_goodhart_build_table_custom_values_are_propagation_rules(self):\n        \"\"\"Custom annotations in the merged table must be PropagationRule instances.\"\"\"\n        customs = [\n            CustomAnnotationDef(\n                name=\"my_custom_rule\",\n                pact_assertion_type=\"check\",\n                arbiter_tier_behavior=\"allow\",\n                baton_masking_rule=\"none\",\n                sentinel_severity=\"low\",\n            ),\n        ]\n        table = build_propagation_table(customs)\n        val = table[\"my_custom_rule\"]\n        assert isinstance(val, PropagationRule), (\n            f\"Expected PropagationRule, got {type(val).__name__}\"\n        )\n        assert val.annotation_name == \"my_custom_rule\"\n\n    def test_goodhart_build_table_collision_detects_any_builtin(self):\n        \"\"\"Collision detection must work for every builtin name, not just commonly tested ones.\"\"\"\n        builtins = get_builtin_propagation_table()\n        # Pick a builtin name that's less likely to be hardcoded in visible tests\n        all_builtin_names = list(builtins.keys())\n        for bname in all_builtin_names:\n            bad_custom = CustomAnnotationDef(\n                name=bname,\n                pact_assertion_type=\"check\",\n                arbiter_tier_behavior=\"allow\",\n                baton_masking_rule=\"none\",\n                sentinel_severity=\"low\",\n            )\n            with pytest.raises(Exception):\n                build_propagation_table([bad_custom])\n\n    def test_goodhart_build_table_three_duplicate_custom_names(self):\n        \"\"\"Duplicate detection should work even with three or more customs sharing the same name.\"\"\"\n        customs = [\n            CustomAnnotationDef(\n                name=\"dup_name\",\n                pact_assertion_type=\"check\",\n                arbiter_tier_behavior=\"allow\",\n                baton_masking_rule=\"none\",\n                sentinel_severity=\"low\",\n            ),\n            CustomAnnotationDef(\n                name=\"dup_name\",\n                pact_assertion_type=\"verify\",\n                arbiter_tier_behavior=\"deny\",\n                baton_masking_rule=\"full\",\n                sentinel_severity=\"high\",\n            ),\n            CustomAnnotationDef(\n                name=\"dup_name\",\n                pact_assertion_type=\"assert\",\n                arbiter_tier_behavior=\"warn\",\n                baton_masking_rule=\"partial\",\n                sentinel_severity=\"medium\",\n            ),\n        ]\n        with pytest.raises(Exception):\n            build_propagation_table(customs)\n\n    def test_goodhart_build_table_returns_new_mapping_each_call(self):\n        \"\"\"Each call should return a separate mapping — different custom inputs should yield different tables.\"\"\"\n        c1 = [\n            CustomAnnotationDef(\n                name=\"ext_one\",\n                pact_assertion_type=\"check\",\n                arbiter_tier_behavior=\"allow\",\n                baton_masking_rule=\"none\",\n                sentinel_severity=\"low\",\n            ),\n        ]\n        c2 = [\n            CustomAnnotationDef(\n                name=\"ext_two\",\n                pact_assertion_type=\"check\",\n                arbiter_tier_behavior=\"allow\",\n                baton_masking_rule=\"none\",\n                sentinel_severity=\"low\",\n            ),\n        ]\n        t1 = build_propagation_table(c1)\n        t2 = build_propagation_table(c2)\n        assert \"ext_one\" in t1\n        assert \"ext_one\" not in t2\n        assert \"ext_two\" in t2\n        assert \"ext_two\" not in t1\n\n\n# ---------------------------------------------------------------------------\n# validate_annotation_set tests\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartValidateAnnotationSet:\n\n    def test_goodhart_validate_conflict_violation_type_field(self):\n        \"\"\"Conflict violation must have violation_type='conflict' and reference both annotations.\"\"\"\n        violations = validate_annotation_set([\"immutable\", \"gdpr_erasable\"])\n        conflict_violations = [v for v in violations if v.violation_type == \"conflict\"]\n        assert len(conflict_violations) == 1\n        v = conflict_violations[0]\n        assert \"immutable\" in v.annotations\n        assert \"gdpr_erasable\" in v.annotations\n\n    def test_goodhart_validate_missing_required_violation_type_field(self):\n        \"\"\"Missing required violation must have violation_type='missing_required'.\"\"\"\n        requires = get_requires()\n        if not requires:\n            pytest.skip(\"No REQUIRES rules defined\")\n        # Pick a key from REQUIRES and provide it without its requirements\n        source = next(iter(requires))\n        violations = validate_annotation_set([source])\n        req_violations = [v for v in violations if v.violation_type == \"missing_required\"]\n        # There should be at least one missing_required if the source has requirements\n        if requires[source]:\n            assert len(req_violations) >= 1\n            for v in req_violations:\n                assert isinstance(v.annotations, list)\n                for a in v.annotations:\n                    assert isinstance(a, str)\n\n    def test_goodhart_validate_duplicate_annotations_in_input(self):\n        \"\"\"Duplicate annotation names should not cause duplicate violations.\"\"\"\n        v1 = validate_annotation_set([\"immutable\", \"gdpr_erasable\"])\n        v2 = validate_annotation_set([\"immutable\", \"gdpr_erasable\", \"immutable\"])\n        conflict_v1 = [v for v in v1 if v.violation_type == \"conflict\"]\n        conflict_v2 = [v for v in v2 if v.violation_type == \"conflict\"]\n        assert len(conflict_v1) == len(conflict_v2)\n\n    def test_goodhart_validate_no_false_conflicts_for_non_conflicting(self):\n        \"\"\"audit_field + soft_delete_marker is NOT a defined conflict pair — should produce no conflict violations.\"\"\"\n        violations = validate_annotation_set([\"audit_field\", \"soft_delete_marker\"])\n        conflict_violations = [v for v in violations if v.violation_type == \"conflict\"]\n        assert len(conflict_violations) == 0, (\n            f\"False conflict detected for {{audit_field, soft_delete_marker}}: {conflict_violations}\"\n        )\n\n    def test_goodhart_validate_conflict_is_symmetric(self):\n        \"\"\"Order of annotations should not affect conflict detection.\"\"\"\n        v1 = validate_annotation_set([\"gdpr_erasable\", \"audit_field\"])\n        v2 = validate_annotation_set([\"audit_field\", \"gdpr_erasable\"])\n        assert len(v1) == len(v2)\n        types1 = sorted([v.violation_type for v in v1])\n        types2 = sorted([v.violation_type for v in v2])\n        assert types1 == types2\n\n    def test_goodhart_validate_empty_string_among_valid(self):\n        \"\"\"Empty string detection should work even when mixed with valid annotations.\"\"\"\n        with pytest.raises(Exception):\n            validate_annotation_set([\"immutable\", \"\", \"audit_field\"])\n\n    def test_goodhart_validate_only_conflict_no_false_requires(self):\n        \"\"\"A pure conflict should not produce spurious missing_required violations unless genuinely violated.\"\"\"\n        requires = get_requires()\n        # immutable + gdpr_erasable — check if either triggers REQUIRES\n        violations = validate_annotation_set([\"immutable\", \"gdpr_erasable\"])\n        for v in violations:\n            if v.violation_type == \"missing_required\":\n                # This is only valid if one of the two annotations actually has a REQUIRES rule\n                # that is not satisfied by the other\n                source_in_requires = any(\n                    ann in requires for ann in [\"immutable\", \"gdpr_erasable\"]\n                )\n                assert source_in_requires, (\n                    f\"Spurious missing_required violation: {v}\"\n                )\n\n    def test_goodhart_validate_requires_with_all_satisfied(self):\n        \"\"\"When all required co-annotations are present, no missing_required violations should appear.\"\"\"\n        requires = get_requires()\n        if not requires:\n            pytest.skip(\"No REQUIRES rules defined\")\n        # Build an annotation set that satisfies all REQUIRES\n        source = next(iter(requires))\n        needed = requires[source]\n        full_set = [source] + list(needed)\n        violations = validate_annotation_set(full_set)\n        missing_req = [v for v in violations if v.violation_type == \"missing_required\"]\n        # Filter to only violations related to our source annotation\n        # There should be none for the source since we provided all requirements\n        for v in missing_req:\n            # If the source is in the violation annotations, it means we failed to provide something\n            # But we provided everything, so this should not happen for our source\n            if source in v.annotations:\n                required_names = set(v.annotations) - {source}\n                for rn in required_names:\n                    assert rn not in needed, (\n                        f\"False missing_required for {source}: {rn} was provided\"\n                    )\n\n    def test_goodhart_validate_annotations_unknown_names_no_crash(self):\n        \"\"\"Unknown annotation names should not cause crashes in validate_annotation_set.\"\"\"\n        # validate_annotation_set only checks CONFLICTS and REQUIRES; unknown names\n        # should just pass through without errors (that's parse_schema_file's job)\n        result = validate_annotation_set([\"totally_unknown_xyz_annotation_42\"])\n        assert isinstance(result, list)\n\n\n# ---------------------------------------------------------------------------\n# ClassificationTier enum tests\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartClassificationTier:\n\n    def test_goodhart_classification_tier_is_strenum(self):\n        \"\"\"ClassificationTier members must be instances of str (StrEnum).\"\"\"\n        assert isinstance(ClassificationTier.PUBLIC, str)\n        assert isinstance(ClassificationTier.PII, str)\n        assert isinstance(ClassificationTier.FINANCIAL, str)\n        assert isinstance(ClassificationTier.AUTH, str)\n        assert isinstance(ClassificationTier.COMPLIANCE, str)\n\n    def test_goodhart_classification_tier_membership_test(self):\n        \"\"\"Valid tier values should be members; invalid values should not be constructible.\"\"\"\n        valid_names = {\"PUBLIC\", \"PII\", \"FINANCIAL\", \"AUTH\", \"COMPLIANCE\"}\n        actual_names = {m.name for m in ClassificationTier}\n        assert actual_names == valid_names\n        # Ensure non-members cannot be constructed\n        with pytest.raises(Exception):\n            ClassificationTier(\"SECRET\")\n        with pytest.raises(Exception):\n            ClassificationTier(\"INTERNAL\")\n\n    def test_goodhart_classification_tier_values_are_strings(self):\n        \"\"\"Each ClassificationTier member's value should be a string.\"\"\"\n        for member in ClassificationTier:\n            assert isinstance(member.value, str), f\"{member.name}.value is not str\"\n\n\n# ---------------------------------------------------------------------------\n# Frozen Pydantic model tests (beyond Field which visible tests cover)\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartFrozenModels:\n\n    def test_goodhart_field_model_frozen_all_attrs(self):\n        \"\"\"Field model must reject assignment on all attributes, not just 'name'.\"\"\"\n        f = Field(\n            name=\"test\",\n            field_type=\"string\",\n            classification=ClassificationTier.PUBLIC,\n            nullable=False,\n            annotations=[],\n        )\n        for attr in (\"name\", \"field_type\", \"classification\", \"nullable\", \"annotations\"):\n            with pytest.raises(Exception):\n                setattr(f, attr, \"new_value\")\n\n    def test_goodhart_annotation_model_frozen(self):\n        \"\"\"Annotation model must be frozen on both fields.\"\"\"\n        a = Annotation(name=\"test_ann\", params={})\n        with pytest.raises(Exception):\n            a.name = \"changed\"\n        with pytest.raises(Exception):\n            a.params = {\"x\": 1}\n\n    def test_goodhart_schema_file_model_frozen(self):\n        \"\"\"SchemaFile must be frozen on all fields.\"\"\"\n        sf = SchemaFile(\n            name=\"test_schema\",\n            version=1,\n            fields=[],\n            raw_yaml=\"raw content\",\n            source_path=\"/tmp/test.yaml\",\n        )\n        for attr in (\"name\", \"version\", \"fields\", \"raw_yaml\", \"source_path\"):\n            with pytest.raises(Exception):\n                setattr(sf, attr, \"new_value\")\n\n    def test_goodhart_backend_model_frozen(self):\n        \"\"\"Backend model must be frozen.\"\"\"\n        b = Backend(\n            name=\"pact\", enabled=True, base_url=\"http://localhost\", timeout_ms=5000\n        )\n        with pytest.raises(Exception):\n            b.enabled = False\n        with pytest.raises(Exception):\n            b.timeout_ms = 9999\n\n    def test_goodhart_migration_gate_model_frozen(self):\n        \"\"\"MigrationGate must be frozen.\"\"\"\n        mg = MigrationGate(\n            rule_name=\"r\", passed=True, severity=\"low\",\n            message=\"ok\", field_name=\"f\", schema_name=\"s\"\n        )\n        with pytest.raises(Exception):\n            mg.passed = False\n        with pytest.raises(Exception):\n            mg.severity = \"high\"\n\n    def test_goodhart_migration_plan_model_frozen(self):\n        \"\"\"MigrationPlan must be frozen.\"\"\"\n        mp = MigrationPlan(\n            plan_id=\"p1\", schema_name=\"s\", from_version=1, to_version=2,\n            gates=[], approved=False, created_at=\"2024-01-01T00:00:00Z\"\n        )\n        with pytest.raises(Exception):\n            mp.approved = True\n        with pytest.raises(Exception):\n            mp.plan_id = \"changed\"\n\n    def test_goodhart_changelog_entry_model_frozen(self):\n        \"\"\"ChangelogEntry must be frozen.\"\"\"\n        ce = ChangelogEntry(\n            entry_id=\"e1\", schema_name=\"s\", version=1,\n            change_type=\"create\", timestamp=\"2024-01-01T00:00:00Z\",\n            description=\"test\", migration_plan_id=\"mp1\"\n        )\n        with pytest.raises(Exception):\n            ce.description = \"changed\"\n        with pytest.raises(Exception):\n            ce.change_type = \"delete\"\n\n    def test_goodhart_constraint_violation_model_frozen(self):\n        \"\"\"ConstraintViolation must be frozen.\"\"\"\n        cv = ConstraintViolation(\n            violation_type=\"conflict\",\n            annotations=[\"a\", \"b\"],\n            message=\"test conflict\"\n        )\n        with pytest.raises(Exception):\n            cv.violation_type = \"changed\"\n        with pytest.raises(Exception):\n            cv.message = \"changed\"\n\n    def test_goodhart_propagation_rule_model_frozen(self):\n        \"\"\"PropagationRule must be frozen.\"\"\"\n        pr = PropagationRule(\n            annotation_name=\"test\",\n            pact_assertion_type=\"check\",\n            arbiter_tier_behavior=\"allow\",\n            baton_masking_rule=\"none\",\n            sentinel_severity=\"low\",\n        )\n        with pytest.raises(Exception):\n            pr.annotation_name = \"changed\"\n        with pytest.raises(Exception):\n            pr.sentinel_severity = \"high\"\n\n    def test_goodhart_ledger_config_model_frozen(self):\n        \"\"\"LedgerConfig must be frozen.\"\"\"\n        lc = LedgerConfig(\n            project_name=\"test\",\n            schemas_dir=\"/tmp/schemas\",\n            changelog_path=\"/tmp/changelog.yaml\",\n            plans_dir=\"/tmp/plans\",\n            backends=[],\n            custom_annotations=[],\n            propagation_table={},\n        )\n        with pytest.raises(Exception):\n            lc.project_name = \"changed\"\n        with pytest.raises(Exception):\n            lc.propagation_table = {\"x\": \"y\"}\n\n\n# ---------------------------------------------------------------------------\n# file_lock tests\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartFileLock:\n\n    def test_goodhart_file_lock_sidecar_naming(self):\n        \"\"\"The .lock sidecar file should be adjacent to the given path with .lock extension.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            target = os.path.join(tmpdir, \"myfile.yaml\")\n            with open(target, \"w\") as f:\n                f.write(\"content\")\n            expected_lock = target + \".lock\"\n            with file_lock(target, exclusive=True, blocking=True) as handle:\n                assert os.path.exists(expected_lock), \"Sidecar .lock file not created\"\n                assert handle.lock_path.endswith(\".lock\")\n                # Sidecar should be in same directory\n                assert os.path.dirname(handle.lock_path) == tmpdir\n\n    def test_goodhart_file_lock_does_not_modify_original(self):\n        \"\"\"file_lock must never modify the original file.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            target = os.path.join(tmpdir, \"data.yaml\")\n            original_content = \"key: value\\n# comment\\n\"\n            with open(target, \"w\") as f:\n                f.write(original_content)\n            with file_lock(target, exclusive=True, blocking=True):\n                pass\n            with open(target, \"r\") as f:\n                after_content = f.read()\n            assert after_content == original_content\n\n    def test_goodhart_file_lock_fd_closed_after_exit(self):\n        \"\"\"After exiting context, the fd should be closed.\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            target = os.path.join(tmpdir, \"locktest.yaml\")\n            with open(target, \"w\") as f:\n                f.write(\"data\")\n            with file_lock(target, exclusive=True, blocking=True) as handle:\n                fd = handle.fd\n            # After exit, fd should be closed\n            with pytest.raises(OSError):\n                os.fstat(fd)\n\n    def test_goodhart_file_lock_handle_has_expected_fields(self):\n        \"\"\"FileLockHandle must have lock_path (str), fd (int), exclusive (bool).\"\"\"\n        with tempfile.TemporaryDirectory() as tmpdir:\n            target = os.path.join(tmpdir, \"test.yaml\")\n            with open(target, \"w\") as f:\n                f.write(\"x\")\n            with file_lock(target, exclusive=True, blocking=True) as handle:\n                assert isinstance(handle.lock_path, str)\n                assert handle.lock_path.endswith(\".lock\")\n                assert isinstance(handle.fd, int)\n                assert isinstance(handle.exclusive, bool)\n                assert handle.exclusive is True\n\n            with file_lock(target, exclusive=False, blocking=True) as handle:\n                assert handle.exclusive is False\n\n\n# ---------------------------------------------------------------------------\n# parse_schema_file tests\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartParseSchemaFile:\n\n    def test_goodhart_parse_schema_raw_yaml_preserves_comments(self):\n        \"\"\"raw_yaml must preserve comments from the original YAML file.\"\"\"\n        table = build_propagation_table([])\n        with tempfile.TemporaryDirectory() as tmpdir:\n            schema_path = os.path.join(tmpdir, \"schema.yaml\")\n            content = textwrap.dedent(\"\"\"\\\n                # This is a comment that should be preserved\n                name: test_schema\n                version: 1\n                fields:\n                  - name: id\n                    field_type: integer\n                    classification: PUBLIC\n                    nullable: false\n                    annotations: []\n            \"\"\")\n            with open(schema_path, \"w\") as f:\n                f.write(content)\n            result = parse_schema_file(schema_path, table)\n            assert \"# This is a comment\" in result.raw_yaml\n            assert result.raw_yaml == content\n\n    def test_goodhart_parse_schema_preserves_trailing_newline(self):\n        \"\"\"raw_yaml must preserve trailing newlines exactly as on disk.\"\"\"\n        table = build_propagation_table([])\n        with tempfile.TemporaryDirectory() as tmpdir:\n            schema_path = os.path.join(tmpdir, \"schema.yaml\")\n            content = textwrap.dedent(\"\"\"\\\n                name: trailing_test\n                version: 1\n                fields:\n                  - name: id\n                    field_type: integer\n                    classification: PUBLIC\n                    nullable: false\n                    annotations: []\n\n\n            \"\"\")\n            # Content ends with two newlines\n            with open(schema_path, \"w\") as f:\n                f.write(content)\n            result = parse_schema_file(schema_path, table)\n            assert result.raw_yaml == content\n            assert result.raw_yaml.endswith(\"\\n\\n\")\n\n    def test_goodhart_parse_schema_source_path_exact(self):\n        \"\"\"source_path must be exactly the input path string, not a resolved/canonicalized version.\"\"\"\n        table = build_propagation_table([])\n        with tempfile.TemporaryDirectory() as tmpdir:\n            schema_path = os.path.join(tmpdir, \"myschema.yaml\")\n            content = textwrap.dedent(\"\"\"\\\n                name: path_test\n                version: 1\n                fields:\n                  - name: val\n                    field_type: string\n                    classification: PUBLIC\n                    nullable: true\n                    annotations: []\n            \"\"\")\n            with open(schema_path, \"w\") as f:\n                f.write(content)\n            result = parse_schema_file(schema_path, table)\n            assert result.source_path == schema_path\n\n    def test_goodhart_parse_schema_unknown_annotation_detected(self):\n        \"\"\"parse_schema_file must detect annotations not in the propagation_table.\"\"\"\n        table = build_propagation_table([])\n        with tempfile.TemporaryDirectory() as tmpdir:\n            schema_path = os.path.join(tmpdir, \"bad_ann.yaml\")\n            content = textwrap.dedent(\"\"\"\\\n                name: bad_ann_schema\n                version: 1\n                fields:\n                  - name: data\n                    field_type: string\n                    classification: PUBLIC\n                    nullable: false\n                    annotations:\n                      - name: completely_nonexistent_annotation_xyz\n                        params: {}\n            \"\"\")\n            with open(schema_path, \"w\") as f:\n                f.write(content)\n            with pytest.raises(Exception):\n                parse_schema_file(schema_path, table)\n\n    def test_goodhart_parse_schema_conflict_across_fields(self):\n        \"\"\"parse_schema_file must validate annotation constraints for every field, not just the first.\"\"\"\n        table = build_propagation_table([])\n        with tempfile.TemporaryDirectory() as tmpdir:\n            schema_path = os.path.join(tmpdir, \"multi_field.yaml\")\n            # First field is valid, second field has a conflict\n            content = textwrap.dedent(\"\"\"\\\n                name: multi_field_schema\n                version: 1\n                fields:\n                  - name: good_field\n                    field_type: string\n                    classification: PUBLIC\n                    nullable: false\n                    annotations: []\n                  - name: bad_field\n                    field_type: string\n                    classification: PII\n                    nullable: false\n                    annotations:\n                      - name: immutable\n                        params: {{}}\n                      - name: gdpr_erasable\n                        params: {{}}\n            \"\"\")\n            with open(schema_path, \"w\") as f:\n                f.write(content)\n            with pytest.raises(Exception):\n                parse_schema_file(schema_path, table)\n"
+}

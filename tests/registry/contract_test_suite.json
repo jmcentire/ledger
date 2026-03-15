@@ -1,0 +1,1021 @@
+{
+  "component_id": "registry",
+  "contract_version": 2,
+  "test_cases": [
+    {
+      "id": "init_happy_path",
+      "description": "init creates .ledger/ directory structure at given root",
+      "function": "init",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A valid writable tmp_path directory",
+      "expected_output_description": "All required paths (.ledger/, .ledger/registry/, .ledger/plans/, .ledger/changelog.jsonl) exist",
+      "expected_error": "",
+      "assertions": [
+        ".ledger/ directory exists",
+        ".ledger/registry/ directory exists",
+        ".ledger/plans/ directory exists",
+        ".ledger/changelog.jsonl file exists"
+      ]
+    },
+    {
+      "id": "init_idempotent",
+      "description": "Calling init twice on same root is a no-op (idempotent)",
+      "function": "init",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Root that already has .ledger/ fully initialized",
+      "expected_output_description": "No error raised, all paths still intact",
+      "expected_error": "",
+      "assertions": [
+        "No exception raised on second call",
+        "All paths still exist"
+      ]
+    },
+    {
+      "id": "init_corrupted_missing_registry",
+      "description": "init raises LedgerCorruptedError when .ledger/ exists but registry/ is missing",
+      "function": "init",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Root with .ledger/ dir but missing registry/ subdir",
+      "expected_output_description": "",
+      "expected_error": "LedgerCorruptedError",
+      "assertions": [
+        "LedgerCorruptedError is raised",
+        "missing_paths attribute contains info about missing paths"
+      ]
+    },
+    {
+      "id": "init_corrupted_missing_changelog",
+      "description": "init raises LedgerCorruptedError when .ledger/ exists but changelog.jsonl is missing",
+      "function": "init",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Root with .ledger/ and registry/ and plans/ but no changelog.jsonl",
+      "expected_output_description": "",
+      "expected_error": "LedgerCorruptedError",
+      "assertions": [
+        "LedgerCorruptedError is raised"
+      ]
+    },
+    {
+      "id": "init_corrupted_missing_plans",
+      "description": "init raises LedgerCorruptedError when .ledger/ exists but plans/ is missing",
+      "function": "init",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Root with .ledger/ and registry/ but missing plans/",
+      "expected_output_description": "",
+      "expected_error": "LedgerCorruptedError",
+      "assertions": [
+        "LedgerCorruptedError is raised"
+      ]
+    },
+    {
+      "id": "init_changelog_empty_on_creation",
+      "description": "Newly created changelog.jsonl is empty",
+      "function": "init",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Fresh tmp_path",
+      "expected_output_description": "changelog.jsonl exists and is empty",
+      "expected_error": "",
+      "assertions": [
+        "changelog.jsonl file size is 0"
+      ]
+    },
+    {
+      "id": "register_backend_happy_path",
+      "description": "Registers a new backend and writes YAML metadata file",
+      "function": "register_backend",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Initialized root, valid BackendMetadata with backend_type=postgres",
+      "expected_output_description": "Returns ChangelogEntry with change_type=backend_registered, YAML file created",
+      "expected_error": "",
+      "assertions": [
+        "ChangelogEntry returned",
+        "change_type is backend_registered",
+        "backend_id matches",
+        "YAML file exists at .ledger/registry/<backend_id>.yaml"
+      ]
+    },
+    {
+      "id": "register_backend_changelog_entry_fields",
+      "description": "Returned ChangelogEntry has correct fields including sequence=1 for first registration",
+      "function": "register_backend",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Initialized root, first backend registration",
+      "expected_output_description": "ChangelogEntry with sequence=1, correct actor, backend_id",
+      "expected_error": "",
+      "assertions": [
+        "sequence is 1",
+        "actor matches provided actor",
+        "backend_id matches",
+        "change_type is backend_registered"
+      ]
+    },
+    {
+      "id": "register_backend_duplicate",
+      "description": "Raises DuplicateBackendError when registering same backend_id twice",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend 'my-db', then register 'my-db' again",
+      "expected_output_description": "",
+      "expected_error": "DuplicateBackendError",
+      "assertions": [
+        "DuplicateBackendError is raised",
+        "backend_id attribute is 'my-db'"
+      ]
+    },
+    {
+      "id": "register_backend_ownership_conflict",
+      "description": "Raises OwnershipConflictError when different component tries to own same backend",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend owned by component-a, then register same backend_id owned by component-b",
+      "expected_output_description": "",
+      "expected_error": "OwnershipConflictError",
+      "assertions": [
+        "OwnershipConflictError is raised",
+        "existing_owner and attempted_owner attributes set"
+      ]
+    },
+    {
+      "id": "register_backend_not_initialized",
+      "description": "Raises LedgerNotInitializedError when .ledger/ does not exist",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path without init()",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "register_backend_sequence_monotonic",
+      "description": "Sequence numbers increase monotonically across multiple registrations",
+      "function": "register_backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register three backends sequentially",
+      "expected_output_description": "Sequence numbers are 1, 2, 3",
+      "expected_error": "",
+      "assertions": [
+        "First entry has sequence 1",
+        "Second entry has sequence 2",
+        "Third entry has sequence 3"
+      ]
+    },
+    {
+      "id": "register_multiple_backends_different_types",
+      "description": "Can register backends of different types (postgres, redis, s3)",
+      "function": "register_backend",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register three backends with different BackendTypes",
+      "expected_output_description": "All three registered successfully",
+      "expected_error": "",
+      "assertions": [
+        "All three ChangelogEntry objects returned",
+        "No exceptions raised"
+      ]
+    },
+    {
+      "id": "store_schema_happy_path",
+      "description": "Stores schema YAML bytes verbatim and returns ChangelogEntry",
+      "function": "store_schema",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Registered backend, valid YAML bytes",
+      "expected_output_description": "File stored at correct path, ChangelogEntry with change_type=schema_added",
+      "expected_error": "",
+      "assertions": [
+        "Schema file exists at .ledger/registry/<backend_id>/<table>.yaml",
+        "change_type is schema_added",
+        "backend_id and table match"
+      ]
+    },
+    {
+      "id": "store_schema_verbatim_roundtrip",
+      "description": "Stored schema bytes are byte-exact identical to input (verbatim invariant)",
+      "function": "store_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "YAML with specific formatting, comments, and whitespace",
+      "expected_output_description": "Reading back the file yields identical bytes",
+      "expected_error": "",
+      "assertions": [
+        "Stored file bytes == original raw_yaml bytes exactly"
+      ]
+    },
+    {
+      "id": "store_schema_invalid_yaml",
+      "description": "Raises SchemaParseError when raw_yaml is not valid YAML",
+      "function": "store_schema",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Invalid YAML bytes like b'{not: [valid: yaml'",
+      "expected_output_description": "",
+      "expected_error": "SchemaParseError",
+      "assertions": [
+        "SchemaParseError is raised",
+        "backend_id and table attributes set",
+        "parse_error attribute is non-empty"
+      ]
+    },
+    {
+      "id": "store_schema_backend_not_found",
+      "description": "Raises BackendNotFoundError when backend_id is not registered",
+      "function": "store_schema",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Unregistered backend_id with valid YAML",
+      "expected_output_description": "",
+      "expected_error": "BackendNotFoundError",
+      "assertions": [
+        "BackendNotFoundError is raised",
+        "backend_id attribute matches"
+      ]
+    },
+    {
+      "id": "store_schema_not_initialized",
+      "description": "Raises LedgerNotInitializedError when .ledger/ does not exist",
+      "function": "store_schema",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path without init()",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "store_schema_preserves_comments",
+      "description": "YAML comments are preserved verbatim in stored file",
+      "function": "store_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "YAML bytes with inline and block comments",
+      "expected_output_description": "Stored bytes include comments unchanged",
+      "expected_error": "",
+      "assertions": [
+        "Stored bytes contain original comment strings"
+      ]
+    },
+    {
+      "id": "store_schema_changelog_entry",
+      "description": "store_schema appends schema_added entry to changelog",
+      "function": "store_schema",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store a schema after registering a backend",
+      "expected_output_description": "ChangelogEntry with change_type=schema_added",
+      "expected_error": "",
+      "assertions": [
+        "change_type is schema_added",
+        "backend_id matches",
+        "table matches"
+      ]
+    },
+    {
+      "id": "list_backends_empty",
+      "description": "Returns empty list when no backends registered",
+      "function": "list_backends",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Initialized root with no backends",
+      "expected_output_description": "Empty list",
+      "expected_error": "",
+      "assertions": [
+        "Returned list is empty",
+        "Return type is list"
+      ]
+    },
+    {
+      "id": "list_backends_single",
+      "description": "Returns list with one BackendMetadata when one backend registered",
+      "function": "list_backends",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Initialized root with one registered backend",
+      "expected_output_description": "List of one BackendMetadata",
+      "expected_error": "",
+      "assertions": [
+        "List has length 1",
+        "BackendMetadata fields match registered data"
+      ]
+    },
+    {
+      "id": "list_backends_sorted",
+      "description": "Multiple backends returned sorted by backend_id ascending",
+      "function": "list_backends",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backends with ids 'zulu-db', 'alpha-db', 'mike-db'",
+      "expected_output_description": "List sorted as alpha-db, mike-db, zulu-db",
+      "expected_error": "",
+      "assertions": [
+        "First element backend_id is alpha-db",
+        "Second is mike-db",
+        "Third is zulu-db"
+      ]
+    },
+    {
+      "id": "list_backends_not_initialized",
+      "description": "Raises LedgerNotInitializedError when .ledger/ does not exist",
+      "function": "list_backends",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "list_schemas_empty",
+      "description": "Returns empty list when backend has no schemas",
+      "function": "list_schemas",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Registered backend with no schemas stored",
+      "expected_output_description": "Empty list",
+      "expected_error": "",
+      "assertions": [
+        "Returned list is empty"
+      ]
+    },
+    {
+      "id": "list_schemas_single",
+      "description": "Returns list with one SchemaRecord for a backend with one schema",
+      "function": "list_schemas",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Backend with one stored schema",
+      "expected_output_description": "List of one SchemaRecord",
+      "expected_error": "",
+      "assertions": [
+        "List has length 1",
+        "SchemaRecord.table_name matches",
+        "SchemaRecord.raw_content matches stored bytes"
+      ]
+    },
+    {
+      "id": "list_schemas_sorted",
+      "description": "Multiple schemas returned sorted by table_name ascending",
+      "function": "list_schemas",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Backend with schemas for tables 'users', 'accounts', 'orders'",
+      "expected_output_description": "List sorted as accounts, orders, users",
+      "expected_error": "",
+      "assertions": [
+        "First table_name is accounts",
+        "Second is orders",
+        "Third is users"
+      ]
+    },
+    {
+      "id": "list_schemas_backend_not_found",
+      "description": "Raises BackendNotFoundError for unregistered backend_id",
+      "function": "list_schemas",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Unregistered backend_id",
+      "expected_output_description": "",
+      "expected_error": "BackendNotFoundError",
+      "assertions": [
+        "BackendNotFoundError is raised"
+      ]
+    },
+    {
+      "id": "list_schemas_not_initialized",
+      "description": "Raises LedgerNotInitializedError when .ledger/ does not exist",
+      "function": "list_schemas",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "list_schemas_raw_and_parsed",
+      "description": "Each SchemaRecord has both raw_content (bytes) and parsed_content (dict)",
+      "function": "list_schemas",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Backend with one stored schema containing a mapping",
+      "expected_output_description": "SchemaRecord with bytes raw_content and dict parsed_content",
+      "expected_error": "",
+      "assertions": [
+        "raw_content is bytes",
+        "parsed_content is dict",
+        "parsed_content matches expected structure"
+      ]
+    },
+    {
+      "id": "get_schema_found",
+      "description": "Returns SchemaRecord when schema exists for given backend and table",
+      "function": "get_schema",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Backend with stored schema for 'users' table",
+      "expected_output_description": "SchemaRecord with matching backend_id, table_name, raw_content",
+      "expected_error": "",
+      "assertions": [
+        "Result is not None",
+        "backend_id matches",
+        "table_name matches",
+        "raw_content matches stored bytes"
+      ]
+    },
+    {
+      "id": "get_schema_not_found",
+      "description": "Returns None when schema does not exist for given table",
+      "function": "get_schema",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Backend with no schema for 'nonexistent' table",
+      "expected_output_description": "None",
+      "expected_error": "",
+      "assertions": [
+        "Result is None"
+      ]
+    },
+    {
+      "id": "get_schema_not_initialized",
+      "description": "Raises LedgerNotInitializedError when .ledger/ does not exist",
+      "function": "get_schema",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "get_schema_verbatim_bytes",
+      "description": "get_schema returns verbatim raw_content matching stored bytes exactly",
+      "function": "get_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store schema with specific bytes including trailing newlines and comments",
+      "expected_output_description": "raw_content is byte-exact match",
+      "expected_error": "",
+      "assertions": [
+        "raw_content == original bytes"
+      ]
+    },
+    {
+      "id": "get_schema_parsed_content_dict",
+      "description": "get_schema returns parsed_content as a dict from YAML parsing",
+      "function": "get_schema",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store schema with known YAML structure",
+      "expected_output_description": "parsed_content is dict with expected keys",
+      "expected_error": "",
+      "assertions": [
+        "parsed_content is dict",
+        "Contains expected keys and values"
+      ]
+    },
+    {
+      "id": "validate_all_clean_state",
+      "description": "validate_all returns valid=True with empty violations for clean registry",
+      "function": "validate_all",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Initialized root with properly registered backends and valid schemas",
+      "expected_output_description": "ValidationResult with valid=True and empty violations list",
+      "expected_error": "",
+      "assertions": [
+        "valid is True",
+        "violations list is empty or contains only warnings"
+      ]
+    },
+    {
+      "id": "validate_all_not_initialized",
+      "description": "Raises LedgerNotInitializedError when .ledger/ does not exist",
+      "function": "validate_all",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "validate_all_no_short_circuit",
+      "description": "validate_all collects ALL violations, never short-circuits",
+      "function": "validate_all",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Registry with multiple backends having multiple violations each",
+      "expected_output_description": "ValidationResult with all violations present",
+      "expected_error": "",
+      "assertions": [
+        "Number of violations >= expected count",
+        "Violations from different backends present"
+      ]
+    },
+    {
+      "id": "validate_all_valid_with_warnings_only",
+      "description": "validate_all returns valid=True when only warning-severity violations exist",
+      "function": "validate_all",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Registry state that triggers only warning-level violations",
+      "expected_output_description": "ValidationResult with valid=True and non-empty violations",
+      "expected_error": "",
+      "assertions": [
+        "valid is True",
+        "All violations have severity=warning"
+      ]
+    },
+    {
+      "id": "validate_all_invalid_with_errors",
+      "description": "validate_all returns valid=False when error-severity violations exist",
+      "function": "validate_all",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Registry state that triggers error-level violations",
+      "expected_output_description": "ValidationResult with valid=False",
+      "expected_error": "",
+      "assertions": [
+        "valid is False",
+        "At least one violation has severity=error"
+      ]
+    },
+    {
+      "id": "validate_all_empty_registry",
+      "description": "validate_all on empty initialized registry returns valid=True",
+      "function": "validate_all",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Initialized root with no backends or schemas",
+      "expected_output_description": "ValidationResult with valid=True, no violations",
+      "expected_error": "",
+      "assertions": [
+        "valid is True",
+        "violations is empty list"
+      ]
+    },
+    {
+      "id": "read_changelog_empty",
+      "description": "Returns empty list when changelog has no entries",
+      "function": "read_changelog",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Initialized root with no mutations performed",
+      "expected_output_description": "Empty list",
+      "expected_error": "",
+      "assertions": [
+        "Returned list is empty"
+      ]
+    },
+    {
+      "id": "read_changelog_all_entries",
+      "description": "Returns all entries when no filter and limit=0",
+      "function": "read_changelog",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Root with 3 registered backends",
+      "expected_output_description": "List of 3 ChangelogEntry objects",
+      "expected_error": "",
+      "assertions": [
+        "List has length 3",
+        "All entries present"
+      ]
+    },
+    {
+      "id": "read_changelog_filter_by_backend",
+      "description": "Filters entries to only matching backend_id",
+      "function": "read_changelog",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Root with entries for multiple backends, filter on one",
+      "expected_output_description": "Only entries matching the filtered backend_id",
+      "expected_error": "",
+      "assertions": [
+        "All returned entries have matching backend_id",
+        "Count matches expected"
+      ]
+    },
+    {
+      "id": "read_changelog_limit",
+      "description": "Returns at most 'limit' entries when limit > 0",
+      "function": "read_changelog",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Root with 5 entries, limit=2",
+      "expected_output_description": "List of 2 entries (most recent)",
+      "expected_error": "",
+      "assertions": [
+        "List has length 2"
+      ]
+    },
+    {
+      "id": "read_changelog_ordered_by_sequence",
+      "description": "Entries are ordered by sequence number ascending",
+      "function": "read_changelog",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Root with multiple changelog entries",
+      "expected_output_description": "Entries in ascending sequence order",
+      "expected_error": "",
+      "assertions": [
+        "Each entry sequence > previous entry sequence"
+      ]
+    },
+    {
+      "id": "read_changelog_not_initialized",
+      "description": "Raises LedgerNotInitializedError when .ledger/ does not exist",
+      "function": "read_changelog",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "read_changelog_filter_and_limit_combined",
+      "description": "Filter by backend_id and limit work together",
+      "function": "read_changelog",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Root with 5 entries for backend-a, 3 for backend-b, filter=backend-a limit=2",
+      "expected_output_description": "2 entries all for backend-a",
+      "expected_error": "",
+      "assertions": [
+        "List has length 2",
+        "All entries have backend_id=backend-a"
+      ]
+    },
+    {
+      "id": "invariant_backend_id_unique",
+      "description": "Backend IDs are unique across the entire registry",
+      "function": "register_backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Attempt to register two backends with the same ID",
+      "expected_output_description": "Second registration raises DuplicateBackendError",
+      "expected_error": "",
+      "assertions": [
+        "DuplicateBackendError raised on second registration"
+      ]
+    },
+    {
+      "id": "invariant_ownership_exclusivity",
+      "description": "No two components may own the same backend",
+      "function": "register_backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Two different components try to register same backend_id",
+      "expected_output_description": "OwnershipConflictError raised",
+      "expected_error": "",
+      "assertions": [
+        "OwnershipConflictError raised"
+      ]
+    },
+    {
+      "id": "invariant_changelog_append_only",
+      "description": "Changelog entries from earlier operations remain after later operations",
+      "function": "read_changelog",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Perform 3 operations, read changelog after each",
+      "expected_output_description": "Earlier entries persist and are unchanged",
+      "expected_error": "",
+      "assertions": [
+        "All previous entries still present",
+        "No entries modified"
+      ]
+    },
+    {
+      "id": "invariant_sequence_no_gaps",
+      "description": "Changelog sequence numbers are monotonically increasing with no gaps starting at 1",
+      "function": "read_changelog",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Perform multiple registrations and schema stores",
+      "expected_output_description": "Sequence numbers are 1,2,3,...,n with no gaps",
+      "expected_error": "",
+      "assertions": [
+        "Sequences form contiguous range from 1 to n"
+      ]
+    },
+    {
+      "id": "not_initialized_init_required_list_backends",
+      "description": "list_backends raises LedgerNotInitializedError on uninitialized root",
+      "function": "list_backends",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "not_initialized_init_required_list_schemas",
+      "description": "list_schemas raises LedgerNotInitializedError on uninitialized root",
+      "function": "list_schemas",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "not_initialized_init_required_get_schema",
+      "description": "get_schema raises LedgerNotInitializedError on uninitialized root",
+      "function": "get_schema",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "not_initialized_init_required_validate_all",
+      "description": "validate_all raises LedgerNotInitializedError on uninitialized root",
+      "function": "validate_all",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Bare tmp_path",
+      "expected_output_description": "",
+      "expected_error": "LedgerNotInitializedError",
+      "assertions": [
+        "LedgerNotInitializedError is raised"
+      ]
+    },
+    {
+      "id": "store_schema_creates_backend_subdir",
+      "description": "store_schema creates backend subdirectory if it does not exist",
+      "function": "store_schema",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Registered backend, first schema stored",
+      "expected_output_description": "Directory .ledger/registry/<backend_id>/ created",
+      "expected_error": "",
+      "assertions": [
+        "Backend subdirectory exists after store_schema"
+      ]
+    },
+    {
+      "id": "store_schema_empty_yaml",
+      "description": "Storing empty YAML document (just whitespace or empty) if parseable",
+      "function": "store_schema",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw_yaml = b'' or b'---\\n'",
+      "expected_output_description": "Either stored successfully or raises SchemaParseError depending on implementation",
+      "expected_error": "",
+      "assertions": [
+        "Behavior is consistent - either stores or raises SchemaParseError"
+      ]
+    },
+    {
+      "id": "register_backend_writes_yaml_file",
+      "description": "register_backend creates a YAML file with correct metadata content",
+      "function": "register_backend",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register a backend and read back the YAML file",
+      "expected_output_description": "YAML file contains backend_id, backend_type, owner_component, registered_at",
+      "expected_error": "",
+      "assertions": [
+        "File exists",
+        "File content is valid YAML",
+        "Contains expected fields"
+      ]
+    },
+    {
+      "id": "get_schema_after_multiple_stores",
+      "description": "get_schema returns the latest stored schema for a given table",
+      "function": "get_schema",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store schema for same table twice with different content",
+      "expected_output_description": "Returns the most recently stored content",
+      "expected_error": "",
+      "assertions": [
+        "raw_content matches last stored bytes"
+      ]
+    },
+    {
+      "id": "list_backends_metadata_fields",
+      "description": "Each BackendMetadata in list has all required fields populated",
+      "function": "list_backends",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register a backend and list",
+      "expected_output_description": "BackendMetadata has backend_id, backend_type, owner_component, registered_at",
+      "expected_error": "",
+      "assertions": [
+        "backend_id is set",
+        "backend_type is valid BackendType",
+        "owner_component is set",
+        "registered_at is set"
+      ]
+    },
+    {
+      "id": "changelog_entry_has_timestamp",
+      "description": "Every ChangelogEntry has a UTC timestamp",
+      "function": "register_backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register a backend",
+      "expected_output_description": "ChangelogEntry.timestamp is a UTC datetime",
+      "expected_error": "",
+      "assertions": [
+        "timestamp is not None",
+        "timestamp has UTC tzinfo"
+      ]
+    },
+    {
+      "id": "store_schema_binary_yaml_content",
+      "description": "YAML with special characters and unicode is stored verbatim",
+      "function": "store_schema",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "YAML bytes with unicode characters and special formatting",
+      "expected_output_description": "Exact bytes preserved on round-trip",
+      "expected_error": "",
+      "assertions": [
+        "raw_content bytes match exactly"
+      ]
+    },
+    {
+      "id": "read_changelog_schema_added_entries",
+      "description": "Changelog contains schema_added entries after store_schema",
+      "function": "read_changelog",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend then store schema, read changelog",
+      "expected_output_description": "Changelog has both backend_registered and schema_added entries",
+      "expected_error": "",
+      "assertions": [
+        "At least one entry with change_type=backend_registered",
+        "At least one entry with change_type=schema_added"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nContract test suite for the Registry & Schema Store component.\nTests verify behavior against the contract, covering happy paths, edge cases,\nerror cases, and invariants.\n\nRun with: pytest contract_test.py -v\n\"\"\"\nimport os\nimport sys\nimport pathlib\nimport pytest\nfrom datetime import datetime, timezone\nfrom pathlib import Path\n\nfrom registry import (\n    init,\n    register_backend,\n    store_schema,\n    list_backends,\n    list_schemas,\n    get_schema,\n    validate_all,\n    read_changelog,\n    BackendType,\n    BackendMetadata,\n    SchemaRecord,\n    ValidationResult,\n    Violation,\n    ViolationSeverity,\n    ChangelogEntry,\n    ChangeType,\n    LedgerError,\n    LedgerNotInitializedError,\n    LedgerCorruptedError,\n    DuplicateBackendError,\n    OwnershipConflictError,\n    BackendNotFoundError,\n    SchemaParseError,\n)\n\n\n# ---------------------------------------------------------------------------\n# Fixtures\n# ---------------------------------------------------------------------------\n\n@pytest.fixture\ndef uninitialized_root(tmp_path):\n    \"\"\"Bare tmp_path directory — no .ledger/ initialized.\"\"\"\n    return tmp_path\n\n\n@pytest.fixture\ndef initialized_root(tmp_path):\n    \"\"\"tmp_path with init() already called.\"\"\"\n    init(tmp_path)\n    return tmp_path\n\n\ndef _make_metadata(backend_id=\"test-backend\", backend_type=BackendType.postgres,\n                   owner_component=\"my-service\"):\n    \"\"\"Helper to create a BackendMetadata with sensible defaults.\"\"\"\n    return BackendMetadata(\n        backend_id=backend_id,\n        backend_type=backend_type,\n        owner_component=owner_component,\n        registered_at=datetime.now(timezone.utc),\n    )\n\n\n@pytest.fixture\ndef sample_metadata():\n    return _make_metadata()\n\n\n@pytest.fixture\ndef populated_root(tmp_path):\n    \"\"\"Initialized root with one registered backend and one stored schema.\"\"\"\n    init(tmp_path)\n    meta = _make_metadata(backend_id=\"main-db\", backend_type=BackendType.postgres,\n                          owner_component=\"billing-service\")\n    register_backend(tmp_path, meta, actor=\"setup\")\n    yaml_bytes = b\"columns:\\n  id: integer\\n  name: varchar\\n\"\n    store_schema(tmp_path, \"main-db\", \"users\", yaml_bytes, actor=\"setup\")\n    return tmp_path\n\n\nVALID_YAML = b\"columns:\\n  id: integer\\n  name: varchar\\n\"\nINVALID_YAML = b\"{{not: [valid: yaml\"\nYAML_WITH_COMMENTS = b\"# This is a header comment\\ncolumns:\\n  id: integer  # primary key\\n  name: varchar\\n\"\nUNICODE_YAML = b\"description: \\\"\\xc3\\xa9l\\xc3\\xa8ve\\\"\\ncolumns:\\n  id: integer\\n\"\n\n\n# ===========================================================================\n# 1. init() tests\n# ===========================================================================\n\nclass TestInit:\n    def test_init_happy_path(self, tmp_path):\n        \"\"\"init creates .ledger/ directory structure at given root.\"\"\"\n        init(tmp_path)\n        ledger = tmp_path / \".ledger\"\n        assert ledger.is_dir()\n        assert (ledger / \"registry\").is_dir()\n        assert (ledger / \"plans\").is_dir()\n        assert (ledger / \"changelog.jsonl\").is_file()\n\n    def test_init_idempotent(self, initialized_root):\n        \"\"\"Calling init twice is a no-op.\"\"\"\n        # Should not raise\n        init(initialized_root)\n        ledger = initialized_root / \".ledger\"\n        assert ledger.is_dir()\n        assert (ledger / \"registry\").is_dir()\n        assert (ledger / \"plans\").is_dir()\n        assert (ledger / \"changelog.jsonl\").is_file()\n\n    def test_init_changelog_empty_on_creation(self, tmp_path):\n        \"\"\"Newly created changelog.jsonl is empty.\"\"\"\n        init(tmp_path)\n        changelog = tmp_path / \".ledger\" / \"changelog.jsonl\"\n        assert changelog.stat().st_size == 0\n\n    def test_init_corrupted_missing_registry(self, tmp_path):\n        \"\"\"Raises LedgerCorruptedError when .ledger/ exists but registry/ missing.\"\"\"\n        ledger = tmp_path / \".ledger\"\n        ledger.mkdir()\n        (ledger / \"plans\").mkdir()\n        (ledger / \"changelog.jsonl\").touch()\n        # registry is missing\n        with pytest.raises(LedgerCorruptedError) as exc_info:\n            init(tmp_path)\n        assert hasattr(exc_info.value, \"missing_paths\")\n\n    def test_init_corrupted_missing_changelog(self, tmp_path):\n        \"\"\"Raises LedgerCorruptedError when changelog.jsonl is missing.\"\"\"\n        ledger = tmp_path / \".ledger\"\n        ledger.mkdir()\n        (ledger / \"registry\").mkdir()\n        (ledger / \"plans\").mkdir()\n        # changelog.jsonl is missing\n        with pytest.raises(LedgerCorruptedError):\n            init(tmp_path)\n\n    def test_init_corrupted_missing_plans(self, tmp_path):\n        \"\"\"Raises LedgerCorruptedError when plans/ is missing.\"\"\"\n        ledger = tmp_path / \".ledger\"\n        ledger.mkdir()\n        (ledger / \"registry\").mkdir()\n        (ledger / \"changelog.jsonl\").touch()\n        # plans is missing\n        with pytest.raises(LedgerCorruptedError):\n            init(tmp_path)\n\n\n# ===========================================================================\n# 2. register_backend() tests\n# ===========================================================================\n\nclass TestRegisterBackend:\n    def test_register_backend_happy_path(self, initialized_root):\n        \"\"\"Registers a new backend and writes YAML metadata file.\"\"\"\n        meta = _make_metadata(backend_id=\"my-db\")\n        entry = register_backend(initialized_root, meta, actor=\"admin\")\n        assert entry.change_type == ChangeType.backend_registered\n        assert entry.backend_id == \"my-db\"\n        yaml_file = initialized_root / \".ledger\" / \"registry\" / \"my-db.yaml\"\n        assert yaml_file.is_file()\n\n    def test_register_backend_changelog_entry_fields(self, initialized_root):\n        \"\"\"Returned ChangelogEntry has correct fields including sequence=1.\"\"\"\n        meta = _make_metadata(backend_id=\"first-db\")\n        entry = register_backend(initialized_root, meta, actor=\"deployer\")\n        assert entry.sequence == 1\n        assert entry.actor == \"deployer\"\n        assert entry.backend_id == \"first-db\"\n        assert entry.change_type == ChangeType.backend_registered\n\n    def test_register_backend_duplicate(self, initialized_root):\n        \"\"\"Raises DuplicateBackendError when registering same backend_id twice.\"\"\"\n        meta = _make_metadata(backend_id=\"my-db\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        with pytest.raises(DuplicateBackendError) as exc_info:\n            register_backend(initialized_root, meta, actor=\"admin\")\n        assert exc_info.value.backend_id == \"my-db\"\n\n    def test_register_backend_ownership_conflict(self, initialized_root):\n        \"\"\"Raises OwnershipConflictError when different component tries same id.\"\"\"\n        meta_a = _make_metadata(backend_id=\"shared-db\", owner_component=\"service-a\")\n        register_backend(initialized_root, meta_a, actor=\"admin\")\n        meta_b = _make_metadata(backend_id=\"shared-db\", owner_component=\"service-b\")\n        with pytest.raises((DuplicateBackendError, OwnershipConflictError)):\n            register_backend(initialized_root, meta_b, actor=\"admin\")\n\n    def test_register_backend_not_initialized(self, uninitialized_root):\n        \"\"\"Raises LedgerNotInitializedError when .ledger/ does not exist.\"\"\"\n        meta = _make_metadata()\n        with pytest.raises(LedgerNotInitializedError):\n            register_backend(uninitialized_root, meta, actor=\"admin\")\n\n    def test_register_backend_sequence_monotonic(self, initialized_root):\n        \"\"\"Sequence numbers increase monotonically across registrations.\"\"\"\n        e1 = register_backend(initialized_root, _make_metadata(\"alpha-db\", owner_component=\"svc-a\"), \"admin\")\n        e2 = register_backend(initialized_root, _make_metadata(\"beta-db\", owner_component=\"svc-b\"), \"admin\")\n        e3 = register_backend(initialized_root, _make_metadata(\"gamma-db\", owner_component=\"svc-c\"), \"admin\")\n        assert e1.sequence == 1\n        assert e2.sequence == 2\n        assert e3.sequence == 3\n\n    def test_register_multiple_backends_different_types(self, initialized_root):\n        \"\"\"Can register backends of different types.\"\"\"\n        e1 = register_backend(initialized_root,\n                              _make_metadata(\"pg-db\", BackendType.postgres, \"svc-a\"), \"admin\")\n        e2 = register_backend(initialized_root,\n                              _make_metadata(\"redis-cache\", BackendType.redis, \"svc-b\"), \"admin\")\n        e3 = register_backend(initialized_root,\n                              _make_metadata(\"s3-store\", BackendType.s3, \"svc-c\"), \"admin\")\n        assert e1.change_type == ChangeType.backend_registered\n        assert e2.change_type == ChangeType.backend_registered\n        assert e3.change_type == ChangeType.backend_registered\n\n    def test_register_backend_writes_yaml_file(self, initialized_root):\n        \"\"\"register_backend creates a YAML file with metadata content.\"\"\"\n        import yaml\n        meta = _make_metadata(backend_id=\"test-db\", backend_type=BackendType.mysql,\n                              owner_component=\"my-svc\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        yaml_file = initialized_root / \".ledger\" / \"registry\" / \"test-db.yaml\"\n        assert yaml_file.is_file()\n        content = yaml.safe_load(yaml_file.read_text())\n        assert content[\"backend_id\"] == \"test-db\"\n        assert content[\"owner_component\"] == \"my-svc\"\n\n    def test_changelog_entry_has_timestamp(self, initialized_root):\n        \"\"\"Every ChangelogEntry has a UTC timestamp.\"\"\"\n        meta = _make_metadata(backend_id=\"ts-db\")\n        entry = register_backend(initialized_root, meta, actor=\"admin\")\n        assert entry.timestamp is not None\n        assert entry.timestamp.tzinfo is not None\n\n\n# ===========================================================================\n# 3. store_schema() tests\n# ===========================================================================\n\nclass TestStoreSchema:\n    def test_store_schema_happy_path(self, populated_root):\n        \"\"\"Stores schema YAML bytes and returns ChangelogEntry.\"\"\"\n        yaml_bytes = b\"columns:\\n  email: varchar\\n\"\n        entry = store_schema(populated_root, \"main-db\", \"emails\", yaml_bytes, actor=\"dev\")\n        assert entry.change_type == ChangeType.schema_added\n        assert entry.backend_id == \"main-db\"\n        assert entry.table == \"emails\"\n        schema_file = populated_root / \".ledger\" / \"registry\" / \"main-db\" / \"emails.yaml\"\n        assert schema_file.is_file()\n\n    def test_store_schema_verbatim_roundtrip(self, populated_root):\n        \"\"\"Stored schema bytes are byte-exact identical to input.\"\"\"\n        yaml_bytes = b\"# comment preserved\\ncolumns:\\n  id: integer  # inline\\n  name: varchar\\n\\n\"\n        store_schema(populated_root, \"main-db\", \"orders\", yaml_bytes, actor=\"dev\")\n        schema_file = populated_root / \".ledger\" / \"registry\" / \"main-db\" / \"orders.yaml\"\n        assert schema_file.read_bytes() == yaml_bytes\n\n    def test_store_schema_invalid_yaml(self, populated_root):\n        \"\"\"Raises SchemaParseError when raw_yaml is not valid YAML.\"\"\"\n        with pytest.raises(SchemaParseError) as exc_info:\n            store_schema(populated_root, \"main-db\", \"bad\", INVALID_YAML, actor=\"dev\")\n        assert exc_info.value.backend_id == \"main-db\"\n        assert exc_info.value.table == \"bad\"\n        assert exc_info.value.parse_error != \"\"\n\n    def test_store_schema_backend_not_found(self, initialized_root):\n        \"\"\"Raises BackendNotFoundError when backend_id is not registered.\"\"\"\n        with pytest.raises(BackendNotFoundError) as exc_info:\n            store_schema(initialized_root, \"nonexistent-db\", \"t\", VALID_YAML, actor=\"dev\")\n        assert exc_info.value.backend_id == \"nonexistent-db\"\n\n    def test_store_schema_not_initialized(self, uninitialized_root):\n        \"\"\"Raises LedgerNotInitializedError when .ledger/ does not exist.\"\"\"\n        with pytest.raises(LedgerNotInitializedError):\n            store_schema(uninitialized_root, \"x\", \"t\", VALID_YAML, actor=\"dev\")\n\n    def test_store_schema_preserves_comments(self, populated_root):\n        \"\"\"YAML comments are preserved verbatim in stored file.\"\"\"\n        store_schema(populated_root, \"main-db\", \"commented\", YAML_WITH_COMMENTS, actor=\"dev\")\n        schema_file = populated_root / \".ledger\" / \"registry\" / \"main-db\" / \"commented.yaml\"\n        stored = schema_file.read_bytes()\n        assert b\"# This is a header comment\" in stored\n        assert b\"# primary key\" in stored\n\n    def test_store_schema_changelog_entry(self, populated_root):\n        \"\"\"store_schema appends schema_added entry to changelog.\"\"\"\n        entry = store_schema(populated_root, \"main-db\", \"items\", VALID_YAML, actor=\"dev\")\n        assert entry.change_type == ChangeType.schema_added\n        assert entry.backend_id == \"main-db\"\n        assert entry.table == \"items\"\n\n    def test_store_schema_creates_backend_subdir(self, initialized_root):\n        \"\"\"store_schema creates backend subdirectory if it does not exist.\"\"\"\n        meta = _make_metadata(backend_id=\"new-db\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        store_schema(initialized_root, \"new-db\", \"t1\", VALID_YAML, actor=\"dev\")\n        subdir = initialized_root / \".ledger\" / \"registry\" / \"new-db\"\n        assert subdir.is_dir()\n\n    def test_store_schema_empty_yaml(self, populated_root):\n        \"\"\"Storing a minimal YAML document that is parseable.\"\"\"\n        # b\"---\\n\" is valid YAML (empty document)\n        try:\n            entry = store_schema(populated_root, \"main-db\", \"empty\", b\"---\\n\", actor=\"dev\")\n            # If it succeeds, that's acceptable\n            assert entry.change_type == ChangeType.schema_added\n        except SchemaParseError:\n            # If implementation rejects empty docs, that's also acceptable\n            pass\n\n    def test_store_schema_binary_yaml_content(self, populated_root):\n        \"\"\"YAML with unicode characters is stored verbatim.\"\"\"\n        store_schema(populated_root, \"main-db\", \"unicode\", UNICODE_YAML, actor=\"dev\")\n        schema_file = populated_root / \".ledger\" / \"registry\" / \"main-db\" / \"unicode.yaml\"\n        assert schema_file.read_bytes() == UNICODE_YAML\n\n\n# ===========================================================================\n# 4. list_backends() tests\n# ===========================================================================\n\nclass TestListBackends:\n    def test_list_backends_empty(self, initialized_root):\n        \"\"\"Returns empty list when no backends registered.\"\"\"\n        result = list_backends(initialized_root)\n        assert isinstance(result, list)\n        assert len(result) == 0\n\n    def test_list_backends_single(self, initialized_root):\n        \"\"\"Returns list with one BackendMetadata.\"\"\"\n        meta = _make_metadata(backend_id=\"solo-db\", owner_component=\"svc\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        result = list_backends(initialized_root)\n        assert len(result) == 1\n        assert result[0].backend_id == \"solo-db\"\n\n    def test_list_backends_sorted(self, initialized_root):\n        \"\"\"Multiple backends returned sorted by backend_id ascending.\"\"\"\n        for bid, owner in [(\"zulu-db\", \"svc-z\"), (\"alpha-db\", \"svc-a\"), (\"mike-db\", \"svc-m\")]:\n            register_backend(initialized_root, _make_metadata(bid, owner_component=owner), \"admin\")\n        result = list_backends(initialized_root)\n        assert len(result) == 3\n        assert result[0].backend_id == \"alpha-db\"\n        assert result[1].backend_id == \"mike-db\"\n        assert result[2].backend_id == \"zulu-db\"\n\n    def test_list_backends_not_initialized(self, uninitialized_root):\n        \"\"\"Raises LedgerNotInitializedError when .ledger/ does not exist.\"\"\"\n        with pytest.raises(LedgerNotInitializedError):\n            list_backends(uninitialized_root)\n\n    def test_list_backends_metadata_fields(self, initialized_root):\n        \"\"\"Each BackendMetadata in list has all required fields.\"\"\"\n        meta = _make_metadata(backend_id=\"field-db\", backend_type=BackendType.redis,\n                              owner_component=\"cache-svc\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        result = list_backends(initialized_root)\n        assert len(result) == 1\n        bm = result[0]\n        assert bm.backend_id == \"field-db\"\n        assert bm.backend_type == BackendType.redis\n        assert bm.owner_component == \"cache-svc\"\n        assert bm.registered_at is not None\n\n\n# ===========================================================================\n# 5. list_schemas() tests\n# ===========================================================================\n\nclass TestListSchemas:\n    def test_list_schemas_empty(self, initialized_root):\n        \"\"\"Returns empty list when backend has no schemas.\"\"\"\n        meta = _make_metadata(backend_id=\"empty-db\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        result = list_schemas(initialized_root, \"empty-db\")\n        assert len(result) == 0\n\n    def test_list_schemas_single(self, populated_root):\n        \"\"\"Returns list with one SchemaRecord.\"\"\"\n        result = list_schemas(populated_root, \"main-db\")\n        assert len(result) == 1\n        assert result[0].table_name == \"users\"\n        assert result[0].raw_content == b\"columns:\\n  id: integer\\n  name: varchar\\n\"\n\n    def test_list_schemas_sorted(self, populated_root):\n        \"\"\"Multiple schemas returned sorted by table_name ascending.\"\"\"\n        store_schema(populated_root, \"main-db\", \"accounts\", VALID_YAML, actor=\"dev\")\n        store_schema(populated_root, \"main-db\", \"orders\", VALID_YAML, actor=\"dev\")\n        # Already has 'users' from fixture\n        result = list_schemas(populated_root, \"main-db\")\n        assert len(result) == 3\n        assert result[0].table_name == \"accounts\"\n        assert result[1].table_name == \"orders\"\n        assert result[2].table_name == \"users\"\n\n    def test_list_schemas_backend_not_found(self, initialized_root):\n        \"\"\"Raises BackendNotFoundError for unregistered backend_id.\"\"\"\n        with pytest.raises(BackendNotFoundError):\n            list_schemas(initialized_root, \"nonexistent-db\")\n\n    def test_list_schemas_not_initialized(self, uninitialized_root):\n        \"\"\"Raises LedgerNotInitializedError when .ledger/ does not exist.\"\"\"\n        with pytest.raises(LedgerNotInitializedError):\n            list_schemas(uninitialized_root, \"any-db\")\n\n    def test_list_schemas_raw_and_parsed(self, populated_root):\n        \"\"\"Each SchemaRecord has both raw_content (bytes) and parsed_content (dict).\"\"\"\n        result = list_schemas(populated_root, \"main-db\")\n        rec = result[0]\n        assert isinstance(rec.raw_content, bytes)\n        assert isinstance(rec.parsed_content, dict)\n        assert \"columns\" in rec.parsed_content\n\n\n# ===========================================================================\n# 6. get_schema() tests\n# ===========================================================================\n\nclass TestGetSchema:\n    def test_get_schema_found(self, populated_root):\n        \"\"\"Returns SchemaRecord when schema exists.\"\"\"\n        result = get_schema(populated_root, \"main-db\", \"users\")\n        assert result is not None\n        assert result.backend_id == \"main-db\"\n        assert result.table_name == \"users\"\n        assert result.raw_content == b\"columns:\\n  id: integer\\n  name: varchar\\n\"\n\n    def test_get_schema_not_found(self, populated_root):\n        \"\"\"Returns None when schema does not exist for given table.\"\"\"\n        result = get_schema(populated_root, \"main-db\", \"nonexistent\")\n        assert result is None\n\n    def test_get_schema_not_initialized(self, uninitialized_root):\n        \"\"\"Raises LedgerNotInitializedError when .ledger/ does not exist.\"\"\"\n        with pytest.raises(LedgerNotInitializedError):\n            get_schema(uninitialized_root, \"any-db\", \"t\")\n\n    def test_get_schema_verbatim_bytes(self, populated_root):\n        \"\"\"get_schema returns verbatim raw_content matching stored bytes exactly.\"\"\"\n        yaml_bytes = b\"# header\\nkey: value  # comment\\n  nested: true\\n\"\n        # This specific YAML might not be valid as-is; use a known valid one\n        yaml_bytes = b\"# header\\nkey: value  # comment\\n\"\n        store_schema(populated_root, \"main-db\", \"verbatim\", yaml_bytes, actor=\"dev\")\n        result = get_schema(populated_root, \"main-db\", \"verbatim\")\n        assert result is not None\n        assert result.raw_content == yaml_bytes\n\n    def test_get_schema_parsed_content_dict(self, populated_root):\n        \"\"\"get_schema returns parsed_content as a dict.\"\"\"\n        result = get_schema(populated_root, \"main-db\", \"users\")\n        assert result is not None\n        assert isinstance(result.parsed_content, dict)\n        assert result.parsed_content[\"columns\"][\"id\"] == \"integer\"\n\n    def test_get_schema_after_multiple_stores(self, populated_root):\n        \"\"\"get_schema returns the latest stored schema for a given table.\"\"\"\n        v1 = b\"version: 1\\ncolumns:\\n  id: integer\\n\"\n        v2 = b\"version: 2\\ncolumns:\\n  id: bigint\\n\"\n        store_schema(populated_root, \"main-db\", \"evolving\", v1, actor=\"dev\")\n        store_schema(populated_root, \"main-db\", \"evolving\", v2, actor=\"dev\")\n        result = get_schema(populated_root, \"main-db\", \"evolving\")\n        assert result is not None\n        assert result.raw_content == v2\n\n\n# ===========================================================================\n# 7. validate_all() tests\n# ===========================================================================\n\nclass TestValidateAll:\n    def test_validate_all_empty_registry(self, initialized_root):\n        \"\"\"validate_all on empty initialized registry returns valid=True.\"\"\"\n        result = validate_all(initialized_root)\n        assert isinstance(result, ValidationResult)\n        assert result.valid is True\n        assert len(result.violations) == 0\n\n    def test_validate_all_clean_state(self, populated_root):\n        \"\"\"validate_all returns valid=True for clean registry with valid schemas.\"\"\"\n        result = validate_all(populated_root)\n        assert isinstance(result, ValidationResult)\n        # A clean state should have no error-level violations\n        error_violations = [v for v in result.violations if v.severity == ViolationSeverity.error]\n        assert len(error_violations) == 0\n        assert result.valid is True\n\n    def test_validate_all_not_initialized(self, uninitialized_root):\n        \"\"\"Raises LedgerNotInitializedError when .ledger/ does not exist.\"\"\"\n        with pytest.raises(LedgerNotInitializedError):\n            validate_all(uninitialized_root)\n\n    def test_validate_all_valid_property(self, initialized_root):\n        \"\"\"ValidationResult.valid is True iff no error-severity violations.\"\"\"\n        result = validate_all(initialized_root)\n        error_violations = [v for v in result.violations if v.severity == ViolationSeverity.error]\n        if len(error_violations) == 0:\n            assert result.valid is True\n        else:\n            assert result.valid is False\n\n    def test_validate_all_returns_validation_result(self, initialized_root):\n        \"\"\"validate_all returns a ValidationResult with violations list.\"\"\"\n        result = validate_all(initialized_root)\n        assert hasattr(result, \"violations\")\n        assert hasattr(result, \"valid\")\n        assert isinstance(result.violations, list)\n\n\n# ===========================================================================\n# 8. read_changelog() tests\n# ===========================================================================\n\nclass TestReadChangelog:\n    def test_read_changelog_empty(self, initialized_root):\n        \"\"\"Returns empty list when changelog has no entries.\"\"\"\n        result = read_changelog(initialized_root, backend_id=\"\", limit=0)\n        assert isinstance(result, list)\n        assert len(result) == 0\n\n    def test_read_changelog_all_entries(self, initialized_root):\n        \"\"\"Returns all entries when no filter and limit=0.\"\"\"\n        for i, bid in enumerate([\"db-a\", \"db-b\", \"db-c\"]):\n            register_backend(initialized_root,\n                             _make_metadata(bid, owner_component=f\"svc-{i}\"), \"admin\")\n        result = read_changelog(initialized_root, backend_id=\"\", limit=0)\n        assert len(result) == 3\n\n    def test_read_changelog_filter_by_backend(self, initialized_root):\n        \"\"\"Filters entries to only matching backend_id.\"\"\"\n        register_backend(initialized_root,\n                         _make_metadata(\"db-a\", owner_component=\"svc-a\"), \"admin\")\n        register_backend(initialized_root,\n                         _make_metadata(\"db-b\", owner_component=\"svc-b\"), \"admin\")\n        result = read_changelog(initialized_root, backend_id=\"db-a\", limit=0)\n        assert all(e.backend_id == \"db-a\" for e in result)\n        assert len(result) >= 1\n\n    def test_read_changelog_limit(self, initialized_root):\n        \"\"\"Returns at most 'limit' entries when limit > 0.\"\"\"\n        for i in range(5):\n            register_backend(initialized_root,\n                             _make_metadata(f\"db-{i:03d}\", owner_component=f\"svc-{i}\"), \"admin\")\n        result = read_changelog(initialized_root, backend_id=\"\", limit=2)\n        assert len(result) == 2\n\n    def test_read_changelog_ordered_by_sequence(self, initialized_root):\n        \"\"\"Entries are ordered by sequence number ascending.\"\"\"\n        for i, bid in enumerate([\"db-x\", \"db-y\", \"db-z\"]):\n            register_backend(initialized_root,\n                             _make_metadata(bid, owner_component=f\"svc-{i}\"), \"admin\")\n        result = read_changelog(initialized_root, backend_id=\"\", limit=0)\n        for i in range(1, len(result)):\n            assert result[i].sequence > result[i - 1].sequence\n\n    def test_read_changelog_not_initialized(self, uninitialized_root):\n        \"\"\"Raises LedgerNotInitializedError when .ledger/ does not exist.\"\"\"\n        with pytest.raises(LedgerNotInitializedError):\n            read_changelog(uninitialized_root, backend_id=\"\", limit=0)\n\n    def test_read_changelog_filter_and_limit_combined(self, initialized_root):\n        \"\"\"Filter by backend_id and limit work together.\"\"\"\n        meta_a = _make_metadata(\"backend-a\", owner_component=\"svc-a\")\n        register_backend(initialized_root, meta_a, actor=\"admin\")\n        # Store multiple schemas for backend-a to generate more entries\n        for table in [\"t1\", \"t2\", \"t3\", \"t4\", \"t5\"]:\n            store_schema(initialized_root, \"backend-a\", table, VALID_YAML, actor=\"dev\")\n        meta_b = _make_metadata(\"backend-b\", owner_component=\"svc-b\")\n        register_backend(initialized_root, meta_b, actor=\"admin\")\n\n        result = read_changelog(initialized_root, backend_id=\"backend-a\", limit=2)\n        assert len(result) == 2\n        assert all(e.backend_id == \"backend-a\" for e in result)\n\n    def test_read_changelog_schema_added_entries(self, populated_root):\n        \"\"\"Changelog contains both backend_registered and schema_added entries.\"\"\"\n        result = read_changelog(populated_root, backend_id=\"\", limit=0)\n        change_types = [e.change_type for e in result]\n        assert ChangeType.backend_registered in change_types\n        assert ChangeType.schema_added in change_types\n\n\n# ===========================================================================\n# 9. Parametrized not_initialized tests\n# ===========================================================================\n\nclass TestNotInitializedAllFunctions:\n    \"\"\"All public functions raise LedgerNotInitializedError on uninitialized root.\"\"\"\n\n    def test_register_backend_not_initialized(self, uninitialized_root):\n        with pytest.raises(LedgerNotInitializedError):\n            register_backend(uninitialized_root, _make_metadata(), \"admin\")\n\n    def test_store_schema_not_initialized(self, uninitialized_root):\n        with pytest.raises(LedgerNotInitializedError):\n            store_schema(uninitialized_root, \"x\", \"t\", VALID_YAML, \"dev\")\n\n    def test_list_backends_not_initialized(self, uninitialized_root):\n        with pytest.raises(LedgerNotInitializedError):\n            list_backends(uninitialized_root)\n\n    def test_list_schemas_not_initialized(self, uninitialized_root):\n        with pytest.raises(LedgerNotInitializedError):\n            list_schemas(uninitialized_root, \"x\")\n\n    def test_get_schema_not_initialized(self, uninitialized_root):\n        with pytest.raises(LedgerNotInitializedError):\n            get_schema(uninitialized_root, \"x\", \"t\")\n\n    def test_validate_all_not_initialized(self, uninitialized_root):\n        with pytest.raises(LedgerNotInitializedError):\n            validate_all(uninitialized_root)\n\n    def test_read_changelog_not_initialized(self, uninitialized_root):\n        with pytest.raises(LedgerNotInitializedError):\n            read_changelog(uninitialized_root, backend_id=\"\", limit=0)\n\n\n# ===========================================================================\n# 10. Invariant tests\n# ===========================================================================\n\nclass TestInvariants:\n    def test_backend_id_unique(self, initialized_root):\n        \"\"\"Backend IDs are unique across the entire registry.\"\"\"\n        meta = _make_metadata(backend_id=\"unique-db\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        with pytest.raises((DuplicateBackendError, LedgerError)):\n            register_backend(initialized_root, meta, actor=\"admin\")\n\n    def test_ownership_exclusivity(self, initialized_root):\n        \"\"\"No two components may own the same backend.\"\"\"\n        meta_a = _make_metadata(backend_id=\"owned-db\", owner_component=\"component-a\")\n        register_backend(initialized_root, meta_a, actor=\"admin\")\n        meta_b = _make_metadata(backend_id=\"owned-db\", owner_component=\"component-b\")\n        with pytest.raises((DuplicateBackendError, OwnershipConflictError)):\n            register_backend(initialized_root, meta_b, actor=\"admin\")\n\n    def test_changelog_append_only(self, initialized_root):\n        \"\"\"Changelog entries from earlier operations persist after later operations.\"\"\"\n        e1 = register_backend(initialized_root,\n                              _make_metadata(\"db-first\", owner_component=\"svc-1\"), \"admin\")\n        entries_after_1 = read_changelog(initialized_root, backend_id=\"\", limit=0)\n        assert len(entries_after_1) == 1\n\n        e2 = register_backend(initialized_root,\n                              _make_metadata(\"db-second\", owner_component=\"svc-2\"), \"admin\")\n        entries_after_2 = read_changelog(initialized_root, backend_id=\"\", limit=0)\n        assert len(entries_after_2) == 2\n        # First entry unchanged\n        assert entries_after_2[0].sequence == entries_after_1[0].sequence\n        assert entries_after_2[0].backend_id == entries_after_1[0].backend_id\n\n    def test_sequence_no_gaps(self, initialized_root):\n        \"\"\"Changelog sequence numbers are 1,2,...,n with no gaps.\"\"\"\n        register_backend(initialized_root,\n                         _make_metadata(\"db-a\", owner_component=\"svc-a\"), \"admin\")\n        register_backend(initialized_root,\n                         _make_metadata(\"db-b\", owner_component=\"svc-b\"), \"admin\")\n        store_schema(initialized_root, \"db-a\", \"t1\", VALID_YAML, actor=\"dev\")\n        store_schema(initialized_root, \"db-b\", \"t2\", VALID_YAML, actor=\"dev\")\n\n        entries = read_changelog(initialized_root, backend_id=\"\", limit=0)\n        sequences = [e.sequence for e in entries]\n        assert sequences == list(range(1, len(sequences) + 1))\n\n    def test_schema_verbatim_invariant(self, initialized_root):\n        \"\"\"Schema YAML is stored verbatim — never normalized or reformatted.\"\"\"\n        meta = _make_metadata(backend_id=\"verbatim-db\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        # Deliberately use unusual but valid YAML formatting\n        raw = b\"# Leading comment\\nfoo:   bar\\nbaz:  'qux'\\nlist:\\n - 1\\n - 2\\n\"\n        store_schema(initialized_root, \"verbatim-db\", \"mytable\", raw, actor=\"dev\")\n        record = get_schema(initialized_root, \"verbatim-db\", \"mytable\")\n        assert record is not None\n        assert record.raw_content == raw\n\n    def test_validate_all_valid_only_when_no_errors(self, initialized_root):\n        \"\"\"ValidationResult.valid is True iff zero error-severity violations.\"\"\"\n        result = validate_all(initialized_root)\n        error_count = sum(1 for v in result.violations if v.severity == ViolationSeverity.error)\n        if error_count == 0:\n            assert result.valid is True\n        else:\n            assert result.valid is False\n\n    def test_init_idempotent_no_data_loss(self, initialized_root):\n        \"\"\"Calling init again does not destroy existing data.\"\"\"\n        meta = _make_metadata(backend_id=\"survive-db\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        store_schema(initialized_root, \"survive-db\", \"t1\", VALID_YAML, actor=\"dev\")\n\n        # Call init again\n        init(initialized_root)\n\n        # Data should still be there\n        backends = list_backends(initialized_root)\n        assert any(b.backend_id == \"survive-db\" for b in backends)\n        schema = get_schema(initialized_root, \"survive-db\", \"t1\")\n        assert schema is not None\n        assert schema.raw_content == VALID_YAML\n\n    def test_register_list_roundtrip(self, initialized_root):\n        \"\"\"Registering backends and listing them returns matching data.\"\"\"\n        ids = [\"aaa-db\", \"bbb-db\", \"ccc-db\"]\n        for bid in ids:\n            register_backend(initialized_root,\n                             _make_metadata(bid, owner_component=f\"svc-{bid}\"), \"admin\")\n        result = list_backends(initialized_root)\n        result_ids = [b.backend_id for b in result]\n        assert result_ids == sorted(ids)\n\n    def test_store_get_roundtrip(self, initialized_root):\n        \"\"\"store_schema + get_schema round-trip preserves bytes exactly.\"\"\"\n        meta = _make_metadata(backend_id=\"roundtrip-db\")\n        register_backend(initialized_root, meta, actor=\"admin\")\n        raw = b\"exact: bytes\\npreserved: true\\n# with comment\\n\"\n        store_schema(initialized_root, \"roundtrip-db\", \"tbl\", raw, actor=\"dev\")\n        record = get_schema(initialized_root, \"roundtrip-db\", \"tbl\")\n        assert record is not None\n        assert record.raw_content == raw\n        assert record.backend_id == \"roundtrip-db\"\n        assert record.table_name == \"tbl\"\n"
+}

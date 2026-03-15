@@ -1,0 +1,1546 @@
+{
+  "component_id": "cli",
+  "name": "CLI Entry Point",
+  "description": "Click-based CLI providing all subcommands for Ledger: init, backend add, schema add/show/validate, migrate plan/approve, export, mock, and serve. Structured as a Click group hierarchy with nested subgroups (backend, schema, migrate) and top-level commands (init, export, mock, serve). Each subcommand is a thin dispatch layer that loads config, calls the appropriate domain module function via typed Protocols, and formats output for the terminal. Error handling catches LedgerError at the group level and surfaces all violations with severity-colored output to stderr and non-zero exit codes.",
+  "version": 1,
+  "types": [
+    {
+      "name": "ExitCode",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "SUCCESS_0",
+        "DOMAIN_ERROR_1",
+        "USAGE_ERROR_2",
+        "CONFIG_ERROR_3",
+        "KEYBOARD_INTERRUPT_130"
+      ],
+      "inner_types": [],
+      "description": "Process exit codes returned by CLI commands."
+    },
+    {
+      "name": "OutputFormat",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "text",
+        "json",
+        "yaml"
+      ],
+      "inner_types": [],
+      "description": "Supported output serialization formats for structured command results."
+    },
+    {
+      "name": "BackendType",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "postgres",
+        "mysql",
+        "sqlite",
+        "redis",
+        "dynamodb",
+        "s3",
+        "custom"
+      ],
+      "inner_types": [],
+      "description": "Supported backend storage types that can be registered with Ledger."
+    },
+    {
+      "name": "ExportFormat",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "pact",
+        "arbiter",
+        "baton",
+        "sentinel"
+      ],
+      "inner_types": [],
+      "description": "Target contract formats for the export command."
+    },
+    {
+      "name": "MockPurpose",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "default",
+        "canary"
+      ],
+      "inner_types": [],
+      "description": "Purpose classification for mock data generation."
+    },
+    {
+      "name": "Severity",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "error",
+        "warning",
+        "info"
+      ],
+      "inner_types": [],
+      "description": "Severity level for a validation violation."
+    },
+    {
+      "name": "Violation",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Dot-delimited path to the offending field or entity, e.g. 'backend.users.columns.email'.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of the violation.",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "Severity",
+          "required": true,
+          "default": "",
+          "description": "Severity classification of this violation.",
+          "validators": []
+        },
+        {
+          "name": "code",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Machine-readable error code, e.g. 'SCHEMA_TYPE_MISMATCH'.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single validation violation with location, message, and severity."
+    },
+    {
+      "name": "LedgerError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Non-empty list of Violation structs.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "LedgerError must contain at least one violation."
+            }
+          ]
+        },
+        {
+          "name": "exit_code",
+          "type_ref": "ExitCode",
+          "required": true,
+          "default": "",
+          "description": "Exit code to use when surfacing this error to the terminal.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Domain error carrying one or more violations. Raised by domain modules, caught by the CLI group-level error handler."
+    },
+    {
+      "name": "CliContext",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "config_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Resolved absolute path to ledger.yaml. Resolution order: --config flag, LEDGER_CONFIG env var, ./ledger.yaml.",
+          "validators": []
+        },
+        {
+          "name": "config",
+          "type_ref": "any",
+          "required": false,
+          "default": "None",
+          "description": "Lazy-loaded LedgerConfig from the config component. None until a command decorated with @require_config triggers loading.",
+          "validators": []
+        },
+        {
+          "name": "verbose",
+          "type_ref": "bool",
+          "required": false,
+          "default": "false",
+          "description": "When true, print debug-level status messages to stderr.",
+          "validators": []
+        },
+        {
+          "name": "output_format",
+          "type_ref": "OutputFormat",
+          "required": false,
+          "default": "text",
+          "description": "Global output format override. Individual commands may support --output to set this.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Mutable context object threaded through Click commands via @click.pass_context. Implemented as a dataclass (not Pydantic) since it is internal and mutable. Carries resolved config path and lazy-loaded config."
+    },
+    {
+      "name": "CommandResult",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "success",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether the command completed without domain errors.",
+          "validators": []
+        },
+        {
+          "name": "data",
+          "type_ref": "any",
+          "required": false,
+          "default": "None",
+          "description": "Structured payload for stdout rendering. Type depends on the command.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Human-readable status message for stderr.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Violations to render if success is false.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Uniform result envelope returned by every thin-dispatch function to the CLI callback for formatting."
+    },
+    {
+      "name": "RegistryProtocol",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "register_backend",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[str, BackendType, str, any], CommandResult] — registers a backend by id, type, owner component_id, and config.",
+          "validators": []
+        },
+        {
+          "name": "add_schema",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[str, any], CommandResult] — ingests a schema YAML file path with config.",
+          "validators": []
+        },
+        {
+          "name": "show_schema",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[str, str | None, any], CommandResult] — shows schema for backend_id and optional table name.",
+          "validators": []
+        },
+        {
+          "name": "validate_schemas",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[any], CommandResult] — validates all registered schemas against obligations.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "typing.Protocol defining the interface the CLI expects from the registry domain module. Used for dependency injection and testing."
+    },
+    {
+      "name": "MigrationProtocol",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plan_migration",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[str, str, any], CommandResult] — creates a migration plan for component_id from migration_file path.",
+          "validators": []
+        },
+        {
+          "name": "approve_migration",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[str, str, any], CommandResult] — approves a plan_id with a reviewer id.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "typing.Protocol defining the interface the CLI expects from the migration domain module."
+    },
+    {
+      "name": "ExportProtocol",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "export_contracts",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[ExportFormat, str | None, any], CommandResult] — exports contracts in target format, optionally filtered by component_id.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "typing.Protocol defining the interface the CLI expects from the export domain module."
+    },
+    {
+      "name": "MockProtocol",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "generate_mock_data",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[str, str, int, int | None, MockPurpose, any], CommandResult] — generates mock rows for backend_id.table with count, optional seed, purpose, and config.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "typing.Protocol defining the interface the CLI expects from the mock domain module."
+    },
+    {
+      "name": "ApiProtocol",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "start_server",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[any], None] — starts the FastAPI+uvicorn HTTP server using the provided config.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "typing.Protocol defining the interface the CLI expects from the api domain module."
+    }
+  ],
+  "functions": [
+    {
+      "name": "cli_main",
+      "description": "Root Click group entry point. Resolves config_path (--config flag → LEDGER_CONFIG env var → ./ledger.yaml), initializes CliContext, attaches it to click.Context, and sets up the top-level error handler that catches LedgerError and KeyboardInterrupt.",
+      "inputs": [
+        {
+          "name": "config",
+          "type_ref": "str",
+          "required": false,
+          "default": "None",
+          "description": "Explicit path to ledger.yaml. If omitted, resolution falls through to env var and CWD.",
+          "validators": []
+        },
+        {
+          "name": "verbose",
+          "type_ref": "bool",
+          "required": false,
+          "default": "false",
+          "description": "Enable verbose debug output to stderr.",
+          "validators": []
+        },
+        {
+          "name": "output",
+          "type_ref": "OutputFormat",
+          "required": false,
+          "default": "text",
+          "description": "Global output format for structured commands.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "keyboard_interrupt",
+          "condition": "User sends SIGINT during any subcommand execution",
+          "error_type": "SystemExit",
+          "error_data": {
+            "exit_code": "130"
+          }
+        },
+        {
+          "name": "unhandled_ledger_error",
+          "condition": "A domain module raises LedgerError that propagates to group level",
+          "error_type": "SystemExit",
+          "error_data": {
+            "exit_code": "1"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "CliContext is attached to click.Context.obj",
+        "config_path in CliContext is an absolute resolved path string"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "Writes status/error messages to stderr",
+        "Sets process exit code"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Writes colored violation messages and status lines to stderr on error."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_init",
+      "description": "Subcommand `ledger init`. Creates a new ledger.yaml scaffold at the resolved config_path. Does NOT require an existing config (only command that works without @require_config). Delegates to config.init_config.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with resolved config_path. config field may be None.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "file_already_exists",
+          "condition": "ledger.yaml already exists at config_path and --force is not set",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "CONFIG_EXISTS"
+          }
+        },
+        {
+          "name": "write_permission_denied",
+          "condition": "Process lacks write permission to the target directory",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_WRITE_ERROR"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "A valid ledger.yaml file exists at ctx.config_path",
+        "Exit code is 0 on success"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Writes ledger.yaml to disk"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "writes_file",
+          "target": "ledger.yaml",
+          "description": "Creates a new ledger.yaml scaffold at ctx.config_path."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_backend_add",
+      "description": "Subcommand `ledger backend add <id> --type <type> --owner <component_id>`. Registers a new backend data store. Requires config. Delegates to registry.register_backend.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with loaded config.",
+          "validators": []
+        },
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique identifier for the backend, e.g. 'users-pg'.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[a-z][a-z0-9_-]{0,62}$",
+              "error_message": "Backend ID must be lowercase alphanumeric with hyphens/underscores, 1-63 chars, starting with a letter."
+            }
+          ]
+        },
+        {
+          "name": "backend_type",
+          "type_ref": "BackendType",
+          "required": true,
+          "default": "",
+          "description": "Storage engine type.",
+          "validators": []
+        },
+        {
+          "name": "owner",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Component ID that owns this backend.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[a-z][a-z0-9_-]{0,62}$",
+              "error_message": "Owner must be a valid component ID."
+            }
+          ]
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "config_not_loaded",
+          "condition": "ledger.yaml not found or unparseable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_LOAD_ERROR"
+          }
+        },
+        {
+          "name": "duplicate_backend",
+          "condition": "A backend with the same id already exists",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "BACKEND_DUPLICATE"
+          }
+        },
+        {
+          "name": "invalid_owner",
+          "condition": "The owner component_id is not registered",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "OWNER_NOT_FOUND"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config is not None (config loaded via @require_config)"
+      ],
+      "postconditions": [
+        "Backend is registered in the config",
+        "Success message printed to stderr",
+        "Exit code is 0"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Prints success or error status message to stderr."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_schema_add",
+      "description": "Subcommand `ledger schema add <path>`. Ingests a schema YAML file verbatim (no normalization or reordering). Requires config. Delegates to registry.add_schema.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with loaded config.",
+          "validators": []
+        },
+        {
+          "name": "path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Filesystem path to the schema YAML file to ingest.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "file_not_found",
+          "condition": "The specified path does not exist",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "FILE_NOT_FOUND"
+          }
+        },
+        {
+          "name": "invalid_yaml",
+          "condition": "The file is not valid YAML",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "YAML_PARSE_ERROR"
+          }
+        },
+        {
+          "name": "schema_validation_failed",
+          "condition": "The YAML content does not conform to the Ledger schema spec",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "SCHEMA_INVALID"
+          }
+        },
+        {
+          "name": "config_not_loaded",
+          "condition": "ledger.yaml not found or unparseable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_LOAD_ERROR"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config is not None",
+        "path points to an existing readable file"
+      ],
+      "postconditions": [
+        "Schema is stored verbatim in the registry",
+        "Exit code is 0 on success"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "schema YAML file",
+          "description": "Reads schema YAML from the given path for ingestion."
+        },
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Prints success status or all violations to stderr."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_schema_show",
+      "description": "Subcommand `ledger schema show <backend_id> [<table>]`. Displays the schema for a backend, optionally filtered to a single table. Structured data output to stdout; supports --output json|yaml|text. Requires config. Delegates to registry.show_schema.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with loaded config and output_format.",
+          "validators": []
+        },
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend identifier to look up.",
+          "validators": []
+        },
+        {
+          "name": "table",
+          "type_ref": "str",
+          "required": false,
+          "default": "None",
+          "description": "Optional table name to filter output.",
+          "validators": []
+        }
+      ],
+      "output_type": "CommandResult",
+      "error_cases": [
+        {
+          "name": "backend_not_found",
+          "condition": "No backend registered with the given id",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "BACKEND_NOT_FOUND"
+          }
+        },
+        {
+          "name": "table_not_found",
+          "condition": "The specified table does not exist in the backend schema",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "TABLE_NOT_FOUND"
+          }
+        },
+        {
+          "name": "config_not_loaded",
+          "condition": "ledger.yaml not found or unparseable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_LOAD_ERROR"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config is not None"
+      ],
+      "postconditions": [
+        "Structured data written to stdout in ctx.output_format",
+        "Exit code is 0 on success"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Writes structured schema data to stdout in the requested format."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 200,
+        "max_memory_mb": null,
+        "complexity": null
+      }
+    },
+    {
+      "name": "cmd_schema_validate",
+      "description": "Subcommand `ledger schema validate`. Validates all registered schemas against data obligations and annotation rules. Returns ALL violations, not just the first. Structured output to stdout; supports --output. Requires config. Delegates to registry.validate_schemas.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with loaded config and output_format.",
+          "validators": []
+        }
+      ],
+      "output_type": "CommandResult",
+      "error_cases": [
+        {
+          "name": "no_schemas_registered",
+          "condition": "No schemas have been added to the registry",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "NO_SCHEMAS"
+          }
+        },
+        {
+          "name": "config_not_loaded",
+          "condition": "ledger.yaml not found or unparseable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_LOAD_ERROR"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config is not None"
+      ],
+      "postconditions": [
+        "All violations are returned (not short-circuited at the first)",
+        "Exit code is 0 if no error-severity violations, 1 otherwise",
+        "Structured violation list written to stdout"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Writes full violation list to stdout in the requested output format."
+        },
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Writes summary status line (pass/fail count) to stderr."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 500,
+        "max_memory_mb": null,
+        "complexity": null
+      }
+    },
+    {
+      "name": "cmd_migrate_plan",
+      "description": "Subcommand `ledger migrate plan <component_id> <migration_file>`. Parses a SQL migration file, computes the schema diff, and runs migration gate checks. Returns full violation list with severity levels. Structured output. Requires config. Delegates to migration.plan_migration.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with loaded config.",
+          "validators": []
+        },
+        {
+          "name": "component_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Component that owns the migration.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[a-z][a-z0-9_-]{0,62}$",
+              "error_message": "Component ID must be lowercase alphanumeric with hyphens/underscores."
+            }
+          ]
+        },
+        {
+          "name": "migration_file",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Path to the SQL migration file to parse.",
+          "validators": []
+        }
+      ],
+      "output_type": "CommandResult",
+      "error_cases": [
+        {
+          "name": "file_not_found",
+          "condition": "The migration file path does not exist",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "FILE_NOT_FOUND"
+          }
+        },
+        {
+          "name": "sql_parse_error",
+          "condition": "The migration file contains unparseable SQL",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "SQL_PARSE_ERROR"
+          }
+        },
+        {
+          "name": "component_not_found",
+          "condition": "The component_id is not registered",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "COMPONENT_NOT_FOUND"
+          }
+        },
+        {
+          "name": "gate_violations",
+          "condition": "Migration gate checks produced error-severity violations",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "GATE_VIOLATIONS"
+          }
+        },
+        {
+          "name": "config_not_loaded",
+          "condition": "ledger.yaml not found or unparseable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_LOAD_ERROR"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config is not None",
+        "migration_file points to a readable .sql file"
+      ],
+      "postconditions": [
+        "A migration plan is created with a unique plan_id",
+        "All gate violations are returned with severity levels",
+        "Exit code is 0 if no error-severity gate violations, 1 otherwise"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "SQL migration file",
+          "description": "Reads the SQL migration file from disk for parsing."
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Writes migration plan and gate results to stdout."
+        },
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Writes summary of gate pass/fail to stderr."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 1000,
+        "max_memory_mb": null,
+        "complexity": null
+      }
+    },
+    {
+      "name": "cmd_migrate_approve",
+      "description": "Subcommand `ledger migrate approve <plan_id> --review <id>`. Approves a previously created migration plan with a reviewer identifier. Requires config. Delegates to migration.approve_migration.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with loaded config.",
+          "validators": []
+        },
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique identifier of the migration plan to approve.",
+          "validators": []
+        },
+        {
+          "name": "review_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Identifier of the reviewer approving the plan.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "plan_not_found",
+          "condition": "No migration plan exists with the given plan_id",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "PLAN_NOT_FOUND"
+          }
+        },
+        {
+          "name": "plan_already_approved",
+          "condition": "The plan has already been approved",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "PLAN_ALREADY_APPROVED"
+          }
+        },
+        {
+          "name": "outstanding_violations",
+          "condition": "The plan has unresolved error-severity gate violations",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "UNRESOLVED_VIOLATIONS"
+          }
+        },
+        {
+          "name": "config_not_loaded",
+          "condition": "ledger.yaml not found or unparseable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_LOAD_ERROR"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config is not None",
+        "A plan with plan_id exists and is in a pending state"
+      ],
+      "postconditions": [
+        "Plan status is updated to approved",
+        "Approval record includes review_id and timestamp",
+        "Exit code is 0 on success"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "migration plan store",
+          "description": "Updates the plan record to approved status with reviewer metadata."
+        },
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Prints approval confirmation to stderr."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_export",
+      "description": "Subcommand `ledger export --format <pact|arbiter|baton|sentinel> [--component <id>]`. Exports Ledger data as contracts in the target format. Structured data to stdout. Requires config. Delegates to export.export_contracts.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with loaded config and output_format.",
+          "validators": []
+        },
+        {
+          "name": "format",
+          "type_ref": "ExportFormat",
+          "required": true,
+          "default": "",
+          "description": "Target contract format to export.",
+          "validators": []
+        },
+        {
+          "name": "component_id",
+          "type_ref": "str",
+          "required": false,
+          "default": "None",
+          "description": "Optional component ID to filter export scope. If omitted, exports all.",
+          "validators": []
+        }
+      ],
+      "output_type": "CommandResult",
+      "error_cases": [
+        {
+          "name": "no_data_to_export",
+          "condition": "No schemas or backends are registered (or none match component filter)",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "NO_EXPORT_DATA"
+          }
+        },
+        {
+          "name": "component_not_found",
+          "condition": "The specified component_id filter does not match any registered component",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "COMPONENT_NOT_FOUND"
+          }
+        },
+        {
+          "name": "config_not_loaded",
+          "condition": "ledger.yaml not found or unparseable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_LOAD_ERROR"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config is not None"
+      ],
+      "postconditions": [
+        "Exported contract data written to stdout",
+        "Exit code is 0 on success"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Writes exported contract data to stdout in the target format."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 500,
+        "max_memory_mb": null,
+        "complexity": null
+      }
+    },
+    {
+      "name": "cmd_mock",
+      "description": "Subcommand `ledger mock <backend_id> <table> --count N [--seed S] [--purpose canary]`. Generates mock data rows for a table using faker for PII fields and stdlib random for everything else. Structured data to stdout. Requires config. Delegates to mock.generate_mock_data.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with loaded config.",
+          "validators": []
+        },
+        {
+          "name": "backend_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Backend containing the target table.",
+          "validators": []
+        },
+        {
+          "name": "table",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Table name to generate mock data for.",
+          "validators": []
+        },
+        {
+          "name": "count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of mock rows to generate.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "1..100000",
+              "error_message": "Count must be between 1 and 100,000."
+            }
+          ]
+        },
+        {
+          "name": "seed",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "Optional random seed for reproducible output.",
+          "validators": []
+        },
+        {
+          "name": "purpose",
+          "type_ref": "MockPurpose",
+          "required": false,
+          "default": "default",
+          "description": "Purpose of the mock data. 'canary' triggers Arbiter registration of generated tokens.",
+          "validators": []
+        }
+      ],
+      "output_type": "CommandResult",
+      "error_cases": [
+        {
+          "name": "backend_not_found",
+          "condition": "No backend registered with the given id",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "BACKEND_NOT_FOUND"
+          }
+        },
+        {
+          "name": "table_not_found",
+          "condition": "The table does not exist in the backend schema",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "TABLE_NOT_FOUND"
+          }
+        },
+        {
+          "name": "arbiter_unavailable",
+          "condition": "Purpose is canary but Arbiter service is unreachable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "ARBITER_UNAVAILABLE"
+          }
+        },
+        {
+          "name": "config_not_loaded",
+          "condition": "ledger.yaml not found or unparseable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_LOAD_ERROR"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config is not None"
+      ],
+      "postconditions": [
+        "Exactly `count` rows of mock data are generated",
+        "PII fields use faker; non-PII fields use stdlib random",
+        "If seed is provided, output is deterministic",
+        "Data written to stdout in ctx.output_format"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Writes generated mock data rows to stdout."
+        },
+        {
+          "kind": "network_call",
+          "target": "Arbiter API",
+          "description": "When purpose=canary, registers generated canary tokens with the Arbiter service. Skipped with warning if Arbiter is unavailable."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 5000,
+        "max_memory_mb": 256,
+        "complexity": null
+      }
+    },
+    {
+      "name": "cmd_serve",
+      "description": "Subcommand `ledger serve`. Starts the FastAPI+uvicorn HTTP server exposing the Ledger API. Requires config. Delegates to api.start_server. Blocks until interrupted.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context with loaded config.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "port_in_use",
+          "condition": "The configured HTTP port is already bound by another process",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "PORT_IN_USE"
+          }
+        },
+        {
+          "name": "config_not_loaded",
+          "condition": "ledger.yaml not found or unparseable",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_LOAD_ERROR"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config is not None"
+      ],
+      "postconditions": [
+        "Server process is running and accepting HTTP requests",
+        "On KeyboardInterrupt, server shuts down cleanly with exit code 130"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "localhost HTTP port",
+          "description": "Binds and listens on the configured HTTP port, serving FastAPI routes."
+        },
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Prints server startup banner and access log to stderr."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "require_config",
+      "description": "Decorator that ensures CliContext.config is loaded before the wrapped Click callback executes. Resolves config_path, calls config.load_config, and attaches the result to ctx.config. Raises LedgerError with exit_code CONFIG_ERROR_3 on failure.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "CliContext",
+          "required": true,
+          "default": "",
+          "description": "CLI context whose config field will be populated.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "config_file_missing",
+          "condition": "No file exists at ctx.config_path",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_NOT_FOUND"
+          }
+        },
+        {
+          "name": "config_parse_error",
+          "condition": "The file exists but contains invalid YAML",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "YAML_PARSE_ERROR"
+          }
+        },
+        {
+          "name": "config_validation_error",
+          "condition": "YAML is valid but does not conform to LedgerConfig schema",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "3",
+            "code": "CONFIG_INVALID"
+          }
+        }
+      ],
+      "preconditions": [
+        "ctx.config_path is a non-empty string"
+      ],
+      "postconditions": [
+        "ctx.config is a valid LedgerConfig instance (not None)",
+        "Config was parsed from the YAML file at ctx.config_path"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "ledger.yaml",
+          "description": "Reads and parses the ledger.yaml configuration file from disk."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "format_output",
+      "description": "Pure helper that serializes a CommandResult's data payload into the requested OutputFormat string for writing to stdout. Handles text (human-readable tables/indented), json, and yaml formats.",
+      "inputs": [
+        {
+          "name": "result",
+          "type_ref": "CommandResult",
+          "required": true,
+          "default": "",
+          "description": "The command result whose data field will be serialized.",
+          "validators": []
+        },
+        {
+          "name": "output_format",
+          "type_ref": "OutputFormat",
+          "required": true,
+          "default": "",
+          "description": "Target serialization format.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "unserializable_data",
+          "condition": "result.data contains types that cannot be serialized to the target format",
+          "error_type": "LedgerError",
+          "error_data": {
+            "exit_code": "1",
+            "code": "SERIALIZATION_ERROR"
+          }
+        }
+      ],
+      "preconditions": [
+        "result.data is not None when format is json or yaml"
+      ],
+      "postconditions": [
+        "Returned string is valid JSON if output_format is json",
+        "Returned string is valid YAML if output_format is yaml",
+        "Returned string is human-readable if output_format is text"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function with no side effects."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "render_violations",
+      "description": "Pure helper that formats a list of Violations into a colored, human-readable string for stderr output. Groups violations by severity and includes counts.",
+      "inputs": [
+        {
+          "name": "violations",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of Violation structs to render.",
+          "validators": []
+        },
+        {
+          "name": "use_color",
+          "type_ref": "bool",
+          "required": false,
+          "default": "true",
+          "description": "Whether to include ANSI color codes in output. Disabled when stderr is not a TTY.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "All violations are included in the output (none skipped)",
+        "Violations are grouped by severity: errors first, then warnings, then info",
+        "Output includes a summary line with counts per severity"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function with no side effects."
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "registry",
+    "migration",
+    "export",
+    "mock",
+    "config",
+    "api"
+  ],
+  "dependency_contracts": {
+    "registry": [
+      "register_backend",
+      "add_schema",
+      "show_schema",
+      "validate_schemas"
+    ],
+    "migration": [
+      "plan_migration",
+      "approve_migration"
+    ],
+    "export": [
+      "export_contracts"
+    ],
+    "mock": [
+      "generate_mock_data"
+    ],
+    "config": [
+      "load_config",
+      "init_config"
+    ],
+    "api": [
+      "start_server"
+    ]
+  },
+  "invariants": [
+    "Each CLI subcommand performs zero business logic — it only dispatches to the corresponding domain module function.",
+    "Data output goes to stdout; status messages and errors go to stderr.",
+    "Config resolution order is always: --config flag → LEDGER_CONFIG env var → ./ledger.yaml.",
+    "LedgerError violations are never truncated — all violations are rendered to the user.",
+    "Exit codes are deterministic: 0=success, 1=domain/validation error, 2=usage error (Click default), 3=config error, 130=KeyboardInterrupt.",
+    "Schema YAML is stored verbatim — the CLI never normalizes, reformats, or reorders YAML content.",
+    "The cmd_init function is the only command that operates without a loaded config.",
+    "When Arbiter is unreachable during canary mock generation, the CLI warns on stderr and continues — it never crashes.",
+    "All Click callbacks are annotated with return type None.",
+    "Each CLI source file stays under 300 lines; the cli/ subpackage has one file per command group."
+  ],
+  "requires": [
+    "click",
+    "pyyaml"
+  ],
+  "processing_register": "rigorous-analytical",
+  "data_access": {
+    "reads": [
+      "INTERNAL"
+    ],
+    "writes": [
+      "INTERNAL"
+    ],
+    "rationale": "Reads ledger.yaml configuration file (INTERNAL tier) to resolve config_path, backend definitions, and schema paths. The init command writes a new ledger.yaml scaffold (INTERNAL tier). No PII or PUBLIC data is directly read or written by the CLI layer; PII handling is delegated to the mock component.",
+    "side_effects": [
+      {
+        "type": "read_file",
+        "classification": "INTERNAL",
+        "fields": [
+          "config_path",
+          "ledger.yaml"
+        ],
+        "rationale": "Reads ledger.yaml from disk to populate CliContext.config for all commands except init."
+      },
+      {
+        "type": "write_file",
+        "classification": "INTERNAL",
+        "fields": [
+          "config_path",
+          "ledger.yaml"
+        ],
+        "rationale": "The init command writes a new ledger.yaml scaffold file to the resolved config path."
+      },
+      {
+        "type": "write_stdout",
+        "classification": "INTERNAL",
+        "fields": [
+          "structured_output"
+        ],
+        "rationale": "All data output (show, validate, plan, export) is written to stdout for piping."
+      },
+      {
+        "type": "write_stderr",
+        "classification": "INTERNAL",
+        "fields": [
+          "error_messages",
+          "status_messages"
+        ],
+        "rationale": "Violations, warnings, and status messages are written to stderr to separate from data output."
+      }
+    ]
+  },
+  "authority": {
+    "domains": [],
+    "rationale": null
+  }
+}

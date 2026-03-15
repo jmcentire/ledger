@@ -1,0 +1,1504 @@
+{
+  "component_id": "config",
+  "name": "Configuration & Data Models",
+  "description": "Loads and validates ledger.yaml configuration. Defines all shared Pydantic models used across the system: SchemaFile, Field, Backend, Annotation, ClassificationTier (fixed enum: PUBLIC/PII/FINANCIAL/AUTH/COMPLIANCE), MigrationGate, MigrationPlan, ChangelogEntry, PropagationRule. Provides the annotation propagation table — a data-driven dict mapping each built-in annotation to its propagation targets (Pact assertion type, Arbiter tier behavior, Baton masking rule, Sentinel severity). Custom annotations from ledger.yaml extend this table at load time. Also defines the CONFLICTS pairs (immutable+gdpr_erasable, audit_field+gdpr_erasable, soft_delete_marker+immutable) and REQUIRES rules as data. Provides file-locking utility (fcntl-based) for changelog and plans directory writes.",
+  "version": 1,
+  "types": [
+    {
+      "name": "ClassificationTier",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "PUBLIC",
+        "PII",
+        "FINANCIAL",
+        "AUTH",
+        "COMPLIANCE"
+      ],
+      "inner_types": [],
+      "description": "Fixed enumeration of data classification tiers. Implemented as @final StrEnum in Python. No runtime extension permitted."
+    },
+    {
+      "name": "PropagationRule",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "annotation_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The canonical annotation name this rule applies to.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "annotation_name must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "pact_assertion_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The Pact assertion type generated for this annotation (e.g. 'field_present', 'type_match', 'not_null').",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "pact_assertion_type must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "arbiter_tier_behavior",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "How Arbiter should treat fields with this annotation (e.g. 'enforce_tier', 'audit_only', 'block_downgrade').",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "arbiter_tier_behavior must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "baton_masking_rule",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The Baton masking rule to apply (e.g. 'full_mask', 'partial_mask', 'no_mask', 'hash').",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "baton_masking_rule must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "sentinel_severity",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The Sentinel alert severity for violations of this annotation (e.g. 'critical', 'high', 'medium', 'low', 'info').",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^(critical|high|medium|low|info)$",
+              "error_message": "sentinel_severity must be one of: critical, high, medium, low, info"
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Defines how a single annotation propagates to each downstream system. Frozen Pydantic model."
+    },
+    {
+      "name": "Annotation",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The canonical annotation name (must exist in the propagation table).",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "Annotation name must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "params",
+          "type_ref": "dict",
+          "required": false,
+          "default": "{}",
+          "description": "Optional key-value parameters for the annotation.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single annotation applied to a field, referencing a known annotation name and optional parameters. Frozen Pydantic model."
+    },
+    {
+      "name": "Field",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The field name as it appears in the schema.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[a-z][a-z0-9_]*$",
+              "error_message": "Field name must be snake_case starting with a lowercase letter"
+            }
+          ]
+        },
+        {
+          "name": "field_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The field's data type (e.g. 'string', 'integer', 'boolean', 'timestamp', 'uuid').",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "field_type must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "classification",
+          "type_ref": "ClassificationTier",
+          "required": true,
+          "default": "",
+          "description": "The data classification tier assigned to this field.",
+          "validators": []
+        },
+        {
+          "name": "nullable",
+          "type_ref": "bool",
+          "required": false,
+          "default": "false",
+          "description": "Whether this field permits null values.",
+          "validators": []
+        },
+        {
+          "name": "annotations",
+          "type_ref": "AnnotationList",
+          "required": false,
+          "default": "[]",
+          "description": "List of annotations applied to this field. Validated against CONFLICTS and REQUIRES rules.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single field within a schema, including its type, classification tier, and annotations. Frozen Pydantic model."
+    },
+    {
+      "name": "AnnotationList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "Annotation",
+      "variants": [],
+      "inner_types": [],
+      "description": "A list of Annotation instances applied to a field."
+    },
+    {
+      "name": "SchemaFile",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The schema name (e.g. 'users', 'orders').",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^[a-z][a-z0-9_]*$",
+              "error_message": "Schema name must be snake_case starting with a lowercase letter"
+            }
+          ]
+        },
+        {
+          "name": "version",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Schema version number, monotonically increasing.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "min=1",
+              "error_message": "Schema version must be >= 1"
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "type_ref": "FieldList",
+          "required": true,
+          "default": "",
+          "description": "Ordered list of fields in this schema.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "Schema must contain at least one field"
+            }
+          ]
+        },
+        {
+          "name": "raw_yaml",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The exact raw YAML content read from disk, preserved verbatim. Never round-tripped through pyyaml.",
+          "validators": []
+        },
+        {
+          "name": "source_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The filesystem path from which this schema was loaded.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Represents a parsed schema YAML file. Contains both the structured model and the raw YAML string. Frozen Pydantic model."
+    },
+    {
+      "name": "FieldList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "Field",
+      "variants": [],
+      "inner_types": [],
+      "description": "Ordered list of Field instances within a schema."
+    },
+    {
+      "name": "Backend",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The backend system name.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^(pact|arbiter|baton|sentinel|constrain)$",
+              "error_message": "Backend name must be one of: pact, arbiter, baton, sentinel, constrain"
+            }
+          ]
+        },
+        {
+          "name": "enabled",
+          "type_ref": "bool",
+          "required": false,
+          "default": "true",
+          "description": "Whether this backend integration is active.",
+          "validators": []
+        },
+        {
+          "name": "base_url",
+          "type_ref": "str",
+          "required": false,
+          "default": "\"\"",
+          "description": "Base URL for the backend API. Empty string if not configured.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^(https?://.*|)$",
+              "error_message": "base_url must be an HTTP(S) URL or empty string"
+            }
+          ]
+        },
+        {
+          "name": "timeout_ms",
+          "type_ref": "int",
+          "required": false,
+          "default": "5000",
+          "description": "HTTP request timeout in milliseconds.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "min=100,max=60000",
+              "error_message": "timeout_ms must be between 100 and 60000"
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Configuration for an external backend system (Pact, Arbiter, Baton, Sentinel, Constrain). Frozen Pydantic model."
+    },
+    {
+      "name": "MigrationGate",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "rule_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The name of the gate rule that was evaluated.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "rule_name must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "passed",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether the gate check passed.",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The severity level of a violation.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^(error|warning|info)$",
+              "error_message": "severity must be one of: error, warning, info"
+            }
+          ]
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of the gate result.",
+          "validators": []
+        },
+        {
+          "name": "field_name",
+          "type_ref": "str",
+          "required": false,
+          "default": "\"\"",
+          "description": "The field name this gate applies to, if field-specific.",
+          "validators": []
+        },
+        {
+          "name": "schema_name",
+          "type_ref": "str",
+          "required": false,
+          "default": "\"\"",
+          "description": "The schema name this gate applies to, if schema-specific.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single migration gate check result including severity. Frozen Pydantic model."
+    },
+    {
+      "name": "MigrationGateList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "MigrationGate",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of MigrationGate results from a migration gate evaluation."
+    },
+    {
+      "name": "MigrationPlan",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "plan_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique identifier for this migration plan.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "plan_id must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "schema_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The schema this migration plan targets.",
+          "validators": []
+        },
+        {
+          "name": "from_version",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "The source schema version.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "min=1",
+              "error_message": "from_version must be >= 1"
+            }
+          ]
+        },
+        {
+          "name": "to_version",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "The target schema version.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "min=1",
+              "error_message": "to_version must be >= 1"
+            }
+          ]
+        },
+        {
+          "name": "gates",
+          "type_ref": "MigrationGateList",
+          "required": true,
+          "default": "",
+          "description": "All gate check results for this migration.",
+          "validators": []
+        },
+        {
+          "name": "approved",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether all error-severity gates passed.",
+          "validators": []
+        },
+        {
+          "name": "created_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 UTC timestamp of plan creation.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+              "error_message": "created_at must be an ISO 8601 UTC timestamp ending in Z"
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A complete migration plan comprising SQL diff analysis and gate results. Frozen Pydantic model."
+    },
+    {
+      "name": "ChangelogEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "entry_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique identifier for this changelog entry.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "entry_id must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "schema_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The schema that was changed.",
+          "validators": []
+        },
+        {
+          "name": "version",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "The schema version after this change.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "min=1",
+              "error_message": "version must be >= 1"
+            }
+          ]
+        },
+        {
+          "name": "change_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The type of change.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^(create|update|delete|migrate)$",
+              "error_message": "change_type must be one of: create, update, delete, migrate"
+            }
+          ]
+        },
+        {
+          "name": "timestamp",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 UTC timestamp of the change.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+              "error_message": "timestamp must be an ISO 8601 UTC timestamp ending in Z"
+            }
+          ]
+        },
+        {
+          "name": "description",
+          "type_ref": "str",
+          "required": false,
+          "default": "\"\"",
+          "description": "Human-readable description of the change.",
+          "validators": []
+        },
+        {
+          "name": "migration_plan_id",
+          "type_ref": "str",
+          "required": false,
+          "default": "\"\"",
+          "description": "Associated migration plan ID, if this change was part of a migration.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single entry in the schema changelog recording a change event. Frozen Pydantic model."
+    },
+    {
+      "name": "ConstraintViolation",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "violation_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The type of violation: 'conflict' or 'missing_required'.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^(conflict|missing_required)$",
+              "error_message": "violation_type must be 'conflict' or 'missing_required'"
+            }
+          ]
+        },
+        {
+          "name": "annotations",
+          "type_ref": "StringList",
+          "required": true,
+          "default": "",
+          "description": "The annotation names involved in this violation.",
+          "validators": []
+        },
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of the violation.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single constraint violation found during annotation validation. Contains the violation type, the involved annotations, and a human-readable message."
+    },
+    {
+      "name": "ConstraintViolationList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "ConstraintViolation",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of all constraint violations found during validation."
+    },
+    {
+      "name": "StringList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "str",
+      "variants": [],
+      "inner_types": [],
+      "description": "A list of strings."
+    },
+    {
+      "name": "CustomAnnotationDef",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The custom annotation name. Must not collide with any builtin annotation name.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "Custom annotation name must be non-empty"
+            },
+            {
+              "kind": "regex",
+              "expression": "^[a-z][a-z0-9_]*$",
+              "error_message": "Custom annotation name must be snake_case starting with a lowercase letter"
+            }
+          ]
+        },
+        {
+          "name": "pact_assertion_type",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Pact assertion type for this custom annotation.",
+          "validators": []
+        },
+        {
+          "name": "arbiter_tier_behavior",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Arbiter tier behavior for this custom annotation.",
+          "validators": []
+        },
+        {
+          "name": "baton_masking_rule",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Baton masking rule for this custom annotation.",
+          "validators": []
+        },
+        {
+          "name": "sentinel_severity",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Sentinel severity for this custom annotation.",
+          "validators": [
+            {
+              "kind": "regex",
+              "expression": "^(critical|high|medium|low|info)$",
+              "error_message": "sentinel_severity must be one of: critical, high, medium, low, info"
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Definition of a custom annotation as specified in ledger.yaml. Used to extend the builtin propagation table."
+    },
+    {
+      "name": "CustomAnnotationDefList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "CustomAnnotationDef",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of custom annotation definitions from ledger.yaml."
+    },
+    {
+      "name": "BackendList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "Backend",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of Backend configurations."
+    },
+    {
+      "name": "SchemaFileList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "SchemaFile",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of SchemaFile instances."
+    },
+    {
+      "name": "LedgerConfig",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "project_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The project name from ledger.yaml.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "project_name must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "schemas_dir",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Path to the directory containing schema YAML files.",
+          "validators": []
+        },
+        {
+          "name": "changelog_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Path to the changelog file.",
+          "validators": []
+        },
+        {
+          "name": "plans_dir",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Path to the migration plans directory.",
+          "validators": []
+        },
+        {
+          "name": "backends",
+          "type_ref": "BackendList",
+          "required": true,
+          "default": "",
+          "description": "Configured backend integrations.",
+          "validators": []
+        },
+        {
+          "name": "custom_annotations",
+          "type_ref": "CustomAnnotationDefList",
+          "required": false,
+          "default": "[]",
+          "description": "Custom annotation definitions from ledger.yaml.",
+          "validators": []
+        },
+        {
+          "name": "propagation_table",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "The merged propagation table (builtin + custom). At runtime this is a MappingProxyType[str, PropagationRule] but serialized as dict for Pydantic compatibility.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "The top-level composed configuration object returned by load_config. Contains all resolved configuration, schemas, backends, and the merged propagation table. Frozen Pydantic model."
+    },
+    {
+      "name": "PropagationRuleDict",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "key",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Annotation name (the dict key).",
+          "validators": []
+        },
+        {
+          "name": "value",
+          "type_ref": "PropagationRule",
+          "required": true,
+          "default": "",
+          "description": "The propagation rule for that annotation.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Type alias documentation: at runtime the propagation table is MappingProxyType[str, PropagationRule]. This struct is not instantiated directly but documents the mapping shape."
+    },
+    {
+      "name": "LedgerValidationError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "file_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The filesystem path of the file that failed validation.",
+          "validators": []
+        },
+        {
+          "name": "violations",
+          "type_ref": "StringList",
+          "required": true,
+          "default": "",
+          "description": "All validation error messages, never truncated to just the first.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "violations must contain at least one error message"
+            }
+          ]
+        },
+        {
+          "name": "source_exception",
+          "type_ref": "str",
+          "required": false,
+          "default": "\"\"",
+          "description": "String representation of the underlying exception, if any.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Error model aggregating all validation violations encountered during config loading or schema parsing. Contains file path context and the full list of violations."
+    },
+    {
+      "name": "ConflictsPairs",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "pair_1",
+          "type_ref": "StringList",
+          "required": true,
+          "default": "",
+          "description": "['immutable', 'gdpr_erasable']",
+          "validators": []
+        },
+        {
+          "name": "pair_2",
+          "type_ref": "StringList",
+          "required": true,
+          "default": "",
+          "description": "['audit_field', 'gdpr_erasable']",
+          "validators": []
+        },
+        {
+          "name": "pair_3",
+          "type_ref": "StringList",
+          "required": true,
+          "default": "",
+          "description": "['soft_delete_marker', 'immutable']",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Documentation type for the CONFLICTS constant. At runtime this is frozenset[frozenset[str]] with exactly three pairs."
+    },
+    {
+      "name": "FileLockHandle",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "lock_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Path to the .lock sidecar file.",
+          "validators": []
+        },
+        {
+          "name": "fd",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "File descriptor of the open lock file.",
+          "validators": []
+        },
+        {
+          "name": "exclusive",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether this is an exclusive (write) or shared (read) lock.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Opaque handle returned when entering the file_lock context manager. Holds the lock file descriptor for cleanup."
+    }
+  ],
+  "functions": [
+    {
+      "name": "load_config",
+      "description": "Reads and validates ledger.yaml from the given path. Parses via yaml.safe_load, validates into Pydantic models, merges custom annotations into the propagation table with collision detection, preserves raw YAML for all schema files, and returns a composed LedgerConfig. On validation failure, raises LedgerValidationError with all violations and file path context. Never crashes on a single error — always aggregates.",
+      "inputs": [
+        {
+          "name": "path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Filesystem path to the ledger.yaml configuration file.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "Config path must be non-empty"
+            }
+          ]
+        }
+      ],
+      "output_type": "LedgerConfig",
+      "error_cases": [
+        {
+          "name": "file_not_found",
+          "condition": "The file at path does not exist",
+          "error_type": "FileNotFoundError",
+          "error_data": {
+            "path": "The path that was not found"
+          }
+        },
+        {
+          "name": "permission_denied",
+          "condition": "The file at path is not readable",
+          "error_type": "PermissionError",
+          "error_data": {
+            "path": "The path that could not be read"
+          }
+        },
+        {
+          "name": "invalid_yaml",
+          "condition": "The file content is not valid YAML",
+          "error_type": "LedgerValidationError",
+          "error_data": {
+            "file_path": "Path to the invalid file",
+            "violations": "YAML parse error details"
+          }
+        },
+        {
+          "name": "validation_errors",
+          "condition": "The YAML content fails Pydantic model validation (missing required fields, type mismatches, constraint violations)",
+          "error_type": "LedgerValidationError",
+          "error_data": {
+            "file_path": "Path to the invalid file",
+            "violations": "All validation error messages"
+          }
+        },
+        {
+          "name": "annotation_collision",
+          "condition": "A custom annotation name collides with a builtin annotation name",
+          "error_type": "LedgerValidationError",
+          "error_data": {
+            "file_path": "Path to ledger.yaml",
+            "violations": "List of colliding annotation names"
+          }
+        },
+        {
+          "name": "constraint_violations",
+          "condition": "One or more fields have annotation sets that violate CONFLICTS or REQUIRES rules",
+          "error_type": "LedgerValidationError",
+          "error_data": {
+            "file_path": "Path to the schema file with violations",
+            "violations": "All constraint violation messages"
+          }
+        }
+      ],
+      "preconditions": [
+        "path points to an existing, readable file",
+        "File contents are valid YAML (parseable by yaml.safe_load)"
+      ],
+      "postconditions": [
+        "Returned LedgerConfig.propagation_table contains all builtin annotations plus any valid custom annotations from ledger.yaml",
+        "All SchemaFile.raw_yaml fields contain the exact bytes read from disk, not round-tripped YAML",
+        "No builtin annotation name has been overwritten by a custom annotation",
+        "All CONFLICTS and REQUIRES constraints have been validated for every field's annotation set across all loaded schemas"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "Reads ledger.yaml from disk",
+        "Reads schema YAML files referenced in configuration from disk"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "ledger.yaml at the given path",
+          "description": "Reads the main configuration file using yaml.safe_load"
+        },
+        {
+          "kind": "reads_file",
+          "target": "Schema YAML files referenced in ledger.yaml schemas_dir",
+          "description": "Reads each schema YAML file to parse fields and preserve raw_yaml content"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 500,
+        "max_memory_mb": 64,
+        "complexity": "O(S * F) where S = number of schemas, F = max fields per schema"
+      }
+    },
+    {
+      "name": "build_propagation_table",
+      "description": "Merges custom annotation definitions with the builtin propagation table. Detects and rejects name collisions between custom and builtin annotations. Returns an immutable MappingProxyType[str, PropagationRule] containing all annotations.",
+      "inputs": [
+        {
+          "name": "custom_annotations",
+          "type_ref": "CustomAnnotationDefList",
+          "required": true,
+          "default": "",
+          "description": "List of custom annotation definitions to merge. May be empty.",
+          "validators": []
+        }
+      ],
+      "output_type": "dict",
+      "error_cases": [
+        {
+          "name": "name_collision",
+          "condition": "One or more custom annotation names match a builtin annotation name",
+          "error_type": "ValueError",
+          "error_data": {
+            "collisions": "List of colliding annotation names"
+          }
+        },
+        {
+          "name": "duplicate_custom_names",
+          "condition": "Two or more custom annotations share the same name",
+          "error_type": "ValueError",
+          "error_data": {
+            "duplicates": "List of duplicate custom annotation names"
+          }
+        }
+      ],
+      "preconditions": [
+        "All custom annotations have non-empty, valid snake_case names",
+        "All custom annotations have valid sentinel_severity values"
+      ],
+      "postconditions": [
+        "Returned dict (MappingProxyType at runtime) contains all builtin annotations unchanged",
+        "Returned dict contains all provided custom annotations that do not collide with builtins",
+        "Returned dict is immutable (MappingProxyType) and cannot be modified by callers",
+        "No builtin annotation entry has been modified or removed"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function with no side effects. Constructs and returns new immutable mapping."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": null,
+        "max_memory_mb": null,
+        "complexity": "O(B + C) where B = number of builtins, C = number of custom annotations"
+      }
+    },
+    {
+      "name": "validate_annotation_set",
+      "description": "Validates a set of annotation names against the CONFLICTS and REQUIRES constraint data. Returns a complete list of all violations found — never short-circuits on the first error. An empty return list indicates no violations.",
+      "inputs": [
+        {
+          "name": "annotations",
+          "type_ref": "StringList",
+          "required": true,
+          "default": "",
+          "description": "The set of annotation names to validate. Order does not matter; duplicates are ignored.",
+          "validators": []
+        }
+      ],
+      "output_type": "ConstraintViolationList",
+      "error_cases": [
+        {
+          "name": "empty_annotation_name",
+          "condition": "One or more annotation names in the input set are empty strings",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Annotation names must be non-empty"
+          }
+        }
+      ],
+      "preconditions": [
+        "All annotation names in the set are non-empty strings"
+      ],
+      "postconditions": [
+        "Every CONFLICTS pair where both members are present in the input set produces exactly one 'conflict' violation",
+        "Every REQUIRES rule where the source annotation is present but one or more required annotations are missing produces exactly one 'missing_required' violation per missing annotation",
+        "The returned list is exhaustive — all violations are reported, not just the first"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function. Checks annotations against static CONFLICTS and REQUIRES data."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": null,
+        "max_memory_mb": null,
+        "complexity": "O(A * C + A * R) where A = number of annotations, C = number of CONFLICTS pairs, R = number of REQUIRES rules"
+      }
+    },
+    {
+      "name": "get_builtin_propagation_table",
+      "description": "Returns a read-only copy of the builtin propagation table (without custom annotations). Useful for introspection and testing. The returned value is a MappingProxyType[str, PropagationRule].",
+      "inputs": [],
+      "output_type": "dict",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returned dict is a MappingProxyType and cannot be mutated",
+        "Contains exactly the builtin annotation set, no custom annotations"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function returning a reference to the module-level immutable builtin table."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_conflicts",
+      "description": "Returns the CONFLICTS constant: a frozenset of frozenset[str] pairs representing mutually exclusive annotation combinations. Exactly three pairs: {immutable, gdpr_erasable}, {audit_field, gdpr_erasable}, {soft_delete_marker, immutable}.",
+      "inputs": [],
+      "output_type": "any",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returned value is a frozenset containing exactly 3 frozenset[str] pairs",
+        "Returned value is identical to the module-level CONFLICTS constant"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure accessor returning the immutable module-level CONFLICTS constant."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_requires",
+      "description": "Returns the REQUIRES constant: a dict mapping annotation names to frozensets of annotation names that must co-occur. Immutable at module level.",
+      "inputs": [],
+      "output_type": "dict",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returned value is the module-level REQUIRES dict",
+        "Keys are annotation names, values are frozenset[str] of required co-annotations"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure accessor returning the immutable module-level REQUIRES constant."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "file_lock",
+      "description": "Context manager that acquires an advisory file lock (fcntl.flock) on a .lock sidecar file adjacent to the given path. Supports exclusive (write) and shared (read) locks. Creates the .lock file if it does not exist. On non-Unix platforms, raises PlatformError. Used for coordinating concurrent writes to changelog and migration plans directories.",
+      "inputs": [
+        {
+          "name": "path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Filesystem path of the file or directory to protect. The lock is placed on path + '.lock'.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "Lock path must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "exclusive",
+          "type_ref": "bool",
+          "required": false,
+          "default": "true",
+          "description": "If true, acquire an exclusive (LOCK_EX) lock. If false, acquire a shared (LOCK_SH) lock.",
+          "validators": []
+        },
+        {
+          "name": "blocking",
+          "type_ref": "bool",
+          "required": false,
+          "default": "true",
+          "description": "If true, block until the lock is available. If false, raise immediately on contention.",
+          "validators": []
+        }
+      ],
+      "output_type": "FileLockHandle",
+      "error_cases": [
+        {
+          "name": "platform_unsupported",
+          "condition": "Running on a non-Unix platform (e.g. Windows) where fcntl is not available",
+          "error_type": "PlatformError",
+          "error_data": {
+            "message": "fcntl-based file locking is only supported on Unix platforms"
+          }
+        },
+        {
+          "name": "lock_contention",
+          "condition": "blocking=false and the lock is already held by another process",
+          "error_type": "BlockingIOError",
+          "error_data": {
+            "path": "The lock file path that could not be acquired"
+          }
+        },
+        {
+          "name": "permission_denied",
+          "condition": "Cannot create or open the .lock sidecar file due to filesystem permissions",
+          "error_type": "PermissionError",
+          "error_data": {
+            "path": "The lock file path"
+          }
+        },
+        {
+          "name": "parent_dir_missing",
+          "condition": "The parent directory of path does not exist",
+          "error_type": "FileNotFoundError",
+          "error_data": {
+            "path": "The parent directory path"
+          }
+        }
+      ],
+      "preconditions": [
+        "Running on a Unix platform with fcntl support",
+        "The parent directory of path exists and is writable (for .lock sidecar creation)"
+      ],
+      "postconditions": [
+        "On context entry: the .lock sidecar file exists and is locked (exclusive or shared) per the requested mode",
+        "On context exit: the lock is released and the file descriptor is closed",
+        "The original file at path is never modified by the locking mechanism itself"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Creates .lock sidecar file if it does not exist",
+        "Acquires advisory fcntl.flock lock on the sidecar file"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "writes_file",
+          "target": ".lock sidecar file adjacent to the given path",
+          "description": "Creates the .lock sidecar file if it does not exist, opens it, and acquires an fcntl.flock advisory lock."
+        },
+        {
+          "kind": "mutates_state",
+          "target": "OS-level file lock state",
+          "description": "Acquires and later releases an fcntl advisory lock, affecting OS-level lock tables."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "parse_schema_file",
+      "description": "Parses a single schema YAML file into a SchemaFile model. Reads the file, preserves raw YAML verbatim, parses via yaml.safe_load, validates into Field/Annotation models, and runs CONFLICTS/REQUIRES validation on every field's annotation set. Returns all violations on failure, not just the first.",
+      "inputs": [
+        {
+          "name": "path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Filesystem path to the schema YAML file.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "Schema file path must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "propagation_table",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "The active propagation table (builtin + custom) for validating that all annotation names in the schema are known.",
+          "validators": []
+        }
+      ],
+      "output_type": "SchemaFile",
+      "error_cases": [
+        {
+          "name": "file_not_found",
+          "condition": "The schema file does not exist",
+          "error_type": "FileNotFoundError",
+          "error_data": {
+            "path": "The path that was not found"
+          }
+        },
+        {
+          "name": "invalid_yaml",
+          "condition": "The file content is not valid YAML",
+          "error_type": "LedgerValidationError",
+          "error_data": {
+            "file_path": "Path to the invalid file",
+            "violations": "YAML parse error details"
+          }
+        },
+        {
+          "name": "schema_validation_errors",
+          "condition": "The parsed YAML fails SchemaFile/Field/Annotation Pydantic validation",
+          "error_type": "LedgerValidationError",
+          "error_data": {
+            "file_path": "Path to the invalid file",
+            "violations": "All validation error messages"
+          }
+        },
+        {
+          "name": "unknown_annotation",
+          "condition": "A field references an annotation name not present in the propagation_table",
+          "error_type": "LedgerValidationError",
+          "error_data": {
+            "file_path": "Path to the schema file",
+            "violations": "List of unknown annotation names with field context"
+          }
+        },
+        {
+          "name": "constraint_violations",
+          "condition": "One or more fields have annotation sets violating CONFLICTS or REQUIRES",
+          "error_type": "LedgerValidationError",
+          "error_data": {
+            "file_path": "Path to the schema file",
+            "violations": "All constraint violation messages with field context"
+          }
+        }
+      ],
+      "preconditions": [
+        "path points to an existing, readable YAML file",
+        "propagation_table contains all valid annotation names (builtin + custom)"
+      ],
+      "postconditions": [
+        "Returned SchemaFile.raw_yaml is the exact string content read from disk",
+        "All field annotation names exist in the propagation_table",
+        "All field annotation sets pass CONFLICTS and REQUIRES validation",
+        "SchemaFile.source_path equals the input path"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "Reads schema YAML file from disk"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "Schema YAML file at the given path",
+          "description": "Reads the schema file content as raw string and parses via yaml.safe_load"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 100,
+        "max_memory_mb": 16,
+        "complexity": "O(F * A) where F = number of fields, A = max annotations per field"
+      }
+    }
+  ],
+  "dependencies": [],
+  "dependency_contracts": {},
+  "invariants": [
+    "ClassificationTier enum is fixed at exactly five members: PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE. No runtime additions or removals are permitted.",
+    "CONFLICTS is an immutable frozenset of exactly three frozenset pairs: {immutable, gdpr_erasable}, {audit_field, gdpr_erasable}, {soft_delete_marker, immutable}. It is never modified after module load.",
+    "REQUIRES is an immutable dict mapping annotation names to frozensets of required co-annotations. It is never modified after module load.",
+    "The builtin propagation table is immutable after module load. Custom annotations may extend the table at config load time but may never overwrite or shadow a builtin annotation name.",
+    "The public propagation table returned by build_propagation_table is a MappingProxyType and cannot be mutated by callers.",
+    "Schema YAML content stored in SchemaFile.raw_yaml is the exact byte-for-byte string read from disk — never round-tripped through pyyaml serialization, reformatted, normalized, or reordered.",
+    "All validation functions return complete lists of all violations found, never short-circuiting on the first error.",
+    "All Pydantic models that represent domain data use ConfigDict(frozen=True) for immutability.",
+    "LedgerConfig is the sole composed return type of load_config and contains the merged propagation table, validated schemas, and resolved configuration.",
+    "file_lock operates only on Unix platforms with fcntl support; a clear PlatformError is raised on unsupported platforms."
+  ],
+  "requires": [],
+  "processing_register": "rigorous-analytical",
+  "data_access": {
+    "reads": [
+      "INTERNAL",
+      "PII",
+      "FINANCIAL",
+      "AUTH",
+      "COMPLIANCE"
+    ],
+    "writes": [
+      "INTERNAL"
+    ],
+    "rationale": "Reads ledger.yaml configuration files which may reference schema definitions containing PII, FINANCIAL, AUTH, and COMPLIANCE classified fields. The loader parses these references to build propagation tables and validate annotation sets. Writes are limited to INTERNAL-tier .lock sidecar files created during file-locking operations for changelog and migration plan directory access. Raw YAML content (which may describe PII/FINANCIAL/AUTH/COMPLIANCE fields) is stored verbatim in SchemaFile.raw_yaml but is never transformed or normalized.",
+    "side_effects": [
+      {
+        "type": "reads_file",
+        "classification": "INTERNAL",
+        "fields": [
+          "ledger.yaml",
+          "schema YAML files"
+        ],
+        "rationale": "Reads ledger.yaml configuration and referenced schema YAML files from disk via yaml.safe_load to construct LedgerConfig and SchemaFile models."
+      },
+      {
+        "type": "writes_file",
+        "classification": "INTERNAL",
+        "fields": [
+          ".lock sidecar files"
+        ],
+        "rationale": "Creates and manages .lock sidecar files adjacent to changelog and plans directories using fcntl.flock for exclusive/shared file access coordination."
+      },
+      {
+        "type": "acquires_lock",
+        "classification": "INTERNAL",
+        "fields": [
+          "changelog.lock",
+          "plans.lock"
+        ],
+        "rationale": "Acquires fcntl.flock advisory locks on sidecar .lock files to coordinate concurrent writes to changelog and migration plans directories."
+      }
+    ]
+  },
+  "authority": {
+    "domains": [
+      "ledger_config",
+      "classification_tiers",
+      "annotation_propagation",
+      "annotation_constraints"
+    ],
+    "rationale": "This component is the single authoritative source for the ledger.yaml configuration schema, the fixed ClassificationTier enum (PUBLIC/PII/FINANCIAL/AUTH/COMPLIANCE), the builtin annotation propagation table mapping annotations to Pact/Arbiter/Baton/Sentinel behaviors, and the CONFLICTS/REQUIRES constraint data. All other components depend on these definitions; no other component may redefine or override them."
+  }
+}

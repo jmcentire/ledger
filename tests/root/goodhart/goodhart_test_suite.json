@@ -1,0 +1,793 @@
+{
+  "component_id": "root",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "goodhart_enum_string_equality",
+      "description": "StrEnum members should be directly comparable to their string values (e.g., Severity.info == 'info') for all members across all enums, not just specific tested values",
+      "function": "Severity",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "All members of all StrEnum types",
+      "expected_output_description": "Each member's string value equals the member name",
+      "expected_error": "",
+      "assertions": [
+        "Every Severity member equals its lowercase name string",
+        "Every BackendType member equals its lowercase name string",
+        "Every ExportFormat member equals its lowercase name string",
+        "Every PlanStatus member equals its lowercase name string"
+      ]
+    },
+    {
+      "id": "goodhart_classification_tier_uppercase_values",
+      "description": "ClassificationTier enum members should have UPPERCASE string values matching their names, consistent with the contract definition",
+      "function": "ClassificationTier",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "All ClassificationTier members",
+      "expected_output_description": "Each member is string-equal to its uppercase name",
+      "expected_error": "",
+      "assertions": [
+        "ClassificationTier.PUBLIC == 'PUBLIC'",
+        "ClassificationTier.PII == 'PII'",
+        "ClassificationTier.FINANCIAL == 'FINANCIAL'",
+        "ClassificationTier.AUTH == 'AUTH'",
+        "ClassificationTier.COMPLIANCE == 'COMPLIANCE'"
+      ]
+    },
+    {
+      "id": "goodhart_classification_tier_is_strenum",
+      "description": "ClassificationTier should also be a StrEnum like the other enums, making members directly usable as strings",
+      "function": "ClassificationTier",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "ClassificationTier members are instances of str",
+        "isinstance(ClassificationTier.PUBLIC, str) is True"
+      ]
+    },
+    {
+      "id": "goodhart_resolve_config_path_none_explicit",
+      "description": "resolve_config_path should treat None as 'not provided' for explicit_path, falling through to env var or default",
+      "function": "resolve_config_path",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "explicit_path": "None",
+        "env_var_name": "LEDGER_CONFIG"
+      },
+      "input_description": "explicit_path=None, env var not set",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "When explicit_path is None and env var is unset, result ends with 'ledger.yaml'",
+        "Result is an absolute path"
+      ]
+    },
+    {
+      "id": "goodhart_resolve_config_path_whitespace_only_env_var",
+      "description": "resolve_config_path should treat a whitespace-only environment variable as effectively empty and fall back to default",
+      "function": "resolve_config_path",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "env LEDGER_CONFIG": "   "
+      },
+      "input_values": {
+        "explicit_path": "empty string",
+        "env_var_name": "LEDGER_CONFIG"
+      },
+      "input_description": "explicit_path is empty, env var is whitespace-only",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Whitespace-only env var is treated as unset",
+        "Falls back to ./ledger.yaml default"
+      ]
+    },
+    {
+      "id": "goodhart_resolve_config_path_different_env_var_name",
+      "description": "resolve_config_path should use the env_var_name parameter to look up the environment variable, not a hardcoded 'LEDGER_CONFIG'",
+      "function": "resolve_config_path",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "explicit_path": "empty string",
+        "env_var_name": "MY_CUSTOM_CONFIG_VAR"
+      },
+      "input_description": "explicit_path is empty, env_var_name is a non-default string, that env var is set",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Uses the custom env var name to resolve path",
+        "Does not hardcode LEDGER_CONFIG as the env var name"
+      ]
+    },
+    {
+      "id": "goodhart_resolve_config_path_absolute_explicit_unchanged",
+      "description": "resolve_config_path given an already-absolute explicit path should return it unchanged (not double-resolve or mangle it)",
+      "function": "resolve_config_path",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "explicit_path": "/absolute/path/to/config.yaml",
+        "env_var_name": "LEDGER_CONFIG"
+      },
+      "input_description": "explicit_path is already absolute",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned path equals '/absolute/path/to/config.yaml'",
+        "Path is absolute"
+      ]
+    },
+    {
+      "id": "goodhart_resolve_config_path_tilde_expansion",
+      "description": "resolve_config_path should handle paths with special characters and produce a valid absolute path",
+      "function": "resolve_config_path",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "explicit_path": "relative/../other/ledger.yaml",
+        "env_var_name": "LEDGER_CONFIG"
+      },
+      "input_description": "explicit_path with parent directory references",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned path is absolute",
+        "Path components are properly resolved"
+      ]
+    },
+    {
+      "id": "goodhart_get_version_returns_string_type",
+      "description": "get_version must return an actual str instance, not a lazy proxy or other wrapper type",
+      "function": "get_version",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "type(result) is str",
+        "result is not None",
+        "len(result) > 0"
+      ]
+    },
+    {
+      "id": "goodhart_get_version_info_pydantic_version_nonempty",
+      "description": "get_version_info must return a real pydantic version string that is non-empty and looks like a version number",
+      "function": "get_version_info",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "pydantic_version is non-empty string",
+        "pydantic_version contains at least one digit",
+        "pydantic_version contains a dot separator"
+      ]
+    },
+    {
+      "id": "goodhart_get_version_info_consistent_with_get_version",
+      "description": "The version returned by get_version_info().version should be consistent with get_version() since both read from the same source",
+      "function": "get_version_info",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "get_version_info().version == get_version()"
+      ]
+    },
+    {
+      "id": "goodhart_violation_context_is_dict",
+      "description": "Violation.context field must accept and store an arbitrary dict, not just a specific hardcoded dict shape",
+      "function": "Violation",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "severity": "info",
+        "message": "test",
+        "code": "TEST",
+        "path": "/test",
+        "context": "{\"nested\": {\"key\": [1, 2, 3]}, \"flag\": true}"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "context stores nested dicts",
+        "context stores lists within dicts",
+        "context stores boolean values"
+      ]
+    },
+    {
+      "id": "goodhart_violation_empty_context",
+      "description": "Violation should accept an empty dict for context without error",
+      "function": "Violation",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "severity": "critical",
+        "message": "msg",
+        "code": "C001",
+        "path": "/p",
+        "context": "{}"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Violation with empty context is valid",
+        "context == {}"
+      ]
+    },
+    {
+      "id": "goodhart_violation_all_severity_levels",
+      "description": "Violation should accept every Severity level, not just the ones used in visible tests",
+      "function": "Violation",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Violation with severity='info' is constructible",
+        "Violation with severity='warning' is constructible",
+        "Violation with severity='error' is constructible",
+        "Violation with severity='critical' is constructible"
+      ]
+    },
+    {
+      "id": "goodhart_bootstrap_error_inherits_ledger_error",
+      "description": "BootstrapError must inherit from LedgerError so that generic error handlers catching LedgerError also catch BootstrapError",
+      "function": "BootstrapError",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "BootstrapError is a subclass of LedgerError",
+        "isinstance(bootstrap_error_instance, LedgerError) is True"
+      ]
+    },
+    {
+      "id": "goodhart_ledger_error_is_exception",
+      "description": "LedgerError must be a raiseable exception, not just a data container",
+      "function": "LedgerError",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "LedgerError is a subclass of Exception",
+        "LedgerError instances can be raised and caught"
+      ]
+    },
+    {
+      "id": "goodhart_bootstrap_error_is_exception",
+      "description": "BootstrapError must be raiseable as an exception since it's raised by create_ledger on failure",
+      "function": "BootstrapError",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "BootstrapError is a subclass of Exception",
+        "BootstrapError instances can be raised and caught"
+      ]
+    },
+    {
+      "id": "goodhart_create_ledger_config_path_resolved_to_absolute",
+      "description": "create_ledger should resolve a relative config_path to an absolute path before processing",
+      "function": "create_ledger",
+      "category": "happy_path",
+      "setup_description": "Provide a relative config path pointing to a valid config file and mock all dependencies",
+      "mock_dependencies": {
+        "config.load_config": "returns valid LedgerConfig",
+        "registry.init": "succeeds"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "config.load_config is called with an absolute path",
+        "The relative path is resolved before being used"
+      ]
+    },
+    {
+      "id": "goodhart_create_ledger_subsystem_references_are_modules",
+      "description": "The Ledger container should hold actual module references for subsystems, not None placeholders or stubs",
+      "function": "create_ledger",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "config.load_config": "returns valid LedgerConfig",
+        "registry.init": "succeeds"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "ledger.registry is not None",
+        "ledger.migration is not None",
+        "ledger.export is not None",
+        "ledger.mock is not None",
+        "ledger.api is not None",
+        "ledger.config is not None"
+      ]
+    },
+    {
+      "id": "goodhart_create_ledger_frozen_prevents_attribute_assignment",
+      "description": "The frozen Ledger container must reject attempts to set new attributes or modify existing ones after construction",
+      "function": "create_ledger",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "config.load_config": "returns valid LedgerConfig",
+        "registry.init": "succeeds"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Setting ledger.version = 'hacked' raises an error",
+        "Setting ledger.new_attr = 'test' raises an error",
+        "Setting ledger.config = None raises an error"
+      ]
+    },
+    {
+      "id": "goodhart_create_ledger_frozen_prevents_deletion",
+      "description": "The frozen Ledger container must reject attribute deletion attempts",
+      "function": "create_ledger",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "config.load_config": "returns valid LedgerConfig",
+        "registry.init": "succeeds"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "del ledger.version raises an error"
+      ]
+    },
+    {
+      "id": "goodhart_public_exports_all_is_list",
+      "description": "__all__ in the root package must be a list (or tuple) containing exactly the documented public names, with no extras or omissions",
+      "function": "__all__",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "__all__ is a sequence type",
+        "__all__ contains 'create_ledger'",
+        "__all__ contains 'get_version_info'",
+        "__all__ contains 'Severity'",
+        "__all__ contains 'Violation'",
+        "__all__ contains 'LedgerError'",
+        "__all__ contains '__version__'",
+        "__all__ contains 'Ledger'"
+      ]
+    },
+    {
+      "id": "goodhart_public_exports_no_private_names",
+      "description": "__all__ should not export any private/internal names (names starting with underscore, except __version__)",
+      "function": "__all__",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No name in __all__ starts with '_' except '__version__'"
+      ]
+    },
+    {
+      "id": "goodhart_enum_membership_test_via_constructor",
+      "description": "StrEnum types should be constructible from their string values, not just accessible as attributes",
+      "function": "Severity",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Severity('info') == Severity.info",
+        "BackendType('postgres') == BackendType.postgres",
+        "ExportFormat('pact') == ExportFormat.pact",
+        "PlanStatus('pending') == PlanStatus.pending"
+      ]
+    },
+    {
+      "id": "goodhart_enum_invalid_value_raises",
+      "description": "StrEnum types should raise ValueError when constructed with an invalid string value",
+      "function": "Severity",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "value": "nonexistent"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "ValueError",
+      "assertions": [
+        "Severity('nonexistent') raises ValueError",
+        "BackendType('oracle') raises ValueError"
+      ]
+    },
+    {
+      "id": "goodhart_violation_list_append_and_extend",
+      "description": "ViolationList should support standard list operations like append and extend for aggregating violations",
+      "function": "ViolationList",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Can append a Violation to ViolationList",
+        "Can extend ViolationList with another list of Violations",
+        "len() reflects appended items"
+      ]
+    },
+    {
+      "id": "goodhart_version_info_python_version_format",
+      "description": "VersionInfo.python_version should contain a properly formatted version string with major.minor.micro components",
+      "function": "get_version_info",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "python_version contains at least two dots (major.minor.micro)",
+        "python_version starts with a digit"
+      ]
+    },
+    {
+      "id": "goodhart_get_version_consistent_with_dunder_version",
+      "description": "The __version__ exported from the package root should match the return value of get_version()",
+      "function": "get_version",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "ledger.__version__ == get_version()"
+      ]
+    },
+    {
+      "id": "goodhart_resolve_config_path_env_var_with_spaces_in_path",
+      "description": "resolve_config_path should properly handle paths containing spaces when read from environment variables",
+      "function": "resolve_config_path",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "env LEDGER_CONFIG": "/path/with spaces/ledger.yaml"
+      },
+      "input_values": {
+        "explicit_path": "",
+        "env_var_name": "LEDGER_CONFIG"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned path contains the space",
+        "Returned path is absolute",
+        "Path equals the resolved form of '/path/with spaces/ledger.yaml'"
+      ]
+    },
+    {
+      "id": "goodhart_validate_import_graph_violation_code_always_import_violation",
+      "description": "Every violation returned by validate_import_graph must have code='IMPORT_VIOLATION', not a generic or different code",
+      "function": "validate_import_graph",
+      "category": "invariant",
+      "setup_description": "Create a source tree with multiple different kinds of import violations",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All returned violations have code == 'IMPORT_VIOLATION'",
+        "No violation has a different code value"
+      ]
+    },
+    {
+      "id": "goodhart_validate_import_graph_violation_path_contains_file",
+      "description": "Each violation from validate_import_graph must have path set to the offending file, not empty or generic",
+      "function": "validate_import_graph",
+      "category": "invariant",
+      "setup_description": "Create a source tree with import violations in specific files",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Each violation.path is non-empty",
+        "Each violation.path references a .py file"
+      ]
+    },
+    {
+      "id": "goodhart_validate_import_graph_types_importing_subpackage",
+      "description": "validate_import_graph should detect when types.py imports from a ledger subpackage, which violates the leaf module invariant",
+      "function": "validate_import_graph",
+      "category": "happy_path",
+      "setup_description": "Create a source tree where types.py imports from ledger.config",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns at least one violation",
+        "Violation references types.py"
+      ]
+    },
+    {
+      "id": "goodhart_validate_import_graph_protocols_importing_subpackage",
+      "description": "validate_import_graph should detect when protocols.py imports from a ledger subpackage, violating the leaf module invariant",
+      "function": "validate_import_graph",
+      "category": "happy_path",
+      "setup_description": "Create a source tree where protocols.py imports from ledger.registry",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns at least one violation",
+        "Violation references protocols.py"
+      ]
+    },
+    {
+      "id": "goodhart_create_ledger_bootstrap_error_has_config_path",
+      "description": "When create_ledger raises BootstrapError, it must include the config_path in the error for debugging",
+      "function": "create_ledger",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "config.load_config": "raises config validation error"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "BootstrapError.config_path is set to the resolved config path",
+        "config_path is non-empty string"
+      ]
+    },
+    {
+      "id": "goodhart_create_ledger_bootstrap_error_has_exit_code",
+      "description": "BootstrapError raised by create_ledger must carry a non-zero exit_code for CLI surfacing",
+      "function": "create_ledger",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "config.load_config": "raises file not found"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "BootstrapError.exit_code is an integer",
+        "BootstrapError.exit_code != 0"
+      ]
+    },
+    {
+      "id": "goodhart_enum_iteration_order",
+      "description": "Enum members should be iterable in their declared order, matching the contract specification",
+      "function": "Severity",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "list(Severity) yields [info, warning, error, critical] in order",
+        "list(PlanStatus) yields [pending, approved, rejected] in order"
+      ]
+    },
+    {
+      "id": "goodhart_enum_len",
+      "description": "Each enum should have exactly the number of members specified in the contract",
+      "function": "Severity",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "len(Severity) == 4",
+        "len(BackendType) == 8",
+        "len(ExportFormat) == 4",
+        "len(PlanStatus) == 3",
+        "len(ClassificationTier) == 5"
+      ]
+    },
+    {
+      "id": "goodhart_violation_fields_are_accessible",
+      "description": "All Violation fields (severity, message, code, path, context) should be individually accessible as attributes with correct types",
+      "function": "Violation",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "severity": "warning",
+        "message": "field deprecated",
+        "code": "DEPRECATION_001",
+        "path": "schemas/users.yaml:line:5",
+        "context": "{\"field\": \"ssn\", \"replacement\": \"ssn_hash\"}"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "violation.severity is accessible and equals the input severity",
+        "violation.message is a str",
+        "violation.code is a str",
+        "violation.path is a str",
+        "violation.context is a dict with expected keys"
+      ]
+    },
+    {
+      "id": "goodhart_ledger_error_violations_is_list_of_violations",
+      "description": "LedgerError.violations should be a proper list containing Violation instances, not raw dicts or strings",
+      "function": "LedgerError",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "violations is a list",
+        "Each element in violations is a Violation instance"
+      ]
+    },
+    {
+      "id": "goodhart_protocols_are_structural",
+      "description": "Protocol types should be structural typing protocols (from typing.Protocol), not ABCs that require explicit inheritance",
+      "function": "RegistryProtocol",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "RegistryProtocol is a subclass of typing.Protocol or uses runtime_checkable",
+        "MigrationProtocol follows structural typing pattern",
+        "ExportProtocol follows structural typing pattern"
+      ]
+    },
+    {
+      "id": "goodhart_create_ledger_propagation_table_merged",
+      "description": "The propagation table in the returned Ledger.config should contain both builtin and custom annotations merged together",
+      "function": "create_ledger",
+      "category": "happy_path",
+      "setup_description": "Mock config.load_config to return a config with custom annotations, and config.build_propagation_table to return merged table",
+      "mock_dependencies": {
+        "config.load_config": "returns LedgerConfig with custom annotations",
+        "config.build_propagation_table": "returns merged dict",
+        "registry.init": "succeeds"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Propagation table contains builtin annotations",
+        "Propagation table contains custom annotations from config"
+      ]
+    },
+    {
+      "id": "goodhart_resolve_config_path_env_var_overrides_default",
+      "description": "When explicit_path is not provided but the env var IS set, the env var value should be used, not the default",
+      "function": "resolve_config_path",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "env LEDGER_CONFIG": "/custom/from/env.yaml"
+      },
+      "input_values": {
+        "explicit_path": "",
+        "env_var_name": "LEDGER_CONFIG"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result is the absolute form of /custom/from/env.yaml",
+        "Result does NOT end with 'ledger.yaml'"
+      ]
+    },
+    {
+      "id": "goodhart_get_version_info_returns_version_info_type",
+      "description": "get_version_info should return a proper VersionInfo instance (or compatible named struct), not a plain dict or tuple",
+      "function": "get_version_info",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Return value has .version attribute",
+        "Return value has .python_version attribute",
+        "Return value has .pydantic_version attribute",
+        "Return value is a VersionInfo instance"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nAdversarial hidden acceptance tests for the Root component.\nThese tests detect implementations that \"teach to the test\" by hardcoding\nreturn values or taking shortcuts that only satisfy the visible tests.\n\"\"\"\nimport os\nimport sys\nimport enum\nimport typing\nimport tempfile\nimport textwrap\nfrom pathlib import Path\nfrom unittest.mock import patch, MagicMock, PropertyMock\nfrom types import MappingProxyType\n\nimport pytest\n\n\n# ---------------------------------------------------------------------------\n# Import the component under test\n# ---------------------------------------------------------------------------\nfrom src.root import *\n\n# Also import the package itself for attribute/module-level inspection\ntry:\n    import src.root as ledger_pkg\nexcept ImportError:\n    ledger_pkg = None\n\n# Try importing types and protocols modules directly\ntry:\n    from src.root.types import (\n        Severity, BackendType, ExportFormat, PlanStatus, ClassificationTier,\n        Violation, LedgerError, BootstrapError, VersionInfo,\n    )\nexcept ImportError:\n    pass  # Already imported via star import\n\ntry:\n    from src.root.protocols import (\n        RegistryProtocol, MigrationProtocol, ExportProtocol,\n        MockProtocol, ConfigProtocol, ApiProtocol,\n    )\nexcept ImportError:\n    pass  # Already imported via star import\n\n\n# ===========================================================================\n# Enum behavioral tests\n# ===========================================================================\n\nclass TestGoodhartEnumStringEquality:\n    \"\"\"StrEnum members should be directly comparable to their string values.\"\"\"\n\n    def test_goodhart_severity_all_members_equal_strings(self):\n        for member in Severity:\n            assert member == member.value, f\"Severity.{member.name} != '{member.value}'\"\n            assert isinstance(member, str), f\"Severity.{member.name} is not a str instance\"\n\n    def test_goodhart_backend_type_all_members_equal_strings(self):\n        for member in BackendType:\n            assert member == member.value\n            assert isinstance(member, str)\n\n    def test_goodhart_export_format_all_members_equal_strings(self):\n        for member in ExportFormat:\n            assert member == member.value\n            assert isinstance(member, str)\n\n    def test_goodhart_plan_status_all_members_equal_strings(self):\n        for member in PlanStatus:\n            assert member == member.value\n            assert isinstance(member, str)\n\n\nclass TestGoodhartClassificationTier:\n    \"\"\"ClassificationTier enum correctness.\"\"\"\n\n    def test_goodhart_classification_tier_uppercase_values(self):\n        assert ClassificationTier.PUBLIC == \"PUBLIC\"\n        assert ClassificationTier.PII == \"PII\"\n        assert ClassificationTier.FINANCIAL == \"FINANCIAL\"\n        assert ClassificationTier.AUTH == \"AUTH\"\n        assert ClassificationTier.COMPLIANCE == \"COMPLIANCE\"\n\n    def test_goodhart_classification_tier_is_str_subclass(self):\n        \"\"\"ClassificationTier members should be str instances (StrEnum behavior).\"\"\"\n        for member in ClassificationTier:\n            assert isinstance(member, str), (\n                f\"ClassificationTier.{member.name} is not a str instance\"\n            )\n\n    def test_goodhart_classification_tier_values_are_uppercase(self):\n        \"\"\"All ClassificationTier values must be uppercase.\"\"\"\n        for member in ClassificationTier:\n            assert member.value == member.value.upper(), (\n                f\"ClassificationTier.{member.name} value '{member.value}' is not uppercase\"\n            )\n\n\nclass TestGoodhartEnumConstruction:\n    \"\"\"StrEnums should be constructible from string values.\"\"\"\n\n    def test_goodhart_severity_constructible_from_string(self):\n        assert Severity(\"info\") == Severity.info\n        assert Severity(\"warning\") == Severity.warning\n        assert Severity(\"error\") == Severity.error\n        assert Severity(\"critical\") == Severity.critical\n\n    def test_goodhart_backend_type_constructible_from_string(self):\n        assert BackendType(\"postgres\") == BackendType.postgres\n        assert BackendType(\"kafka\") == BackendType.kafka\n        assert BackendType(\"custom\") == BackendType.custom\n\n    def test_goodhart_export_format_constructible_from_string(self):\n        assert ExportFormat(\"pact\") == ExportFormat.pact\n        assert ExportFormat(\"sentinel\") == ExportFormat.sentinel\n\n    def test_goodhart_plan_status_constructible_from_string(self):\n        assert PlanStatus(\"pending\") == PlanStatus.pending\n        assert PlanStatus(\"approved\") == PlanStatus.approved\n        assert PlanStatus(\"rejected\") == PlanStatus.rejected\n\n\nclass TestGoodhartEnumInvalidValues:\n    \"\"\"StrEnum types should reject invalid string values.\"\"\"\n\n    def test_goodhart_severity_invalid_value_raises(self):\n        with pytest.raises(ValueError):\n            Severity(\"nonexistent\")\n\n    def test_goodhart_severity_case_sensitive(self):\n        with pytest.raises(ValueError):\n            Severity(\"INFO\")  # lowercase only per contract\n\n    def test_goodhart_backend_type_invalid_value_raises(self):\n        with pytest.raises(ValueError):\n            BackendType(\"oracle\")\n\n    def test_goodhart_export_format_invalid_value_raises(self):\n        with pytest.raises(ValueError):\n            ExportFormat(\"json\")\n\n    def test_goodhart_plan_status_invalid_value_raises(self):\n        with pytest.raises(ValueError):\n            PlanStatus(\"cancelled\")\n\n\nclass TestGoodhartEnumIterationAndLength:\n    \"\"\"Enum iteration order and length.\"\"\"\n\n    def test_goodhart_severity_iteration_order(self):\n        members = [m.value for m in Severity]\n        assert members == [\"info\", \"warning\", \"error\", \"critical\"]\n\n    def test_goodhart_plan_status_iteration_order(self):\n        members = [m.value for m in PlanStatus]\n        assert members == [\"pending\", \"approved\", \"rejected\"]\n\n    def test_goodhart_severity_len(self):\n        assert len(Severity) == 4\n\n    def test_goodhart_backend_type_len(self):\n        assert len(BackendType) == 8\n\n    def test_goodhart_export_format_len(self):\n        assert len(ExportFormat) == 4\n\n    def test_goodhart_plan_status_len(self):\n        assert len(PlanStatus) == 3\n\n    def test_goodhart_classification_tier_len(self):\n        assert len(ClassificationTier) == 5\n\n\n# ===========================================================================\n# Violation tests\n# ===========================================================================\n\nclass TestGoodhartViolation:\n    \"\"\"Violation struct behavioral correctness.\"\"\"\n\n    def test_goodhart_violation_nested_context(self):\n        \"\"\"Violation.context must handle arbitrary nested dicts, not just flat ones.\"\"\"\n        ctx = {\"nested\": {\"key\": [1, 2, 3]}, \"flag\": True, \"count\": 42}\n        v = Violation(\n            severity=Severity.info,\n            message=\"test\",\n            code=\"TEST\",\n            path=\"/test\",\n            context=ctx,\n        )\n        assert v.context[\"nested\"][\"key\"] == [1, 2, 3]\n        assert v.context[\"flag\"] is True\n        assert v.context[\"count\"] == 42\n\n    def test_goodhart_violation_empty_context(self):\n        \"\"\"Violation should accept empty dict for context.\"\"\"\n        v = Violation(\n            severity=Severity.critical,\n            message=\"msg\",\n            code=\"C001\",\n            path=\"/p\",\n            context={},\n        )\n        assert v.context == {}\n\n    def test_goodhart_violation_all_severity_levels(self):\n        \"\"\"Violation should accept every Severity level.\"\"\"\n        for sev in Severity:\n            v = Violation(\n                severity=sev,\n                message=f\"msg for {sev}\",\n                code=\"X\",\n                path=\"/x\",\n                context={},\n            )\n            assert v.severity == sev\n\n    def test_goodhart_violation_fields_accessible(self):\n        \"\"\"All Violation fields should be individually accessible as attributes.\"\"\"\n        v = Violation(\n            severity=Severity.warning,\n            message=\"field deprecated\",\n            code=\"DEPRECATION_001\",\n            path=\"schemas/users.yaml:line:5\",\n            context={\"field\": \"ssn\", \"replacement\": \"ssn_hash\"},\n        )\n        assert v.severity == Severity.warning\n        assert v.message == \"field deprecated\"\n        assert v.code == \"DEPRECATION_001\"\n        assert v.path == \"schemas/users.yaml:line:5\"\n        assert v.context[\"field\"] == \"ssn\"\n        assert v.context[\"replacement\"] == \"ssn_hash\"\n\n\n# ===========================================================================\n# Error type tests\n# ===========================================================================\n\nclass TestGoodhartLedgerError:\n    \"\"\"LedgerError must be a proper exception.\"\"\"\n\n    def test_goodhart_ledger_error_is_exception(self):\n        assert issubclass(LedgerError, Exception)\n\n    def test_goodhart_ledger_error_raisable(self):\n        v = Violation(\n            severity=Severity.error,\n            message=\"test\",\n            code=\"E001\",\n            path=\"/\",\n            context={},\n        )\n        err = LedgerError(message=\"boom\", violations=[v], exit_code=1)\n        with pytest.raises(LedgerError):\n            raise err\n\n    def test_goodhart_ledger_error_violations_are_violation_instances(self):\n        v1 = Violation(severity=Severity.error, message=\"a\", code=\"A\", path=\"/a\", context={})\n        v2 = Violation(severity=Severity.warning, message=\"b\", code=\"B\", path=\"/b\", context={})\n        err = LedgerError(message=\"multi\", violations=[v1, v2], exit_code=2)\n        assert isinstance(err.violations, list)\n        for v in err.violations:\n            assert isinstance(v, Violation)\n\n\nclass TestGoodhartBootstrapError:\n    \"\"\"BootstrapError inheritance and structure.\"\"\"\n\n    def test_goodhart_bootstrap_error_inherits_ledger_error(self):\n        assert issubclass(BootstrapError, LedgerError)\n\n    def test_goodhart_bootstrap_error_is_exception(self):\n        assert issubclass(BootstrapError, Exception)\n\n    def test_goodhart_bootstrap_error_catchable_as_ledger_error(self):\n        v = Violation(severity=Severity.error, message=\"x\", code=\"X\", path=\"/\", context={})\n        err = BootstrapError(\n            message=\"bootstrap failed\",\n            violations=[v],\n            config_path=\"/some/path.yaml\",\n            exit_code=1,\n        )\n        with pytest.raises(LedgerError):\n            raise err\n\n    def test_goodhart_bootstrap_error_raisable(self):\n        err = BootstrapError(\n            message=\"fail\",\n            violations=[],\n            config_path=\"/cfg.yaml\",\n            exit_code=1,\n        )\n        with pytest.raises(BootstrapError):\n            raise err\n\n\n# ===========================================================================\n# ViolationList tests\n# ===========================================================================\n\nclass TestGoodhartViolationList:\n    \"\"\"ViolationList should support standard list operations.\"\"\"\n\n    def test_goodhart_violation_list_append_and_extend(self):\n        vl = []  # ViolationList is just a list alias\n        v1 = Violation(severity=Severity.info, message=\"a\", code=\"A\", path=\"/\", context={})\n        v2 = Violation(severity=Severity.warning, message=\"b\", code=\"B\", path=\"/\", context={})\n        v3 = Violation(severity=Severity.error, message=\"c\", code=\"C\", path=\"/\", context={})\n        vl.append(v1)\n        assert len(vl) == 1\n        vl.extend([v2, v3])\n        assert len(vl) == 3\n        assert all(isinstance(v, Violation) for v in vl)\n\n\n# ===========================================================================\n# resolve_config_path tests\n# ===========================================================================\n\nclass TestGoodhartResolveConfigPath:\n    \"\"\"Behavioral tests for resolve_config_path.\"\"\"\n\n    def test_goodhart_none_explicit_falls_to_default(self):\n        \"\"\"None as explicit_path should be treated as 'not provided'.\"\"\"\n        env_key = \"GOODHART_TEST_CFG_NONE\"\n        with patch.dict(os.environ, {}, clear=False):\n            os.environ.pop(env_key, None)\n            result = resolve_config_path(None, env_key)\n        assert os.path.isabs(result)\n        assert result.endswith(\"ledger.yaml\")\n\n    def test_goodhart_whitespace_only_env_var_ignored(self):\n        \"\"\"A whitespace-only env var should be treated as empty/unset.\"\"\"\n        env_key = \"GOODHART_TEST_CFG_WS\"\n        with patch.dict(os.environ, {env_key: \"   \"}):\n            result = resolve_config_path(\"\", env_key)\n        # Should fall through to default since whitespace-only is effectively empty\n        assert os.path.isabs(result)\n        assert result.endswith(\"ledger.yaml\")\n\n    def test_goodhart_custom_env_var_name(self):\n        \"\"\"resolve_config_path should use the provided env_var_name, not a hardcoded name.\"\"\"\n        custom_key = \"MY_TOTALLY_CUSTOM_VAR_12345\"\n        with patch.dict(os.environ, {custom_key: \"/from/custom/var.yaml\"}):\n            result = resolve_config_path(\"\", custom_key)\n        assert result == \"/from/custom/var.yaml\"\n\n    def test_goodhart_absolute_explicit_unchanged(self):\n        \"\"\"An already-absolute explicit path should be returned as-is.\"\"\"\n        result = resolve_config_path(\"/absolute/path/to/config.yaml\", \"UNUSED_VAR\")\n        assert result == \"/absolute/path/to/config.yaml\"\n\n    def test_goodhart_relative_path_with_parent_refs(self):\n        \"\"\"Paths with .. components should be properly resolved.\"\"\"\n        result = resolve_config_path(\"relative/../other/ledger.yaml\", \"UNUSED_VAR\")\n        assert os.path.isabs(result)\n        # The .. should be resolved\n        assert \"..\" not in os.path.normpath(result)\n\n    def test_goodhart_env_var_with_spaces_in_path(self):\n        \"\"\"Paths with spaces should be handled correctly.\"\"\"\n        env_key = \"GOODHART_TEST_CFG_SPACES\"\n        with patch.dict(os.environ, {env_key: \"/path/with spaces/ledger.yaml\"}):\n            result = resolve_config_path(\"\", env_key)\n        assert os.path.isabs(result)\n        assert \"with spaces\" in result\n\n    def test_goodhart_env_var_overrides_default_not_default(self):\n        \"\"\"When env var is set and explicit is empty, env var wins over default.\"\"\"\n        env_key = \"GOODHART_TEST_CFG_OVERRIDE\"\n        with patch.dict(os.environ, {env_key: \"/custom/from/env.yaml\"}):\n            result = resolve_config_path(\"\", env_key)\n        assert result == \"/custom/from/env.yaml\"\n        assert not result.endswith(\"ledger.yaml\") or \"custom\" in result\n\n    def test_goodhart_explicit_always_wins_over_env(self):\n        \"\"\"Even if env var is set, explicit_path should take priority.\"\"\"\n        env_key = \"GOODHART_TEST_CFG_EXPLICIT_WINS\"\n        with patch.dict(os.environ, {env_key: \"/from/env.yaml\"}):\n            result = resolve_config_path(\"/from/explicit.yaml\", env_key)\n        assert result == \"/from/explicit.yaml\"\n\n\n# ===========================================================================\n# get_version tests\n# ===========================================================================\n\nclass TestGoodhartGetVersion:\n    \"\"\"Behavioral tests for get_version.\"\"\"\n\n    def test_goodhart_get_version_returns_actual_str(self):\n        \"\"\"get_version must return a real str, not a proxy object.\"\"\"\n        result = get_version()\n        assert type(result) is str\n        assert len(result) > 0\n\n    def test_goodhart_get_version_not_none(self):\n        result = get_version()\n        assert result is not None\n\n    def test_goodhart_get_version_no_leading_trailing_whitespace(self):\n        result = get_version()\n        assert result == result.strip()\n\n\n# ===========================================================================\n# get_version_info tests\n# ===========================================================================\n\nclass TestGoodhartGetVersionInfo:\n    \"\"\"Behavioral tests for get_version_info.\"\"\"\n\n    def test_goodhart_pydantic_version_looks_like_version(self):\n        \"\"\"pydantic_version should contain digits and dots like a real version.\"\"\"\n        info = get_version_info()\n        assert len(info.pydantic_version) > 0\n        assert any(c.isdigit() for c in info.pydantic_version)\n        assert \".\" in info.pydantic_version\n\n    def test_goodhart_version_info_consistent_with_get_version(self):\n        \"\"\"get_version_info().version should match get_version().\"\"\"\n        info = get_version_info()\n        version = get_version()\n        assert info.version == version\n\n    def test_goodhart_python_version_format(self):\n        \"\"\"python_version should be formatted like 'X.Y.Z'.\"\"\"\n        info = get_version_info()\n        parts = info.python_version.split(\".\")\n        assert len(parts) >= 2  # At least major.minor\n        assert parts[0].isdigit()\n\n    def test_goodhart_version_info_is_correct_type(self):\n        \"\"\"get_version_info should return a VersionInfo instance.\"\"\"\n        info = get_version_info()\n        assert isinstance(info, VersionInfo)\n        assert hasattr(info, \"version\")\n        assert hasattr(info, \"python_version\")\n        assert hasattr(info, \"pydantic_version\")\n\n    def test_goodhart_python_version_matches_sys(self):\n        \"\"\"python_version must match the actual running interpreter.\"\"\"\n        info = get_version_info()\n        expected = f\"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}\"\n        assert info.python_version == expected\n\n\n# ===========================================================================\n# __all__ / Public Exports tests\n# ===========================================================================\n\nclass TestGoodhartPublicExports:\n    \"\"\"Public exports correctness.\"\"\"\n\n    def test_goodhart_all_contains_required_names(self):\n        \"\"\"__all__ must contain all documented public names.\"\"\"\n        all_names = ledger_pkg.__all__\n        required = [\n            \"__version__\", \"Severity\", \"BackendType\", \"ExportFormat\",\n            \"PlanStatus\", \"ClassificationTier\", \"Violation\", \"LedgerError\",\n            \"RegistryProtocol\", \"MigrationProtocol\", \"ExportProtocol\",\n            \"MockProtocol\", \"ConfigProtocol\", \"ApiProtocol\",\n            \"Ledger\", \"create_ledger\", \"get_version_info\",\n        ]\n        for name in required:\n            assert name in all_names, f\"'{name}' missing from __all__\"\n\n    def test_goodhart_all_no_private_names_except_version(self):\n        \"\"\"__all__ should not export private names except __version__.\"\"\"\n        all_names = ledger_pkg.__all__\n        for name in all_names:\n            if name.startswith(\"_\") and name != \"__version__\":\n                pytest.fail(f\"Private name '{name}' found in __all__\")\n\n    def test_goodhart_dunder_version_matches_get_version(self):\n        \"\"\"__version__ attribute should match get_version() return value.\"\"\"\n        assert ledger_pkg.__version__ == get_version()\n\n    def test_goodhart_all_names_are_importable(self):\n        \"\"\"Every name in __all__ should be an actual attribute of the package.\"\"\"\n        for name in ledger_pkg.__all__:\n            assert hasattr(ledger_pkg, name), f\"'{name}' in __all__ but not an attribute\"\n\n\n# ===========================================================================\n# Protocol tests\n# ===========================================================================\n\nclass TestGoodhartProtocols:\n    \"\"\"Protocol types should be structural typing protocols.\"\"\"\n\n    def test_goodhart_registry_protocol_is_protocol(self):\n        \"\"\"RegistryProtocol should be based on typing.Protocol.\"\"\"\n        # Check that it's a Protocol subclass\n        assert hasattr(RegistryProtocol, '__protocol_attrs__') or \\\n               issubclass(type(RegistryProtocol), type(typing.Protocol)) or \\\n               typing.Protocol in getattr(RegistryProtocol, '__mro__', []), \\\n               \"RegistryProtocol should be a typing.Protocol\"\n\n    def test_goodhart_migration_protocol_is_protocol(self):\n        assert typing.Protocol in getattr(MigrationProtocol, '__mro__', []) or \\\n               hasattr(MigrationProtocol, '__protocol_attrs__')\n\n    def test_goodhart_export_protocol_is_protocol(self):\n        assert typing.Protocol in getattr(ExportProtocol, '__mro__', []) or \\\n               hasattr(ExportProtocol, '__protocol_attrs__')\n\n    def test_goodhart_mock_protocol_is_protocol(self):\n        assert typing.Protocol in getattr(MockProtocol, '__mro__', []) or \\\n               hasattr(MockProtocol, '__protocol_attrs__')\n\n    def test_goodhart_config_protocol_is_protocol(self):\n        assert typing.Protocol in getattr(ConfigProtocol, '__mro__', []) or \\\n               hasattr(ConfigProtocol, '__protocol_attrs__')\n\n    def test_goodhart_api_protocol_is_protocol(self):\n        assert typing.Protocol in getattr(ApiProtocol, '__mro__', []) or \\\n               hasattr(ApiProtocol, '__protocol_attrs__')\n\n\n# ===========================================================================\n# create_ledger tests (with mocked dependencies)\n# ===========================================================================\n\nclass TestGoodhartCreateLedger:\n    \"\"\"Behavioral tests for create_ledger with mocked dependencies.\"\"\"\n\n    def _make_mock_config(self):\n        \"\"\"Create a mock LedgerConfig-like object.\"\"\"\n        config = MagicMock()\n        config.root = Path(tempfile.mkdtemp())\n        config.schemas_dir = config.root / \"schemas\"\n        config.custom_annotations = []\n        # Make propagation_table an immutable mapping\n        config.propagation_table = MappingProxyType({\"pii\": {\"mask\": True}})\n        return config\n\n    @patch(\"src.root.registry\")\n    @patch(\"src.root.config\")\n    def test_goodhart_create_ledger_frozen_rejects_setattr(self, mock_config_mod, mock_registry):\n        \"\"\"The Ledger container must reject attribute modification after construction.\"\"\"\n        cfg = self._make_mock_config()\n        mock_config_mod.load_config.return_value = cfg\n        mock_config_mod.build_propagation_table.return_value = MappingProxyType({})\n        mock_config_mod.get_builtin_propagation_table.return_value = {}\n\n        with tempfile.NamedTemporaryFile(suffix=\".yaml\", mode=\"w\", delete=False) as f:\n            f.write(\"component_id: test\\n\")\n            f.flush()\n            try:\n                ledger = create_ledger(f.name)\n                with pytest.raises((AttributeError, TypeError, Exception)):\n                    ledger.version = \"hacked\"\n                with pytest.raises((AttributeError, TypeError, Exception)):\n                    ledger.config = None\n            except BootstrapError:\n                pytest.skip(\"Could not bootstrap with mocks - skipping freeze test\")\n            finally:\n                os.unlink(f.name)\n\n    @patch(\"src.root.registry\")\n    @patch(\"src.root.config\")\n    def test_goodhart_create_ledger_frozen_rejects_delattr(self, mock_config_mod, mock_registry):\n        \"\"\"The Ledger container must reject attribute deletion.\"\"\"\n        cfg = self._make_mock_config()\n        mock_config_mod.load_config.return_value = cfg\n        mock_config_mod.build_propagation_table.return_value = MappingProxyType({})\n        mock_config_mod.get_builtin_propagation_table.return_value = {}\n\n        with tempfile.NamedTemporaryFile(suffix=\".yaml\", mode=\"w\", delete=False) as f:\n            f.write(\"component_id: test\\n\")\n            f.flush()\n            try:\n                ledger = create_ledger(f.name)\n                with pytest.raises((AttributeError, TypeError, Exception)):\n                    del ledger.version\n            except BootstrapError:\n                pytest.skip(\"Could not bootstrap with mocks - skipping freeze test\")\n            finally:\n                os.unlink(f.name)\n\n    def test_goodhart_create_ledger_config_not_found_has_config_path(self):\n        \"\"\"BootstrapError for missing config should carry the config_path.\"\"\"\n        nonexistent = \"/absolutely/nonexistent/path/config_12345.yaml\"\n        with pytest.raises(BootstrapError) as exc_info:\n            create_ledger(nonexistent)\n        assert exc_info.value.config_path is not None\n        assert len(exc_info.value.config_path) > 0\n\n    def test_goodhart_create_ledger_config_not_found_has_nonzero_exit(self):\n        \"\"\"BootstrapError should have a non-zero exit_code.\"\"\"\n        nonexistent = \"/absolutely/nonexistent/path/config_67890.yaml\"\n        with pytest.raises(BootstrapError) as exc_info:\n            create_ledger(nonexistent)\n        assert isinstance(exc_info.value.exit_code, int)\n        assert exc_info.value.exit_code != 0\n\n    def test_goodhart_create_ledger_config_not_found_has_violations(self):\n        \"\"\"BootstrapError should carry a violations list (may be empty or populated).\"\"\"\n        nonexistent = \"/absolutely/nonexistent/path/config_violations.yaml\"\n        with pytest.raises(BootstrapError) as exc_info:\n            create_ledger(nonexistent)\n        assert hasattr(exc_info.value, \"violations\")\n        assert isinstance(exc_info.value.violations, list)\n\n\n# ===========================================================================\n# validate_import_graph tests\n# ===========================================================================\n\nclass TestGoodhartValidateImportGraph:\n    \"\"\"Behavioral tests for validate_import_graph.\"\"\"\n\n    def _create_source_tree(self, tmpdir, files):\n        \"\"\"Helper to create a mock source tree.\"\"\"\n        ledger_dir = tmpdir / \"ledger\"\n        ledger_dir.mkdir(parents=True)\n        for relpath, content in files.items():\n            fpath = ledger_dir / relpath\n            fpath.parent.mkdir(parents=True, exist_ok=True)\n            fpath.write_text(textwrap.dedent(content))\n        return str(ledger_dir)\n\n    def test_goodhart_types_importing_subpackage_is_violation(self, tmp_path):\n        \"\"\"types.py importing from a ledger subpackage should be flagged.\"\"\"\n        src = self._create_source_tree(tmp_path, {\n            \"__init__.py\": \"\",\n            \"types.py\": \"from ledger.config import load_config\\n\",\n            \"protocols.py\": \"\",\n            \"config/__init__.py\": \"\",\n        })\n        violations = validate_import_graph(src)\n        assert len(violations) > 0\n        assert any(\"types\" in str(getattr(v, 'path', v)) for v in violations)\n\n    def test_goodhart_protocols_importing_subpackage_is_violation(self, tmp_path):\n        \"\"\"protocols.py importing from a ledger subpackage should be flagged.\"\"\"\n        src = self._create_source_tree(tmp_path, {\n            \"__init__.py\": \"\",\n            \"types.py\": \"\",\n            \"protocols.py\": \"from ledger.registry import init\\n\",\n            \"registry/__init__.py\": \"\",\n        })\n        violations = validate_import_graph(src)\n        assert len(violations) > 0\n        assert any(\"protocols\" in str(getattr(v, 'path', v)) for v in violations)\n\n    def test_goodhart_violation_code_is_import_violation(self, tmp_path):\n        \"\"\"All violations from validate_import_graph must have code='IMPORT_VIOLATION'.\"\"\"\n        src = self._create_source_tree(tmp_path, {\n            \"__init__.py\": \"\",\n            \"types.py\": \"from ledger.config import load_config\\n\",\n            \"protocols.py\": \"from ledger.registry import init\\n\",\n            \"config/__init__.py\": \"from ledger.registry import something\\n\",\n            \"registry/__init__.py\": \"\",\n        })\n        violations = validate_import_graph(src)\n        assert len(violations) > 0\n        for v in violations:\n            assert v.code == \"IMPORT_VIOLATION\", (\n                f\"Violation code should be 'IMPORT_VIOLATION', got '{v.code}'\"\n            )\n\n    def test_goodhart_violation_path_nonempty(self, tmp_path):\n        \"\"\"Each violation must have a non-empty path referencing a .py file.\"\"\"\n        src = self._create_source_tree(tmp_path, {\n            \"__init__.py\": \"\",\n            \"types.py\": \"from ledger.config import x\\n\",\n            \"protocols.py\": \"\",\n            \"config/__init__.py\": \"\",\n        })\n        violations = validate_import_graph(src)\n        assert len(violations) > 0\n        for v in violations:\n            assert v.path, \"Violation path must be non-empty\"\n            assert \".py\" in v.path, f\"Violation path should reference a .py file, got: {v.path}\"\n\n    def test_goodhart_sibling_import_detected(self, tmp_path):\n        \"\"\"Subpackage importing from sibling subpackage should be flagged.\"\"\"\n        src = self._create_source_tree(tmp_path, {\n            \"__init__.py\": \"\",\n            \"types.py\": \"\",\n            \"protocols.py\": \"\",\n            \"config/__init__.py\": \"from ledger.registry import init\\n\",\n            \"registry/__init__.py\": \"\",\n        })\n        violations = validate_import_graph(src)\n        assert len(violations) > 0\n\n    def test_goodhart_subpackage_importing_from_types_is_clean(self, tmp_path):\n        \"\"\"Subpackage importing from ledger.types should NOT be a violation.\"\"\"\n        src = self._create_source_tree(tmp_path, {\n            \"__init__.py\": \"\",\n            \"types.py\": \"\",\n            \"protocols.py\": \"\",\n            \"config/__init__.py\": \"from ledger.types import Severity\\n\",\n            \"registry/__init__.py\": \"from ledger.protocols import RegistryProtocol\\n\",\n        })\n        violations = validate_import_graph(src)\n        assert len(violations) == 0, f\"Imports from ledger.types/protocols should be allowed, got {len(violations)} violations\"\n\n    def test_goodhart_source_root_not_found_raises(self):\n        \"\"\"validate_import_graph should raise when source_root doesn't exist.\"\"\"\n        with pytest.raises(Exception):\n            validate_import_graph(\"/nonexistent/path/that/does/not/exist/12345\")\n"
+}

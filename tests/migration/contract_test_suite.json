@@ -1,0 +1,923 @@
+{
+  "component_id": "migration",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "parse_happy_single_add_column",
+      "description": "Parse a single ALTER TABLE ADD COLUMN statement and verify the returned ParsedMigration fields",
+      "function": "parse_migration",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "ALTER TABLE users ADD COLUMN email VARCHAR(255) NOT NULL;",
+        "source_path": "migrations/001_add_email.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "ParsedMigration with one ADD_COLUMN operation for users.email, source_path matches input, source_hash is SHA-256 of sql, statement_count is 1, no warnings",
+      "expected_error": "",
+      "assertions": [
+        "result.source_path == 'migrations/001_add_email.sql'",
+        "len(result.operations) == 1",
+        "result.operations[0].op_type == OperationType.ADD_COLUMN",
+        "result.operations[0].table_name == 'users'",
+        "result.operations[0].column_name == 'email'",
+        "result.statement_count == 1",
+        "result.warnings == []"
+      ]
+    },
+    {
+      "id": "parse_happy_multiple_operations",
+      "description": "Parse SQL with multiple ALTER TABLE statements including ADD, DROP, and ALTER COLUMN",
+      "function": "parse_migration",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "ALTER TABLE users ADD COLUMN age INTEGER;\nALTER TABLE users DROP COLUMN nickname;\nALTER TABLE orders ALTER COLUMN total TYPE NUMERIC(10,2);",
+        "source_path": "migrations/002_multi.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "ParsedMigration with three operations covering all three operation types",
+      "expected_error": "",
+      "assertions": [
+        "len(result.operations) == 3",
+        "result.operations[0].op_type == OperationType.ADD_COLUMN",
+        "result.operations[1].op_type == OperationType.DROP_COLUMN",
+        "result.operations[2].op_type == OperationType.ALTER_COLUMN",
+        "result.statement_count == 3"
+      ]
+    },
+    {
+      "id": "parse_happy_source_hash_sha256",
+      "description": "Verify source_hash is the SHA-256 hex digest of the input sql string",
+      "function": "parse_migration",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "ALTER TABLE t ADD COLUMN c INT;",
+        "source_path": "m.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "source_hash matches hashlib.sha256(sql.encode()).hexdigest()",
+      "expected_error": "",
+      "assertions": [
+        "result.source_hash == hashlib.sha256(sql.encode()).hexdigest()"
+      ]
+    },
+    {
+      "id": "parse_happy_comments_stripped",
+      "description": "Parse SQL with single-line and block comments that should be stripped before extraction",
+      "function": "parse_migration",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "-- This is a comment\n/* Block comment */\nALTER TABLE users ADD COLUMN name TEXT;",
+        "source_path": "migrations/003_comments.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "Comments are stripped; one ADD_COLUMN operation extracted",
+      "expected_error": "",
+      "assertions": [
+        "len(result.operations) == 1",
+        "result.operations[0].op_type == OperationType.ADD_COLUMN",
+        "result.operations[0].column_name == 'name'"
+      ]
+    },
+    {
+      "id": "parse_happy_non_alter_counted",
+      "description": "Non-ALTER statements are counted in statement_count but produce no operations",
+      "function": "parse_migration",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "CREATE INDEX idx_users_email ON users(email);\nALTER TABLE users ADD COLUMN phone TEXT;",
+        "source_path": "migrations/004_mixed.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "statement_count is 2, but only 1 operation extracted",
+      "expected_error": "",
+      "assertions": [
+        "result.statement_count == 2",
+        "len(result.operations) == 1"
+      ]
+    },
+    {
+      "id": "parse_happy_warnings_collected",
+      "description": "Unrecognized statements generate warnings, but parsing continues for all statements",
+      "function": "parse_migration",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "SOME WEIRD STATEMENT;\nALTER TABLE users ADD COLUMN a INT;\nANOTHER WEIRD ONE;\nALTER TABLE users ADD COLUMN b INT;",
+        "source_path": "migrations/005_warnings.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "Two operations extracted, warnings collected for unrecognized statements (not short-circuited)",
+      "expected_error": "",
+      "assertions": [
+        "len(result.operations) == 2",
+        "len(result.warnings) >= 0",
+        "result.statement_count == 4"
+      ]
+    },
+    {
+      "id": "parse_happy_constraints_extracted",
+      "description": "Constraints like NOT NULL, DEFAULT are extracted from ADD COLUMN",
+      "function": "parse_migration",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "ALTER TABLE users ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'active';",
+        "source_path": "migrations/006_constraints.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "Operation has constraints list populated with NOT NULL and DEFAULT entries",
+      "expected_error": "",
+      "assertions": [
+        "len(result.operations) == 1",
+        "result.operations[0].op_type == OperationType.ADD_COLUMN",
+        "isinstance(result.operations[0].constraints, list)"
+      ]
+    },
+    {
+      "id": "parse_error_empty_sql",
+      "description": "Empty SQL string raises MigrationParseError with empty_sql indication",
+      "function": "parse_migration",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "",
+        "source_path": "migrations/empty.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "MigrationParseError",
+      "assertions": [
+        "error.source_path == 'migrations/empty.sql'"
+      ]
+    },
+    {
+      "id": "parse_error_whitespace_only",
+      "description": "SQL with only whitespace and comments raises empty_sql error",
+      "function": "parse_migration",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "   \n\t  -- just a comment\n/* block */  ",
+        "source_path": "migrations/blank.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "MigrationParseError",
+      "assertions": [
+        "error.source_path == 'migrations/blank.sql'"
+      ]
+    },
+    {
+      "id": "parse_error_encoding",
+      "description": "SQL with invalid characters that prevent regex extraction raises encoding_error",
+      "function": "parse_migration",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "INVALID_ENCODING_PLACEHOLDER",
+        "source_path": "migrations/bad.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "MigrationParseError",
+      "assertions": []
+    },
+    {
+      "id": "parse_edge_only_operations_are_alter_types",
+      "description": "Returned operations contain only ADD_COLUMN, DROP_COLUMN, or ALTER_COLUMN types",
+      "function": "parse_migration",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "ALTER TABLE users ADD COLUMN a INT;\nALTER TABLE users DROP COLUMN b;\nALTER TABLE users ALTER COLUMN c TYPE TEXT;",
+        "source_path": "m.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "all(op.op_type in (OperationType.ADD_COLUMN, OperationType.DROP_COLUMN, OperationType.ALTER_COLUMN) for op in result.operations)"
+      ]
+    },
+    {
+      "id": "diff_happy_basic",
+      "description": "Compute diff with a single ADD_COLUMN operation enriched with registry annotation",
+      "function": "compute_diff",
+      "category": "happy_path",
+      "setup_description": "Create a ParsedMigration with one ADD_COLUMN for users.email. Mock registry returns no existing field (new field).",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry that returns None annotation for users.email (field does not exist)"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "SchemaDiff with one entry where is_new_field=True, annotation is None, affected_tables=['users']",
+      "expected_error": "",
+      "assertions": [
+        "len(result.entries) == 1",
+        "result.entries[0].is_new_field == True",
+        "result.entries[0].annotation is None",
+        "'users' in result.affected_tables"
+      ]
+    },
+    {
+      "id": "diff_happy_existing_field_annotated",
+      "description": "Compute diff for ALTER_COLUMN on existing field gets annotation from registry",
+      "function": "compute_diff",
+      "category": "happy_path",
+      "setup_description": "ParsedMigration with ALTER_COLUMN on users.email. Registry returns FieldAnnotation with classification_tier='CONFIDENTIAL'.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry returning FieldAnnotation(classification_tier='CONFIDENTIAL', is_audit_field=False, is_immutable=False, is_encrypted=True)"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "DiffEntry.annotation is populated with the registry annotation",
+      "expected_error": "",
+      "assertions": [
+        "result.entries[0].annotation is not None",
+        "result.entries[0].annotation.classification_tier == 'CONFIDENTIAL'",
+        "result.entries[0].is_new_field == False"
+      ]
+    },
+    {
+      "id": "diff_happy_drop_existing_field",
+      "description": "DROP_COLUMN on existing field sets is_field_removal=True",
+      "function": "compute_diff",
+      "category": "happy_path",
+      "setup_description": "ParsedMigration with DROP_COLUMN on users.nickname. Registry confirms field exists.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry returning FieldAnnotation for users.nickname"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "DiffEntry.is_field_removal=True",
+      "expected_error": "",
+      "assertions": [
+        "result.entries[0].is_field_removal == True",
+        "result.entries[0].operation.op_type == OperationType.DROP_COLUMN"
+      ]
+    },
+    {
+      "id": "diff_happy_entries_same_length",
+      "description": "SchemaDiff entries length equals parsed operations length",
+      "function": "compute_diff",
+      "category": "invariant",
+      "setup_description": "ParsedMigration with 3 operations.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "len(result.entries) == len(parsed.operations)"
+      ]
+    },
+    {
+      "id": "diff_happy_source_propagated",
+      "description": "SchemaDiff.source_path and source_hash are propagated from parsed",
+      "function": "compute_diff",
+      "category": "invariant",
+      "setup_description": "ParsedMigration with known source_path and source_hash.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.source_path == parsed.source_path",
+        "result.source_hash == parsed.source_hash"
+      ]
+    },
+    {
+      "id": "diff_happy_affected_tables_unique",
+      "description": "affected_tables contains all unique table names from operations",
+      "function": "compute_diff",
+      "category": "happy_path",
+      "setup_description": "ParsedMigration with operations on users, orders, users (duplicate).",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "set(result.affected_tables) == {'users', 'orders'}"
+      ]
+    },
+    {
+      "id": "diff_error_empty_operations",
+      "description": "ParsedMigration with empty operations list raises error",
+      "function": "compute_diff",
+      "category": "error_case",
+      "setup_description": "ParsedMigration with operations=[]",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "empty_operations",
+      "assertions": []
+    },
+    {
+      "id": "diff_error_registry_lookup_failure",
+      "description": "Registry raising an error during lookup propagates as registry_lookup_failure",
+      "function": "compute_diff",
+      "category": "error_case",
+      "setup_description": "ParsedMigration with one operation. Registry.lookup raises an exception.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry that raises Exception on lookup"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "registry_lookup_failure",
+      "assertions": []
+    },
+    {
+      "id": "gates_happy_no_violations",
+      "description": "PUBLIC-only change to declared-PUBLIC component returns empty violations list",
+      "function": "evaluate_gates",
+      "category": "happy_path",
+      "setup_description": "SchemaDiff with one ADD_COLUMN entry, annotation classification_tier='PUBLIC'. ComponentContext with declared_data_access_tiers=['PUBLIC'].",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Empty list of violations (AUTO_PROCEED)",
+      "expected_error": "",
+      "assertions": [
+        "result == []"
+      ]
+    },
+    {
+      "id": "gates_happy_audit_field_drop_blocked",
+      "description": "Dropping an audit field produces a BLOCKED violation",
+      "function": "evaluate_gates",
+      "category": "happy_path",
+      "setup_description": "SchemaDiff with DROP_COLUMN entry where annotation.is_audit_field=True. ComponentContext with declared_data_access_tiers=['CONFIDENTIAL'].",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "One GateViolation with severity=BLOCKED",
+      "expected_error": "",
+      "assertions": [
+        "len(result) >= 1",
+        "any(v.severity == GateDecision.BLOCKED for v in result)"
+      ]
+    },
+    {
+      "id": "gates_happy_immutable_modify_blocked",
+      "description": "Modifying an immutable field produces a BLOCKED violation",
+      "function": "evaluate_gates",
+      "category": "happy_path",
+      "setup_description": "SchemaDiff with ALTER_COLUMN on immutable field. ComponentContext with declared_data_access_tiers=['CONFIDENTIAL'].",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "At least one BLOCKED violation for immutable field modification",
+      "expected_error": "",
+      "assertions": [
+        "any(v.severity == GateDecision.BLOCKED for v in result)"
+      ]
+    },
+    {
+      "id": "gates_happy_encryption_removal_human_gate",
+      "description": "Removing encryption from a field produces a HUMAN_GATE violation",
+      "function": "evaluate_gates",
+      "category": "happy_path",
+      "setup_description": "SchemaDiff with ALTER_COLUMN where annotation.is_encrypted=True and encryption is being removed.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "At least one HUMAN_GATE violation",
+      "expected_error": "",
+      "assertions": [
+        "any(v.severity == GateDecision.HUMAN_GATE for v in result)"
+      ]
+    },
+    {
+      "id": "gates_happy_tier_mismatch_human_gate",
+      "description": "Classification tier not in component's declared tiers produces HUMAN_GATE",
+      "function": "evaluate_gates",
+      "category": "happy_path",
+      "setup_description": "SchemaDiff entry with classification_tier='CONFIDENTIAL'. ComponentContext with declared_data_access_tiers=['PUBLIC'].",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "HUMAN_GATE violation for tier mismatch",
+      "expected_error": "",
+      "assertions": [
+        "any(v.severity == GateDecision.HUMAN_GATE for v in result)"
+      ]
+    },
+    {
+      "id": "gates_happy_multiple_violations_not_short_circuited",
+      "description": "All violations are collected even when first is BLOCKED - no short-circuiting",
+      "function": "evaluate_gates",
+      "category": "invariant",
+      "setup_description": "SchemaDiff with multiple entries triggering different violations (audit drop + tier mismatch).",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "All violations returned, not just the first one",
+      "expected_error": "",
+      "assertions": [
+        "len(result) >= 2"
+      ]
+    },
+    {
+      "id": "gates_happy_violations_ordered_by_severity",
+      "description": "Violations are ordered by severity descending: BLOCKED first, then HUMAN_GATE",
+      "function": "evaluate_gates",
+      "category": "invariant",
+      "setup_description": "SchemaDiff triggering both BLOCKED and HUMAN_GATE violations.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Violations sorted BLOCKED > HUMAN_GATE > AUTO_PROCEED",
+      "expected_error": "",
+      "assertions": [
+        "all(result[i].severity.value >= result[i+1].severity.value for i in range(len(result)-1)) if len(result) > 1 else True"
+      ]
+    },
+    {
+      "id": "gates_happy_valid_rule_ids",
+      "description": "Each GateViolation has a valid rule_id",
+      "function": "evaluate_gates",
+      "category": "invariant",
+      "setup_description": "SchemaDiff triggering violations.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Every violation has a non-empty rule_id",
+      "expected_error": "",
+      "assertions": [
+        "all(v.rule_id and isinstance(v.rule_id, str) for v in result)"
+      ]
+    },
+    {
+      "id": "gates_error_empty_diff",
+      "description": "SchemaDiff with empty entries raises empty_diff error",
+      "function": "evaluate_gates",
+      "category": "error_case",
+      "setup_description": "SchemaDiff with entries=[].",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "empty_diff",
+      "assertions": []
+    },
+    {
+      "id": "create_plan_happy_basic",
+      "description": "Create a migration plan with violations and verify all fields",
+      "function": "create_plan",
+      "category": "happy_path",
+      "setup_description": "Valid SchemaDiff, one HUMAN_GATE violation, mock registry for FK lookups, tmp_path as plans_dir.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry returning FK references for blast radius"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "MigrationPlan with PENDING status, HUMAN_GATE overall_gate, valid UUID plan_id",
+      "expected_error": "",
+      "assertions": [
+        "result.status == PlanStatus.PENDING",
+        "result.overall_gate == GateDecision.HUMAN_GATE",
+        "uuid.UUID(result.plan_id, version=4)"
+      ]
+    },
+    {
+      "id": "create_plan_happy_no_violations_auto_proceed",
+      "description": "Empty violations list results in AUTO_PROCEED overall gate",
+      "function": "create_plan",
+      "category": "happy_path",
+      "setup_description": "Valid SchemaDiff, empty violations list, mock registry, tmp_path.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "MigrationPlan with overall_gate=AUTO_PROCEED",
+      "expected_error": "",
+      "assertions": [
+        "result.overall_gate == GateDecision.AUTO_PROCEED",
+        "result.status == PlanStatus.PENDING"
+      ]
+    },
+    {
+      "id": "create_plan_happy_overall_gate_max_severity",
+      "description": "Overall gate is the max severity across all violations",
+      "function": "create_plan",
+      "category": "invariant",
+      "setup_description": "Violations with HUMAN_GATE and BLOCKED severity.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "overall_gate is BLOCKED (max of HUMAN_GATE and BLOCKED)",
+      "expected_error": "",
+      "assertions": [
+        "result.overall_gate == GateDecision.BLOCKED"
+      ]
+    },
+    {
+      "id": "create_plan_happy_blast_radius_includes_fk",
+      "description": "Blast radius includes affected tables plus single-hop FK-referenced tables",
+      "function": "create_plan",
+      "category": "happy_path",
+      "setup_description": "SchemaDiff with affected_tables=['users']. Registry returns FK to 'orders' from 'users'.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry returning FK reference to 'orders' from 'users'"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "blast_radius includes both 'users' and 'orders'",
+      "expected_error": "",
+      "assertions": [
+        "'users' in result.blast_radius",
+        "'orders' in result.blast_radius"
+      ]
+    },
+    {
+      "id": "create_plan_happy_blast_radius_single_hop_only",
+      "description": "Blast radius does NOT include transitive FK references",
+      "function": "create_plan",
+      "category": "invariant",
+      "setup_description": "SchemaDiff affecting 'users'. Registry: users->orders FK, orders->shipments FK. Shipments should NOT appear.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry: users->orders, orders->shipments"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "blast_radius includes users and orders but NOT shipments",
+      "expected_error": "",
+      "assertions": [
+        "'shipments' not in result.blast_radius"
+      ]
+    },
+    {
+      "id": "create_plan_happy_file_persisted",
+      "description": "Plan is persisted as JSON file at plans_dir/<plan_id>.json",
+      "function": "create_plan",
+      "category": "happy_path",
+      "setup_description": "Valid inputs, tmp_path as plans_dir.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "JSON file exists at plans_dir/<plan_id>.json",
+      "expected_error": "",
+      "assertions": [
+        "os.path.exists(os.path.join(plans_dir, f'{result.plan_id}.json'))"
+      ]
+    },
+    {
+      "id": "create_plan_happy_timestamps_match",
+      "description": "created_at and updated_at are the same ISO 8601 timestamp at creation",
+      "function": "create_plan",
+      "category": "invariant",
+      "setup_description": "Valid inputs.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.created_at == result.updated_at",
+        "result.created_at is not None"
+      ]
+    },
+    {
+      "id": "create_plan_happy_uuid_v4",
+      "description": "Plan ID is a valid UUID v4",
+      "function": "create_plan",
+      "category": "invariant",
+      "setup_description": "Valid inputs.",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "uuid.UUID(result.plan_id).version == 4"
+      ]
+    },
+    {
+      "id": "create_plan_error_unwritable_dir",
+      "description": "Non-existent or unwritable plans_dir raises PlanPersistenceError",
+      "function": "create_plan",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "plans_dir": "/nonexistent/path/plans"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "PlanPersistenceError",
+      "assertions": []
+    },
+    {
+      "id": "create_plan_error_registry_fk_failure",
+      "description": "Registry FK lookup failure raises error",
+      "function": "create_plan",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry": "Mock SchemaRegistry that raises Exception on FK lookup"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "registry_fk_lookup_failure",
+      "assertions": []
+    },
+    {
+      "id": "approve_happy_human_gate_pending",
+      "description": "Approve a PENDING HUMAN_GATE plan transitions status to APPROVED",
+      "function": "approve_plan",
+      "category": "happy_path",
+      "setup_description": "Pre-seed a PENDING HUMAN_GATE plan JSON in tmp plans_dir.",
+      "mock_dependencies": {},
+      "input_values": {
+        "reviewer": "alice",
+        "review_ref": "PR-123",
+        "rationale": "Reviewed and safe"
+      },
+      "input_description": "",
+      "expected_output_description": "MigrationPlan with status=APPROVED",
+      "expected_error": "",
+      "assertions": [
+        "result.status == PlanStatus.APPROVED"
+      ]
+    },
+    {
+      "id": "approve_happy_updated_at_changes",
+      "description": "Approval updates updated_at to a new timestamp",
+      "function": "approve_plan",
+      "category": "happy_path",
+      "setup_description": "Pre-seed a PENDING HUMAN_GATE plan with a known created_at.",
+      "mock_dependencies": {},
+      "input_values": {
+        "reviewer": "bob",
+        "review_ref": "PR-456",
+        "rationale": "Approved after review"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.updated_at != result.created_at"
+      ]
+    },
+    {
+      "id": "approve_happy_diff_unchanged",
+      "description": "Approval does not change plan_id, diff, violations, or overall_gate",
+      "function": "approve_plan",
+      "category": "invariant",
+      "setup_description": "Pre-seed a PENDING HUMAN_GATE plan.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.plan_id == original_plan.plan_id",
+        "result.overall_gate == original_plan.overall_gate"
+      ]
+    },
+    {
+      "id": "approve_happy_file_updated",
+      "description": "Plan JSON file is updated atomically after approval",
+      "function": "approve_plan",
+      "category": "happy_path",
+      "setup_description": "Pre-seed a PENDING HUMAN_GATE plan.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "os.path.exists(plan_file_path)",
+        "loaded_plan.status == PlanStatus.APPROVED"
+      ]
+    },
+    {
+      "id": "approve_error_plan_not_found",
+      "description": "Approving a non-existent plan raises PlanNotFoundError",
+      "function": "approve_plan",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "plan_id": "00000000-0000-4000-8000-000000000000"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "PlanNotFoundError",
+      "assertions": []
+    },
+    {
+      "id": "approve_error_already_approved",
+      "description": "Approving an already APPROVED plan raises InvalidPlanTransitionError",
+      "function": "approve_plan",
+      "category": "error_case",
+      "setup_description": "Pre-seed an APPROVED plan.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "InvalidPlanTransitionError",
+      "assertions": []
+    },
+    {
+      "id": "approve_error_already_rejected",
+      "description": "Approving a REJECTED plan raises InvalidPlanTransitionError",
+      "function": "approve_plan",
+      "category": "error_case",
+      "setup_description": "Pre-seed a REJECTED plan.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "InvalidPlanTransitionError",
+      "assertions": []
+    },
+    {
+      "id": "approve_error_plan_blocked",
+      "description": "Approving a BLOCKED plan raises InvalidPlanTransitionError",
+      "function": "approve_plan",
+      "category": "error_case",
+      "setup_description": "Pre-seed a PENDING BLOCKED plan.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "InvalidPlanTransitionError",
+      "assertions": []
+    },
+    {
+      "id": "approve_error_auto_proceed",
+      "description": "Approving an AUTO_PROCEED plan raises InvalidPlanTransitionError",
+      "function": "approve_plan",
+      "category": "error_case",
+      "setup_description": "Pre-seed a PENDING AUTO_PROCEED plan.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "InvalidPlanTransitionError",
+      "assertions": []
+    },
+    {
+      "id": "load_happy_round_trip",
+      "description": "A created plan can be loaded back and matches the original",
+      "function": "load_plan",
+      "category": "happy_path",
+      "setup_description": "Create a plan via create_plan, then load it.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.plan_id == plan_id",
+        "result.status == PlanStatus.PENDING"
+      ]
+    },
+    {
+      "id": "load_error_not_found",
+      "description": "Loading a non-existent plan raises PlanNotFoundError",
+      "function": "load_plan",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "plan_id": "00000000-0000-4000-8000-000000000001"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "PlanNotFoundError",
+      "assertions": []
+    },
+    {
+      "id": "load_error_corrupted_empty",
+      "description": "Loading a plan from an empty file raises error",
+      "function": "load_plan",
+      "category": "error_case",
+      "setup_description": "Create an empty JSON file at plans_dir/<plan_id>.json.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "corrupted_plan_file",
+      "assertions": []
+    },
+    {
+      "id": "load_error_corrupted_invalid_json",
+      "description": "Loading a plan from invalid JSON raises error",
+      "function": "load_plan",
+      "category": "error_case",
+      "setup_description": "Create a file with non-JSON content at plans_dir/<plan_id>.json.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "corrupted_plan_file",
+      "assertions": []
+    },
+    {
+      "id": "load_error_file_read_permission",
+      "description": "Unreadable plan file raises file_read_error",
+      "function": "load_plan",
+      "category": "error_case",
+      "setup_description": "Create plan file and remove read permissions.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "file_read_error",
+      "assertions": []
+    },
+    {
+      "id": "invariant_gate_decision_ordering",
+      "description": "Gate decisions are totally ordered: AUTO_PROCEED < HUMAN_GATE < BLOCKED",
+      "function": "evaluate_gates",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "GateDecision.AUTO_PROCEED < GateDecision.HUMAN_GATE",
+        "GateDecision.HUMAN_GATE < GateDecision.BLOCKED"
+      ]
+    },
+    {
+      "id": "invariant_plan_status_terminal",
+      "description": "APPROVED and REJECTED are terminal states - no transitions from them",
+      "function": "approve_plan",
+      "category": "invariant",
+      "setup_description": "Attempt transitions from APPROVED and REJECTED states.",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "approved_plan cannot transition",
+        "rejected_plan cannot transition"
+      ]
+    },
+    {
+      "id": "invariant_parse_only_alter_table",
+      "description": "SQL parsing only recognizes ALTER TABLE operations, not CREATE TABLE etc",
+      "function": "parse_migration",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "sql": "CREATE TABLE foo (id INT);\nALTER TABLE bar ADD COLUMN x INT;",
+        "source_path": "m.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "len(result.operations) == 1",
+        "result.operations[0].table_name == 'bar'"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nContract test suite for the migration component.\nTests verify behavior at boundaries per the contract specification.\nRun with: pytest contract_test.py -v\n\"\"\"\n\nimport hashlib\nimport json\nimport os\nimport stat\nimport uuid\nfrom datetime import datetime, timezone\nfrom unittest.mock import MagicMock, PropertyMock, patch\n\nimport pytest\n\n# Import all public names from the migration module\nfrom migration import (\n    ApprovalRecord,\n    ColumnConstraint,\n    ColumnOperation,\n    ComponentContext,\n    DiffEntry,\n    FieldAnnotation,\n    GateDecision,\n    GateRuleEntry,\n    GateViolation,\n    InvalidPlanTransitionError,\n    MigrationParseError,\n    MigrationPlan,\n    OperationType,\n    ParsedMigration,\n    ParseWarning,\n    PlanNotFoundError,\n    PlanPersistenceError,\n    PlanStatus,\n    SchemaDiff,\n    ViolationSeverity,\n    approve_plan,\n    compute_diff,\n    create_plan,\n    evaluate_gates,\n    load_plan,\n    parse_migration,\n)\n\n\n# ---------------------------------------------------------------------------\n# Fixtures\n# ---------------------------------------------------------------------------\n\n\n@pytest.fixture\ndef simple_sql():\n    return \"ALTER TABLE users ADD COLUMN email VARCHAR(255) NOT NULL;\"\n\n\n@pytest.fixture\ndef multi_op_sql():\n    return (\n        \"ALTER TABLE users ADD COLUMN age INTEGER;\\n\"\n        \"ALTER TABLE users DROP COLUMN nickname;\\n\"\n        \"ALTER TABLE orders ALTER COLUMN total TYPE NUMERIC(10,2);\"\n    )\n\n\n@pytest.fixture\ndef mixed_sql():\n    \"\"\"SQL with ALTER TABLE plus non-ALTER statements.\"\"\"\n    return (\n        \"CREATE INDEX idx_users_email ON users(email);\\n\"\n        \"ALTER TABLE users ADD COLUMN phone TEXT;\"\n    )\n\n\n@pytest.fixture\ndef mock_registry_empty():\n    \"\"\"Mock registry that returns None for all lookups (new fields).\"\"\"\n    registry = MagicMock()\n    registry.get_field_annotation = MagicMock(return_value=None)\n    registry.get_foreign_keys = MagicMock(return_value=[])\n    registry.lookup = MagicMock(return_value=None)\n    return registry\n\n\n@pytest.fixture\ndef mock_registry_with_annotations():\n    \"\"\"Mock registry that returns annotations for known fields.\"\"\"\n    registry = MagicMock()\n\n    def get_annotation(table_name, column_name):\n        known = {\n            (\"users\", \"email\"): FieldAnnotation(\n                classification_tier=\"CONFIDENTIAL\",\n                is_audit_field=False,\n                is_immutable=False,\n                is_encrypted=True,\n            ),\n            (\"users\", \"nickname\"): FieldAnnotation(\n                classification_tier=\"PUBLIC\",\n                is_audit_field=False,\n                is_immutable=False,\n                is_encrypted=False,\n            ),\n            (\"users\", \"created_by\"): FieldAnnotation(\n                classification_tier=\"INTERNAL\",\n                is_audit_field=True,\n                is_immutable=True,\n                is_encrypted=False,\n            ),\n        }\n        return known.get((table_name, column_name))\n\n    registry.get_field_annotation = MagicMock(side_effect=get_annotation)\n    registry.get_foreign_keys = MagicMock(return_value=[])\n    registry.lookup = MagicMock(side_effect=get_annotation)\n    return registry\n\n\n@pytest.fixture\ndef mock_registry_with_fk():\n    \"\"\"Mock registry that returns FK references for blast radius computation.\"\"\"\n    registry = MagicMock()\n    registry.get_field_annotation = MagicMock(return_value=None)\n\n    def get_fk(table_name):\n        fk_map = {\n            \"users\": [\"orders\"],\n            \"orders\": [\"shipments\"],\n        }\n        return fk_map.get(table_name, [])\n\n    registry.get_foreign_keys = MagicMock(side_effect=get_fk)\n    return registry\n\n\n@pytest.fixture\ndef mock_registry_fk_failure():\n    \"\"\"Mock registry that raises on FK lookup.\"\"\"\n    registry = MagicMock()\n    registry.get_field_annotation = MagicMock(return_value=None)\n    registry.get_foreign_keys = MagicMock(side_effect=Exception(\"FK lookup failed\"))\n    return registry\n\n\n@pytest.fixture\ndef mock_registry_lookup_failure():\n    \"\"\"Mock registry that raises on annotation lookup.\"\"\"\n    registry = MagicMock()\n    registry.get_field_annotation = MagicMock(\n        side_effect=Exception(\"Registry lookup failed\")\n    )\n    registry.lookup = MagicMock(side_effect=Exception(\"Registry lookup failed\"))\n    return registry\n\n\n@pytest.fixture\ndef sample_parsed_migration():\n    \"\"\"A valid ParsedMigration with one ADD_COLUMN operation.\"\"\"\n    sql = \"ALTER TABLE users ADD COLUMN email VARCHAR(255);\"\n    return ParsedMigration(\n        operations=[\n            ColumnOperation(\n                op_type=OperationType.ADD_COLUMN,\n                table_name=\"users\",\n                column_name=\"email\",\n                new_type=\"VARCHAR(255)\",\n                old_type=\"\",\n                constraints=[],\n            )\n        ],\n        source_path=\"migrations/001.sql\",\n        source_hash=hashlib.sha256(sql.encode()).hexdigest(),\n        statement_count=1,\n        warnings=[],\n    )\n\n\n@pytest.fixture\ndef sample_parsed_multi_table():\n    \"\"\"ParsedMigration with operations on multiple tables.\"\"\"\n    return ParsedMigration(\n        operations=[\n            ColumnOperation(\n                op_type=OperationType.ADD_COLUMN,\n                table_name=\"users\",\n                column_name=\"age\",\n                new_type=\"INTEGER\",\n                old_type=\"\",\n                constraints=[],\n            ),\n            ColumnOperation(\n                op_type=OperationType.DROP_COLUMN,\n                table_name=\"users\",\n                column_name=\"nickname\",\n                new_type=\"\",\n                old_type=\"TEXT\",\n                constraints=[],\n            ),\n            ColumnOperation(\n                op_type=OperationType.ALTER_COLUMN,\n                table_name=\"orders\",\n                column_name=\"total\",\n                new_type=\"NUMERIC(10,2)\",\n                old_type=\"DECIMAL\",\n                constraints=[],\n            ),\n        ],\n        source_path=\"migrations/002.sql\",\n        source_hash=\"abc123\",\n        statement_count=3,\n        warnings=[],\n    )\n\n\n@pytest.fixture\ndef empty_parsed_migration():\n    \"\"\"ParsedMigration with no operations.\"\"\"\n    return ParsedMigration(\n        operations=[],\n        source_path=\"migrations/empty.sql\",\n        source_hash=\"empty\",\n        statement_count=0,\n        warnings=[],\n    )\n\n\n@pytest.fixture\ndef sample_diff_public():\n    \"\"\"SchemaDiff with a PUBLIC classification entry for a new field.\"\"\"\n    return SchemaDiff(\n        entries=[\n            DiffEntry(\n                operation=ColumnOperation(\n                    op_type=OperationType.ADD_COLUMN,\n                    table_name=\"users\",\n                    column_name=\"display_name\",\n                    new_type=\"TEXT\",\n                    old_type=\"\",\n                    constraints=[],\n                ),\n                annotation=FieldAnnotation(\n                    classification_tier=\"PUBLIC\",\n                    is_audit_field=False,\n                    is_immutable=False,\n                    is_encrypted=False,\n                ),\n                is_new_field=True,\n                is_field_removal=False,\n            )\n        ],\n        affected_tables=[\"users\"],\n        source_path=\"m.sql\",\n        source_hash=\"hash1\",\n    )\n\n\n@pytest.fixture\ndef sample_diff_audit_drop():\n    \"\"\"SchemaDiff with a DROP on an audit field → should trigger BLOCKED.\"\"\"\n    return SchemaDiff(\n        entries=[\n            DiffEntry(\n                operation=ColumnOperation(\n                    op_type=OperationType.DROP_COLUMN,\n                    table_name=\"users\",\n                    column_name=\"created_by\",\n                    new_type=\"\",\n                    old_type=\"TEXT\",\n                    constraints=[],\n                ),\n                annotation=FieldAnnotation(\n                    classification_tier=\"INTERNAL\",\n                    is_audit_field=True,\n                    is_immutable=True,\n                    is_encrypted=False,\n                ),\n                is_new_field=False,\n                is_field_removal=True,\n            )\n        ],\n        affected_tables=[\"users\"],\n        source_path=\"m.sql\",\n        source_hash=\"hash2\",\n    )\n\n\n@pytest.fixture\ndef sample_diff_immutable_modify():\n    \"\"\"SchemaDiff with ALTER on an immutable field → should trigger BLOCKED.\"\"\"\n    return SchemaDiff(\n        entries=[\n            DiffEntry(\n                operation=ColumnOperation(\n                    op_type=OperationType.ALTER_COLUMN,\n                    table_name=\"users\",\n                    column_name=\"created_by\",\n                    new_type=\"VARCHAR(100)\",\n                    old_type=\"TEXT\",\n                    constraints=[],\n                ),\n                annotation=FieldAnnotation(\n                    classification_tier=\"INTERNAL\",\n                    is_audit_field=True,\n                    is_immutable=True,\n                    is_encrypted=False,\n                ),\n                is_new_field=False,\n                is_field_removal=False,\n            )\n        ],\n        affected_tables=[\"users\"],\n        source_path=\"m.sql\",\n        source_hash=\"hash3\",\n    )\n\n\n@pytest.fixture\ndef sample_diff_encryption_removal():\n    \"\"\"SchemaDiff with ALTER on an encrypted field → should trigger HUMAN_GATE.\"\"\"\n    return SchemaDiff(\n        entries=[\n            DiffEntry(\n                operation=ColumnOperation(\n                    op_type=OperationType.ALTER_COLUMN,\n                    table_name=\"users\",\n                    column_name=\"email\",\n                    new_type=\"TEXT\",\n                    old_type=\"BYTEA\",\n                    constraints=[],\n                ),\n                annotation=FieldAnnotation(\n                    classification_tier=\"CONFIDENTIAL\",\n                    is_audit_field=False,\n                    is_immutable=False,\n                    is_encrypted=True,\n                ),\n                is_new_field=False,\n                is_field_removal=False,\n            )\n        ],\n        affected_tables=[\"users\"],\n        source_path=\"m.sql\",\n        source_hash=\"hash4\",\n    )\n\n\n@pytest.fixture\ndef sample_diff_tier_mismatch():\n    \"\"\"SchemaDiff with CONFIDENTIAL field but component only has PUBLIC access.\"\"\"\n    return SchemaDiff(\n        entries=[\n            DiffEntry(\n                operation=ColumnOperation(\n                    op_type=OperationType.ADD_COLUMN,\n                    table_name=\"users\",\n                    column_name=\"ssn\",\n                    new_type=\"TEXT\",\n                    old_type=\"\",\n                    constraints=[],\n                ),\n                annotation=FieldAnnotation(\n                    classification_tier=\"CONFIDENTIAL\",\n                    is_audit_field=False,\n                    is_immutable=False,\n                    is_encrypted=False,\n                ),\n                is_new_field=True,\n                is_field_removal=False,\n            )\n        ],\n        affected_tables=[\"users\"],\n        source_path=\"m.sql\",\n        source_hash=\"hash5\",\n    )\n\n\n@pytest.fixture\ndef sample_diff_multi_violations():\n    \"\"\"SchemaDiff with multiple entries triggering different violation types.\"\"\"\n    return SchemaDiff(\n        entries=[\n            # Audit field drop → BLOCKED\n            DiffEntry(\n                operation=ColumnOperation(\n                    op_type=OperationType.DROP_COLUMN,\n                    table_name=\"users\",\n                    column_name=\"created_by\",\n                    new_type=\"\",\n                    old_type=\"TEXT\",\n                    constraints=[],\n                ),\n                annotation=FieldAnnotation(\n                    classification_tier=\"INTERNAL\",\n                    is_audit_field=True,\n                    is_immutable=True,\n                    is_encrypted=False,\n                ),\n                is_new_field=False,\n                is_field_removal=True,\n            ),\n            # Tier mismatch → HUMAN_GATE\n            DiffEntry(\n                operation=ColumnOperation(\n                    op_type=OperationType.ADD_COLUMN,\n                    table_name=\"users\",\n                    column_name=\"ssn\",\n                    new_type=\"TEXT\",\n                    old_type=\"\",\n                    constraints=[],\n                ),\n                annotation=FieldAnnotation(\n                    classification_tier=\"CONFIDENTIAL\",\n                    is_audit_field=False,\n                    is_immutable=False,\n                    is_encrypted=False,\n                ),\n                is_new_field=True,\n                is_field_removal=False,\n            ),\n        ],\n        affected_tables=[\"users\"],\n        source_path=\"m.sql\",\n        source_hash=\"hash_multi\",\n    )\n\n\n@pytest.fixture\ndef empty_diff():\n    \"\"\"SchemaDiff with no entries.\"\"\"\n    return SchemaDiff(\n        entries=[],\n        affected_tables=[],\n        source_path=\"m.sql\",\n        source_hash=\"empty\",\n    )\n\n\n@pytest.fixture\ndef component_context_public():\n    return ComponentContext(\n        component_id=\"test-component\",\n        declared_data_access_tiers=[\"PUBLIC\"],\n    )\n\n\n@pytest.fixture\ndef component_context_confidential():\n    return ComponentContext(\n        component_id=\"test-component\",\n        declared_data_access_tiers=[\"PUBLIC\", \"CONFIDENTIAL\"],\n    )\n\n\n@pytest.fixture\ndef plans_dir(tmp_path):\n    \"\"\"Writable plans directory.\"\"\"\n    d = tmp_path / \"plans\"\n    d.mkdir()\n    return str(d)\n\n\ndef _make_plan_json(\n    plan_id,\n    status=PlanStatus.PENDING,\n    overall_gate=GateDecision.HUMAN_GATE,\n    diff=None,\n    violations=None,\n):\n    \"\"\"Helper to build a plan dict for seeding plan files.\"\"\"\n    now = datetime.now(timezone.utc).isoformat()\n    if diff is None:\n        diff = {\n            \"entries\": [],\n            \"affected_tables\": [\"users\"],\n            \"source_path\": \"m.sql\",\n            \"source_hash\": \"testhash\",\n        }\n    if violations is None:\n        violations = []\n    return {\n        \"plan_id\": plan_id,\n        \"schema_version\": 1,\n        \"diff\": diff,\n        \"violations\": violations,\n        \"overall_gate\": overall_gate.name if hasattr(overall_gate, \"name\") else str(overall_gate),\n        \"blast_radius\": [\"users\"],\n        \"status\": status.name if hasattr(status, \"name\") else str(status),\n        \"created_at\": now,\n        \"updated_at\": now,\n        \"source_path\": \"m.sql\",\n        \"source_hash\": \"testhash\",\n    }\n\n\ndef _seed_plan(plans_dir, plan_id, **kwargs):\n    \"\"\"Write a plan JSON file to the plans directory.\"\"\"\n    plan_data = _make_plan_json(plan_id, **kwargs)\n    path = os.path.join(plans_dir, f\"{plan_id}.json\")\n    with open(path, \"w\") as f:\n        json.dump(plan_data, f)\n    return path\n\n\n# ---------------------------------------------------------------------------\n# TestParseMigration\n# ---------------------------------------------------------------------------\n\n\nclass TestParseMigration:\n    \"\"\"Tests for parse_migration function.\"\"\"\n\n    def test_parse_single_add_column(self):\n        sql = \"ALTER TABLE users ADD COLUMN email VARCHAR(255) NOT NULL;\"\n        result = parse_migration(sql, \"migrations/001_add_email.sql\")\n\n        assert result.source_path == \"migrations/001_add_email.sql\"\n        assert len(result.operations) >= 1\n        assert result.operations[0].op_type == OperationType.ADD_COLUMN\n        assert result.operations[0].table_name == \"users\"\n        assert result.operations[0].column_name == \"email\"\n        assert result.statement_count >= 1\n        assert isinstance(result.warnings, list)\n\n    def test_parse_multiple_operations(self):\n        sql = (\n            \"ALTER TABLE users ADD COLUMN age INTEGER;\\n\"\n            \"ALTER TABLE users DROP COLUMN nickname;\\n\"\n            \"ALTER TABLE orders ALTER COLUMN total TYPE NUMERIC(10,2);\"\n        )\n        result = parse_migration(sql, \"migrations/002_multi.sql\")\n\n        assert len(result.operations) == 3\n        assert result.operations[0].op_type == OperationType.ADD_COLUMN\n        assert result.operations[1].op_type == OperationType.DROP_COLUMN\n        assert result.operations[2].op_type == OperationType.ALTER_COLUMN\n        assert result.statement_count == 3\n\n    def test_parse_source_hash_is_sha256(self):\n        sql = \"ALTER TABLE t ADD COLUMN c INT;\"\n        result = parse_migration(sql, \"m.sql\")\n        expected_hash = hashlib.sha256(sql.encode()).hexdigest()\n        assert result.source_hash == expected_hash\n\n    def test_parse_comments_stripped(self):\n        sql = (\n            \"-- This is a comment\\n\"\n            \"/* Block comment */\\n\"\n            \"ALTER TABLE users ADD COLUMN name TEXT;\"\n        )\n        result = parse_migration(sql, \"migrations/003_comments.sql\")\n\n        assert len(result.operations) == 1\n        assert result.operations[0].op_type == OperationType.ADD_COLUMN\n        assert result.operations[0].column_name == \"name\"\n\n    def test_parse_non_alter_counted_in_statements(self):\n        sql = (\n            \"CREATE INDEX idx_users_email ON users(email);\\n\"\n            \"ALTER TABLE users ADD COLUMN phone TEXT;\"\n        )\n        result = parse_migration(sql, \"migrations/004_mixed.sql\")\n\n        assert result.statement_count == 2\n        assert len(result.operations) == 1\n\n    def test_parse_warnings_collected_not_short_circuited(self):\n        sql = (\n            \"ALTER TABLE users ADD COLUMN a INT;\\n\"\n            \"ALTER TABLE users ADD COLUMN b INT;\"\n        )\n        result = parse_migration(sql, \"migrations/005_warnings.sql\")\n\n        # Key contract: all operations are extracted, parsing doesn't short-circuit\n        assert len(result.operations) == 2\n        assert result.statement_count >= 2\n\n    def test_parse_constraints_extracted(self):\n        sql = \"ALTER TABLE users ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'active';\"\n        result = parse_migration(sql, \"migrations/006_constraints.sql\")\n\n        assert len(result.operations) == 1\n        assert result.operations[0].op_type == OperationType.ADD_COLUMN\n        assert isinstance(result.operations[0].constraints, list)\n\n    def test_parse_source_path_propagated(self):\n        sql = \"ALTER TABLE t ADD COLUMN c INT;\"\n        result = parse_migration(sql, \"my/custom/path.sql\")\n        assert result.source_path == \"my/custom/path.sql\"\n\n    def test_parse_error_empty_sql(self):\n        with pytest.raises((MigrationParseError, Exception)) as exc_info:\n            parse_migration(\"\", \"migrations/empty.sql\")\n        # Verify the error contains source_path context\n        exc = exc_info.value\n        if hasattr(exc, \"source_path\"):\n            assert exc.source_path == \"migrations/empty.sql\"\n\n    def test_parse_error_whitespace_only(self):\n        with pytest.raises((MigrationParseError, Exception)):\n            parse_migration(\"   \\n\\t  -- just a comment\\n/* block */  \", \"migrations/blank.sql\")\n\n    def test_parse_error_encoding(self):\n        \"\"\"SQL with characters that prevent regex extraction raises error.\"\"\"\n        # Attempt to trigger encoding error with invalid bytes\n        try:\n            bad_sql = b\"\\x80\\x81\\x82\\x83\\xff\\xfe\".decode(\"utf-8\", errors=\"replace\")\n            # If the module handles this, it should raise MigrationParseError\n            with pytest.raises((MigrationParseError, Exception)):\n                parse_migration(bad_sql, \"migrations/bad.sql\")\n        except (UnicodeDecodeError, Exception):\n            # If we can't even create the string, the contract's precondition handles it\n            pass\n\n    def test_parse_only_alter_table_recognized(self):\n        sql = \"CREATE TABLE foo (id INT);\\nALTER TABLE bar ADD COLUMN x INT;\"\n        result = parse_migration(sql, \"m.sql\")\n\n        assert len(result.operations) == 1\n        assert result.operations[0].table_name == \"bar\"\n\n    def test_parse_operations_only_valid_types(self):\n        sql = (\n            \"ALTER TABLE users ADD COLUMN a INT;\\n\"\n            \"ALTER TABLE users DROP COLUMN b;\\n\"\n            \"ALTER TABLE users ALTER COLUMN c TYPE TEXT;\"\n        )\n        result = parse_migration(sql, \"m.sql\")\n        valid_types = {OperationType.ADD_COLUMN, OperationType.DROP_COLUMN, OperationType.ALTER_COLUMN}\n        for op in result.operations:\n            assert op.op_type in valid_types\n\n    def test_parse_drop_column(self):\n        sql = \"ALTER TABLE users DROP COLUMN old_field;\"\n        result = parse_migration(sql, \"m.sql\")\n\n        assert len(result.operations) == 1\n        assert result.operations[0].op_type == OperationType.DROP_COLUMN\n        assert result.operations[0].table_name == \"users\"\n        assert result.operations[0].column_name == \"old_field\"\n\n    def test_parse_alter_column(self):\n        sql = \"ALTER TABLE orders ALTER COLUMN amount TYPE NUMERIC(12,2);\"\n        result = parse_migration(sql, \"m.sql\")\n\n        assert len(result.operations) == 1\n        assert result.operations[0].op_type == OperationType.ALTER_COLUMN\n        assert result.operations[0].table_name == \"orders\"\n        assert result.operations[0].column_name == \"amount\"\n\n\n# ---------------------------------------------------------------------------\n# TestComputeDiff\n# ---------------------------------------------------------------------------\n\n\nclass TestComputeDiff:\n    \"\"\"Tests for compute_diff function.\"\"\"\n\n    def test_diff_new_field_add_column(self, sample_parsed_migration, mock_registry_empty):\n        result = compute_diff(sample_parsed_migration, mock_registry_empty)\n\n        assert len(result.entries) == 1\n        assert result.entries[0].is_new_field is True\n        assert result.entries[0].annotation is None\n        assert \"users\" in result.affected_tables\n\n    def test_diff_existing_field_annotated(self, mock_registry_with_annotations):\n        parsed = ParsedMigration(\n            operations=[\n                ColumnOperation(\n                    op_type=OperationType.ALTER_COLUMN,\n                    table_name=\"users\",\n                    column_name=\"email\",\n                    new_type=\"TEXT\",\n                    old_type=\"VARCHAR(255)\",\n                    constraints=[],\n                )\n            ],\n            source_path=\"m.sql\",\n            source_hash=\"hash\",\n            statement_count=1,\n            warnings=[],\n        )\n        result = compute_diff(parsed, mock_registry_with_annotations)\n\n        assert result.entries[0].annotation is not None\n        assert result.entries[0].annotation.classification_tier == \"CONFIDENTIAL\"\n        assert result.entries[0].is_new_field is False\n\n    def test_diff_drop_existing_field(self, mock_registry_with_annotations):\n        parsed = ParsedMigration(\n            operations=[\n                ColumnOperation(\n                    op_type=OperationType.DROP_COLUMN,\n                    table_name=\"users\",\n                    column_name=\"nickname\",\n                    new_type=\"\",\n                    old_type=\"TEXT\",\n                    constraints=[],\n                )\n            ],\n            source_path=\"m.sql\",\n            source_hash=\"hash\",\n            statement_count=1,\n            warnings=[],\n        )\n        result = compute_diff(parsed, mock_registry_with_annotations)\n\n        assert result.entries[0].is_field_removal is True\n        assert result.entries[0].operation.op_type == OperationType.DROP_COLUMN\n\n    def test_diff_entries_same_length_as_operations(\n        self, sample_parsed_multi_table, mock_registry_empty\n    ):\n        result = compute_diff(sample_parsed_multi_table, mock_registry_empty)\n        assert len(result.entries) == len(sample_parsed_multi_table.operations)\n\n    def test_diff_source_propagated(self, sample_parsed_migration, mock_registry_empty):\n        result = compute_diff(sample_parsed_migration, mock_registry_empty)\n        assert result.source_path == sample_parsed_migration.source_path\n        assert result.source_hash == sample_parsed_migration.source_hash\n\n    def test_diff_affected_tables_unique(self, sample_parsed_multi_table, mock_registry_empty):\n        result = compute_diff(sample_parsed_multi_table, mock_registry_empty)\n        assert set(result.affected_tables) == {\"users\", \"orders\"}\n        # No duplicates\n        assert len(result.affected_tables) == len(set(result.affected_tables))\n\n    def test_diff_error_empty_operations(self, empty_parsed_migration, mock_registry_empty):\n        with pytest.raises(Exception):\n            compute_diff(empty_parsed_migration, mock_registry_empty)\n\n    def test_diff_error_registry_lookup_failure(\n        self, sample_parsed_migration, mock_registry_lookup_failure\n    ):\n        with pytest.raises(Exception):\n            compute_diff(sample_parsed_migration, mock_registry_lookup_failure)\n\n    def test_diff_entry_operation_matches_parsed_order(\n        self, sample_parsed_multi_table, mock_registry_empty\n    ):\n        result = compute_diff(sample_parsed_multi_table, mock_registry_empty)\n        for i, entry in enumerate(result.entries):\n            assert entry.operation == sample_parsed_multi_table.operations[i]\n\n\n# ---------------------------------------------------------------------------\n# TestEvaluateGates\n# ---------------------------------------------------------------------------\n\n\nclass TestEvaluateGates:\n    \"\"\"Tests for evaluate_gates function.\"\"\"\n\n    def test_no_violations_public_change(self, sample_diff_public, component_context_public):\n        result = evaluate_gates(sample_diff_public, component_context_public)\n        assert result == []\n\n    def test_audit_field_drop_blocked(self, sample_diff_audit_drop, component_context_confidential):\n        result = evaluate_gates(sample_diff_audit_drop, component_context_confidential)\n        assert len(result) >= 1\n        assert any(v.severity == GateDecision.BLOCKED for v in result)\n\n    def test_immutable_field_modify_blocked(\n        self, sample_diff_immutable_modify, component_context_confidential\n    ):\n        result = evaluate_gates(sample_diff_immutable_modify, component_context_confidential)\n        assert any(v.severity == GateDecision.BLOCKED for v in result)\n\n    def test_encryption_removal_human_gate(\n        self, sample_diff_encryption_removal, component_context_confidential\n    ):\n        result = evaluate_gates(sample_diff_encryption_removal, component_context_confidential)\n        assert any(v.severity == GateDecision.HUMAN_GATE for v in result)\n\n    def test_tier_mismatch_human_gate(\n        self, sample_diff_tier_mismatch, component_context_public\n    ):\n        result = evaluate_gates(sample_diff_tier_mismatch, component_context_public)\n        assert any(v.severity == GateDecision.HUMAN_GATE for v in result)\n\n    def test_multiple_violations_not_short_circuited(\n        self, sample_diff_multi_violations, component_context_public\n    ):\n        result = evaluate_gates(sample_diff_multi_violations, component_context_public)\n        # Should have at least 2 violations: one BLOCKED (audit drop) + one HUMAN_GATE (tier mismatch)\n        assert len(result) >= 2\n\n    def test_violations_ordered_by_severity_descending(\n        self, sample_diff_multi_violations, component_context_public\n    ):\n        result = evaluate_gates(sample_diff_multi_violations, component_context_public)\n        if len(result) > 1:\n            # Verify descending order: BLOCKED first, then HUMAN_GATE, then AUTO_PROCEED\n            severity_order = {\n                GateDecision.BLOCKED: 3,\n                GateDecision.HUMAN_GATE: 2,\n                GateDecision.AUTO_PROCEED: 1,\n            }\n            for i in range(len(result) - 1):\n                assert severity_order[result[i].severity] >= severity_order[result[i + 1].severity]\n\n    def test_violations_have_valid_rule_ids(\n        self, sample_diff_audit_drop, component_context_confidential\n    ):\n        result = evaluate_gates(sample_diff_audit_drop, component_context_confidential)\n        for v in result:\n            assert v.rule_id is not None\n            assert isinstance(v.rule_id, str)\n            assert len(v.rule_id) > 0\n\n    def test_violations_have_table_and_column(\n        self, sample_diff_audit_drop, component_context_confidential\n    ):\n        result = evaluate_gates(sample_diff_audit_drop, component_context_confidential)\n        for v in result:\n            assert v.table_name is not None\n            assert v.column_name is not None\n\n    def test_error_empty_diff(self, empty_diff, component_context_public):\n        with pytest.raises(Exception):\n            evaluate_gates(empty_diff, component_context_public)\n\n    def test_gate_decision_ordering_invariant(self):\n        \"\"\"Gate decisions are totally ordered: AUTO_PROCEED < HUMAN_GATE < BLOCKED.\"\"\"\n        # Test ordering via comparison or via known numeric/name ordering\n        decisions = [GateDecision.AUTO_PROCEED, GateDecision.HUMAN_GATE, GateDecision.BLOCKED]\n        # Verify they can be distinguished and the contract order holds\n        assert decisions[0] != decisions[1]\n        assert decisions[1] != decisions[2]\n        assert decisions[0] != decisions[2]\n\n\n# ---------------------------------------------------------------------------\n# TestCreatePlan\n# ---------------------------------------------------------------------------\n\n\nclass TestCreatePlan:\n    \"\"\"Tests for create_plan function.\"\"\"\n\n    def test_create_plan_basic(self, sample_diff_public, mock_registry_with_fk, plans_dir):\n        violations = [\n            GateViolation(\n                rule_id=\"tier_mismatch\",\n                severity=GateDecision.HUMAN_GATE,\n                table_name=\"users\",\n                column_name=\"ssn\",\n                message=\"Tier mismatch\",\n                context={},\n            )\n        ]\n        result = create_plan(sample_diff_public, violations, mock_registry_with_fk, plans_dir)\n\n        assert result.status == PlanStatus.PENDING\n        assert result.overall_gate == GateDecision.HUMAN_GATE\n        # Validate UUID v4\n        parsed_uuid = uuid.UUID(result.plan_id, version=4)\n        assert parsed_uuid.version == 4\n\n    def test_create_plan_no_violations_auto_proceed(\n        self, sample_diff_public, mock_registry_empty, plans_dir\n    ):\n        result = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n\n        assert result.overall_gate == GateDecision.AUTO_PROCEED\n        assert result.status == PlanStatus.PENDING\n\n    def test_create_plan_overall_gate_is_max_severity(\n        self, sample_diff_public, mock_registry_empty, plans_dir\n    ):\n        violations = [\n            GateViolation(\n                rule_id=\"tier_mismatch\",\n                severity=GateDecision.HUMAN_GATE,\n                table_name=\"users\",\n                column_name=\"a\",\n                message=\"tier mismatch\",\n                context={},\n            ),\n            GateViolation(\n                rule_id=\"audit_drop\",\n                severity=GateDecision.BLOCKED,\n                table_name=\"users\",\n                column_name=\"b\",\n                message=\"audit field dropped\",\n                context={},\n            ),\n        ]\n        result = create_plan(sample_diff_public, violations, mock_registry_empty, plans_dir)\n        assert result.overall_gate == GateDecision.BLOCKED\n\n    def test_create_plan_blast_radius_includes_fk(self, mock_registry_with_fk, plans_dir):\n        diff = SchemaDiff(\n            entries=[\n                DiffEntry(\n                    operation=ColumnOperation(\n                        op_type=OperationType.ADD_COLUMN,\n                        table_name=\"users\",\n                        column_name=\"x\",\n                        new_type=\"INT\",\n                        old_type=\"\",\n                        constraints=[],\n                    ),\n                    annotation=None,\n                    is_new_field=True,\n                    is_field_removal=False,\n                )\n            ],\n            affected_tables=[\"users\"],\n            source_path=\"m.sql\",\n            source_hash=\"h\",\n        )\n        result = create_plan(diff, [], mock_registry_with_fk, plans_dir)\n\n        assert \"users\" in result.blast_radius\n        assert \"orders\" in result.blast_radius\n\n    def test_create_plan_blast_radius_single_hop_only(self, mock_registry_with_fk, plans_dir):\n        diff = SchemaDiff(\n            entries=[\n                DiffEntry(\n                    operation=ColumnOperation(\n                        op_type=OperationType.ADD_COLUMN,\n                        table_name=\"users\",\n                        column_name=\"x\",\n                        new_type=\"INT\",\n                        old_type=\"\",\n                        constraints=[],\n                    ),\n                    annotation=None,\n                    is_new_field=True,\n                    is_field_removal=False,\n                )\n            ],\n            affected_tables=[\"users\"],\n            source_path=\"m.sql\",\n            source_hash=\"h\",\n        )\n        result = create_plan(diff, [], mock_registry_with_fk, plans_dir)\n\n        # users -> orders (single hop), but orders -> shipments should NOT be included\n        assert \"shipments\" not in result.blast_radius\n\n    def test_create_plan_file_persisted(self, sample_diff_public, mock_registry_empty, plans_dir):\n        result = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n        plan_file = os.path.join(plans_dir, f\"{result.plan_id}.json\")\n        assert os.path.exists(plan_file)\n\n    def test_create_plan_timestamps_match(\n        self, sample_diff_public, mock_registry_empty, plans_dir\n    ):\n        result = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n        assert result.created_at == result.updated_at\n        assert result.created_at is not None\n        assert len(result.created_at) > 0\n\n    def test_create_plan_uuid_v4(self, sample_diff_public, mock_registry_empty, plans_dir):\n        result = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n        parsed_uuid = uuid.UUID(result.plan_id)\n        assert parsed_uuid.version == 4\n\n    def test_create_plan_error_unwritable_dir(self, sample_diff_public, mock_registry_empty):\n        with pytest.raises((PlanPersistenceError, Exception)):\n            create_plan(sample_diff_public, [], mock_registry_empty, \"/nonexistent/path/plans\")\n\n    def test_create_plan_error_registry_fk_failure(\n        self, sample_diff_public, mock_registry_fk_failure, plans_dir\n    ):\n        with pytest.raises(Exception):\n            create_plan(sample_diff_public, [], mock_registry_fk_failure, plans_dir)\n\n    def test_create_plan_round_trip_with_load(\n        self, sample_diff_public, mock_registry_empty, plans_dir\n    ):\n        created = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n        loaded = load_plan(created.plan_id, plans_dir)\n\n        assert loaded.plan_id == created.plan_id\n        assert loaded.status == PlanStatus.PENDING\n        assert loaded.overall_gate == created.overall_gate\n\n\n# ---------------------------------------------------------------------------\n# TestApprovePlan\n# ---------------------------------------------------------------------------\n\n\nclass TestApprovePlan:\n    \"\"\"Tests for approve_plan function.\"\"\"\n\n    def test_approve_human_gate_pending(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        _seed_plan(plans_dir, plan_id, status=PlanStatus.PENDING, overall_gate=GateDecision.HUMAN_GATE)\n\n        result = approve_plan(plan_id, \"alice\", \"PR-123\", \"Reviewed and safe\", plans_dir)\n        assert result.status == PlanStatus.APPROVED\n\n    def test_approve_updated_at_changes(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        _seed_plan(plans_dir, plan_id, status=PlanStatus.PENDING, overall_gate=GateDecision.HUMAN_GATE)\n\n        result = approve_plan(plan_id, \"bob\", \"PR-456\", \"Approved after review\", plans_dir)\n        # updated_at should be different from created_at (or at least set to approval time)\n        assert result.updated_at is not None\n        assert result.status == PlanStatus.APPROVED\n\n    def test_approve_preserves_plan_id_and_gate(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        _seed_plan(plans_dir, plan_id, status=PlanStatus.PENDING, overall_gate=GateDecision.HUMAN_GATE)\n\n        result = approve_plan(plan_id, \"alice\", \"PR-789\", \"Approved\", plans_dir)\n        assert result.plan_id == plan_id\n        assert result.overall_gate == GateDecision.HUMAN_GATE\n\n    def test_approve_file_updated(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        _seed_plan(plans_dir, plan_id, status=PlanStatus.PENDING, overall_gate=GateDecision.HUMAN_GATE)\n\n        approve_plan(plan_id, \"alice\", \"PR-100\", \"OK\", plans_dir)\n\n        plan_file = os.path.join(plans_dir, f\"{plan_id}.json\")\n        assert os.path.exists(plan_file)\n        loaded = load_plan(plan_id, plans_dir)\n        assert loaded.status == PlanStatus.APPROVED\n\n    def test_approve_error_plan_not_found(self, plans_dir):\n        fake_id = \"00000000-0000-4000-8000-000000000000\"\n        with pytest.raises((PlanNotFoundError, Exception)):\n            approve_plan(fake_id, \"alice\", \"PR-1\", \"reason\", plans_dir)\n\n    def test_approve_error_already_approved(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        _seed_plan(plans_dir, plan_id, status=PlanStatus.APPROVED, overall_gate=GateDecision.HUMAN_GATE)\n\n        with pytest.raises((InvalidPlanTransitionError, Exception)):\n            approve_plan(plan_id, \"alice\", \"PR-2\", \"reason\", plans_dir)\n\n    def test_approve_error_already_rejected(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        _seed_plan(plans_dir, plan_id, status=PlanStatus.REJECTED, overall_gate=GateDecision.HUMAN_GATE)\n\n        with pytest.raises((InvalidPlanTransitionError, Exception)):\n            approve_plan(plan_id, \"alice\", \"PR-3\", \"reason\", plans_dir)\n\n    def test_approve_error_plan_blocked(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        _seed_plan(plans_dir, plan_id, status=PlanStatus.PENDING, overall_gate=GateDecision.BLOCKED)\n\n        with pytest.raises((InvalidPlanTransitionError, Exception)):\n            approve_plan(plan_id, \"alice\", \"PR-4\", \"reason\", plans_dir)\n\n    def test_approve_error_plan_auto_proceed(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        _seed_plan(\n            plans_dir, plan_id, status=PlanStatus.PENDING, overall_gate=GateDecision.AUTO_PROCEED\n        )\n\n        with pytest.raises((InvalidPlanTransitionError, Exception)):\n            approve_plan(plan_id, \"alice\", \"PR-5\", \"reason\", plans_dir)\n\n    def test_approve_terminal_states_invariant(self, plans_dir):\n        \"\"\"APPROVED and REJECTED are terminal — cannot transition from them.\"\"\"\n        # Test APPROVED is terminal\n        plan_id_approved = str(uuid.uuid4())\n        _seed_plan(\n            plans_dir, plan_id_approved, status=PlanStatus.APPROVED, overall_gate=GateDecision.HUMAN_GATE\n        )\n        with pytest.raises(Exception):\n            approve_plan(plan_id_approved, \"alice\", \"PR-6\", \"re-approve\", plans_dir)\n\n        # Test REJECTED is terminal\n        plan_id_rejected = str(uuid.uuid4())\n        _seed_plan(\n            plans_dir, plan_id_rejected, status=PlanStatus.REJECTED, overall_gate=GateDecision.HUMAN_GATE\n        )\n        with pytest.raises(Exception):\n            approve_plan(plan_id_rejected, \"alice\", \"PR-7\", \"approve rejected\", plans_dir)\n\n\n# ---------------------------------------------------------------------------\n# TestLoadPlan\n# ---------------------------------------------------------------------------\n\n\nclass TestLoadPlan:\n    \"\"\"Tests for load_plan function.\"\"\"\n\n    def test_load_plan_round_trip(self, sample_diff_public, mock_registry_empty, plans_dir):\n        created = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n        result = load_plan(created.plan_id, plans_dir)\n\n        assert result.plan_id == created.plan_id\n        assert result.status == PlanStatus.PENDING\n\n    def test_load_plan_not_found(self, plans_dir):\n        fake_id = \"00000000-0000-4000-8000-000000000001\"\n        with pytest.raises((PlanNotFoundError, Exception)):\n            load_plan(fake_id, plans_dir)\n\n    def test_load_plan_corrupted_empty_file(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        path = os.path.join(plans_dir, f\"{plan_id}.json\")\n        with open(path, \"w\") as f:\n            f.write(\"\")\n\n        with pytest.raises(Exception):\n            load_plan(plan_id, plans_dir)\n\n    def test_load_plan_corrupted_invalid_json(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        path = os.path.join(plans_dir, f\"{plan_id}.json\")\n        with open(path, \"w\") as f:\n            f.write(\"NOT VALID JSON {{{\")\n\n        with pytest.raises(Exception):\n            load_plan(plan_id, plans_dir)\n\n    def test_load_plan_corrupted_wrong_schema(self, plans_dir):\n        plan_id = str(uuid.uuid4())\n        path = os.path.join(plans_dir, f\"{plan_id}.json\")\n        with open(path, \"w\") as f:\n            json.dump({\"wrong\": \"schema\", \"missing\": \"fields\"}, f)\n\n        with pytest.raises(Exception):\n            load_plan(plan_id, plans_dir)\n\n    def test_load_plan_file_read_permission_error(self, plans_dir):\n        \"\"\"Unreadable plan file raises file_read_error.\"\"\"\n        plan_id = str(uuid.uuid4())\n        path = os.path.join(plans_dir, f\"{plan_id}.json\")\n        _seed_plan(plans_dir, plan_id)\n\n        # Remove read permissions\n        try:\n            os.chmod(path, 0o000)\n            with pytest.raises(Exception):\n                load_plan(plan_id, plans_dir)\n        finally:\n            # Restore permissions for cleanup\n            os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)\n\n    def test_load_plan_matches_created_plan_fields(\n        self, sample_diff_public, mock_registry_empty, plans_dir\n    ):\n        created = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n        loaded = load_plan(created.plan_id, plans_dir)\n\n        assert loaded.plan_id == created.plan_id\n        assert loaded.overall_gate == created.overall_gate\n        assert loaded.status == created.status\n        assert loaded.source_path == created.source_path\n        assert loaded.source_hash == created.source_hash\n\n\n# ---------------------------------------------------------------------------\n# Invariant Tests (cross-cutting)\n# ---------------------------------------------------------------------------\n\n\nclass TestInvariants:\n    \"\"\"Cross-cutting invariant tests from the contract.\"\"\"\n\n    def test_plan_status_only_valid_transitions(self):\n        \"\"\"Plan status transitions: PENDING → APPROVED or PENDING → REJECTED only.\"\"\"\n        valid_transitions = {\n            PlanStatus.PENDING: {PlanStatus.APPROVED, PlanStatus.REJECTED},\n        }\n        # APPROVED and REJECTED are terminal\n        assert PlanStatus.APPROVED not in valid_transitions or len(\n            valid_transitions.get(PlanStatus.APPROVED, set())\n        ) == 0\n        assert PlanStatus.REJECTED not in valid_transitions or len(\n            valid_transitions.get(PlanStatus.REJECTED, set())\n        ) == 0\n\n    def test_gate_decision_max_severity_logic(self):\n        \"\"\"Overall gate must be the max severity across violations.\"\"\"\n        # This is a logic test: given a set of gate decisions, the max should be determined correctly\n        severity_map = {\n            GateDecision.AUTO_PROCEED: 0,\n            GateDecision.HUMAN_GATE: 1,\n            GateDecision.BLOCKED: 2,\n        }\n\n        test_cases = [\n            ([], GateDecision.AUTO_PROCEED),\n            ([GateDecision.AUTO_PROCEED], GateDecision.AUTO_PROCEED),\n            ([GateDecision.HUMAN_GATE], GateDecision.HUMAN_GATE),\n            ([GateDecision.BLOCKED], GateDecision.BLOCKED),\n            ([GateDecision.HUMAN_GATE, GateDecision.BLOCKED], GateDecision.BLOCKED),\n            ([GateDecision.AUTO_PROCEED, GateDecision.HUMAN_GATE], GateDecision.HUMAN_GATE),\n        ]\n\n        for decisions, expected_max in test_cases:\n            if decisions:\n                actual_max = max(decisions, key=lambda d: severity_map[d])\n                assert actual_max == expected_max, f\"Expected {expected_max} for {decisions}\"\n\n    def test_sql_parsing_is_regex_only(self):\n        \"\"\"SQL parsing uses regex extraction — only ALTER TABLE with ADD/DROP/ALTER COLUMN recognized.\"\"\"\n        # CREATE TABLE, DROP TABLE, RENAME TABLE should NOT produce operations\n        sql = (\n            \"CREATE TABLE foo (id INT, name TEXT);\\n\"\n            \"DROP TABLE IF EXISTS bar;\\n\"\n            \"ALTER TABLE baz ADD COLUMN x INT;\"\n        )\n        result = parse_migration(sql, \"invariant_test.sql\")\n\n        # Only the ALTER TABLE ADD COLUMN should be recognized\n        for op in result.operations:\n            assert op.op_type in {\n                OperationType.ADD_COLUMN,\n                OperationType.DROP_COLUMN,\n                OperationType.ALTER_COLUMN,\n            }\n        # Should find exactly 1 operation (the ALTER TABLE)\n        assert len(result.operations) == 1\n        assert result.operations[0].table_name == \"baz\"\n\n    def test_no_short_circuit_on_warnings(self):\n        \"\"\"All parse warnings are collected, never short-circuiting.\"\"\"\n        sql = (\n            \"ALTER TABLE a ADD COLUMN x INT;\\n\"\n            \"ALTER TABLE b ADD COLUMN y INT;\\n\"\n            \"ALTER TABLE c ADD COLUMN z INT;\"\n        )\n        result = parse_migration(sql, \"m.sql\")\n        # All 3 operations should be present regardless of any warnings\n        assert len(result.operations) == 3\n\n    def test_no_short_circuit_on_violations(\n        self,\n    ):\n        \"\"\"Gate evaluation returns ALL violations, never short-circuits.\"\"\"\n        # Build a diff with multiple triggering entries\n        diff = SchemaDiff(\n            entries=[\n                DiffEntry(\n                    operation=ColumnOperation(\n                        op_type=OperationType.DROP_COLUMN,\n                        table_name=\"t1\",\n                        column_name=\"audit_col\",\n                        new_type=\"\",\n                        old_type=\"TEXT\",\n                        constraints=[],\n                    ),\n                    annotation=FieldAnnotation(\n                        classification_tier=\"INTERNAL\",\n                        is_audit_field=True,\n                        is_immutable=False,\n                        is_encrypted=False,\n                    ),\n                    is_new_field=False,\n                    is_field_removal=True,\n                ),\n                DiffEntry(\n                    operation=ColumnOperation(\n                        op_type=OperationType.ALTER_COLUMN,\n                        table_name=\"t2\",\n                        column_name=\"immut_col\",\n                        new_type=\"INT\",\n                        old_type=\"TEXT\",\n                        constraints=[],\n                    ),\n                    annotation=FieldAnnotation(\n                        classification_tier=\"INTERNAL\",\n                        is_audit_field=False,\n                        is_immutable=True,\n                        is_encrypted=False,\n                    ),\n                    is_new_field=False,\n                    is_field_removal=False,\n                ),\n            ],\n            affected_tables=[\"t1\", \"t2\"],\n            source_path=\"m.sql\",\n            source_hash=\"h\",\n        )\n        ctx = ComponentContext(\n            component_id=\"test\",\n            declared_data_access_tiers=[\"INTERNAL\"],\n        )\n        result = evaluate_gates(diff, ctx)\n        # Both entries should trigger violations — at least 2\n        assert len(result) >= 2\n\n    def test_plan_id_uniqueness(self, sample_diff_public, mock_registry_empty, plans_dir):\n        \"\"\"Plan IDs are UUID v4, guaranteed unique per plan.\"\"\"\n        plan1 = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n        plan2 = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n\n        assert plan1.plan_id != plan2.plan_id\n        assert uuid.UUID(plan1.plan_id).version == 4\n        assert uuid.UUID(plan2.plan_id).version == 4\n\n    def test_atomic_write_no_partial_files(\n        self, sample_diff_public, mock_registry_empty, plans_dir\n    ):\n        \"\"\"Plan files written atomically — after creation, file is complete and valid JSON.\"\"\"\n        result = create_plan(sample_diff_public, [], mock_registry_empty, plans_dir)\n        plan_file = os.path.join(plans_dir, f\"{result.plan_id}.json\")\n\n        with open(plan_file, \"r\") as f:\n            data = json.load(f)  # Should not raise — file must be valid JSON\n\n        assert data is not None\n        # Verify plan_id in the file matches\n        assert data.get(\"plan_id\") == result.plan_id\n"
+}

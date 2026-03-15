@@ -1,0 +1,764 @@
+{
+  "component_id": "mock",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "goodhart_canary_fingerprint_different_inputs",
+      "description": "Canary fingerprint hex8 is correctly derived from SHA-256 of concatenated inputs for arbitrary backend/table/field combinations, not hardcoded for specific test values",
+      "function": "generate_canary_fingerprint",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Multiple different backend_id, table_name, field_name, row_index combinations not used in visible tests",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "hex8 matches hashlib.sha256 of concatenated inputs for each combination",
+        "result matches pattern ledger-canary-{tier}-[0-9a-f]{8}"
+      ]
+    },
+    {
+      "id": "goodhart_canary_fingerprint_special_chars",
+      "description": "Canary fingerprint correctly handles input strings containing special characters, hyphens, and unicode in the SHA-256 computation",
+      "function": "generate_canary_fingerprint",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "backend_id and table_name with hyphens, underscores, dots, and unicode characters",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "hex8 matches SHA-256 of raw concatenation including special characters",
+        "format is still ledger-canary-{tier}-[0-9a-f]{8}"
+      ]
+    },
+    {
+      "id": "goodhart_canary_fingerprint_row_index_large",
+      "description": "Canary fingerprint correctly converts large row indices to string for SHA-256 hashing",
+      "function": "generate_canary_fingerprint",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "row_index values like 999999, 0, 1, 100000",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "hex8 matches SHA-256 using str(row_index) for large values",
+        "each row_index produces a unique fingerprint"
+      ]
+    },
+    {
+      "id": "goodhart_token_value_length_exact",
+      "description": "Token values must be exactly 28 characters total with 4-char prefix and 24-char base64url payload for any seed value",
+      "function": "generate_token_value",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Multiple different Random seeds (0, 1, 42, 99999, 2**31-1)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "length is exactly 28 for every seed",
+        "starts with 'tok_'",
+        "payload chars are all in [A-Za-z0-9_-]"
+      ]
+    },
+    {
+      "id": "goodhart_token_value_different_seeds_different_output",
+      "description": "Token values generated with different seeds must produce different payloads, proving actual RNG usage rather than a constant",
+      "function": "generate_token_value",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "10 different Random instances with seeds 0-9",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "at least 9 out of 10 tokens are unique (collision extremely unlikely)"
+      ]
+    },
+    {
+      "id": "goodhart_compute_seeds_large_base_seed",
+      "description": "Per-field seed computation works correctly with large base_seed values, ensuring field_seed = base_seed + offset without overflow issues",
+      "function": "compute_field_seeds",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "base_seed of 2**31 - 1 with 3 fields",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "field_seed equals base_seed + field_index_offset for each field",
+        "offsets are sequential starting from 0"
+      ]
+    },
+    {
+      "id": "goodhart_compute_seeds_single_field",
+      "description": "Per-field seed computation handles the minimal case of a single field, assigning offset 0",
+      "function": "compute_field_seeds",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Single field name 'alpha' with base_seed 100",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returned list has length 1",
+        "field_index_offset is 0",
+        "field_seed equals base_seed"
+      ]
+    },
+    {
+      "id": "goodhart_compute_seeds_lexicographic_order_numbers",
+      "description": "Lexicographic sorting of field names follows string comparison rules, not natural number ordering",
+      "function": "compute_field_seeds",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Fields named 'field_10', 'field_2', 'field_1' - lexicographically '1' < '10' < '2'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "field_1 gets offset 0, field_10 gets offset 1, field_2 gets offset 2",
+        "entries are sorted as ['field_1', 'field_10', 'field_2']"
+      ]
+    },
+    {
+      "id": "goodhart_resolve_seed_zero",
+      "description": "resolve_seed treats 0 as a valid explicit seed, not as falsy/None",
+      "function": "resolve_seed",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "explicit_seed=0, config_seed=42",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns 0, not 42"
+      ]
+    },
+    {
+      "id": "goodhart_resolve_seed_negative",
+      "description": "resolve_seed accepts negative seed values as valid explicit seeds",
+      "function": "resolve_seed",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "explicit_seed=-1, config_seed=None",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns -1"
+      ]
+    },
+    {
+      "id": "goodhart_parse_varchar_zero_length",
+      "description": "parse_varchar_length rejects varchar(0) since returned value must be >= 1",
+      "function": "parse_varchar_length",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "sql_type='varchar(0)'",
+      "expected_output_description": "",
+      "expected_error": "invalid_length_value",
+      "assertions": [
+        "raises error for zero length"
+      ]
+    },
+    {
+      "id": "goodhart_parse_varchar_large_length",
+      "description": "parse_varchar_length correctly parses large length values from varchar type strings",
+      "function": "parse_varchar_length",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "sql_type='varchar(65535)'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns 65535"
+      ]
+    },
+    {
+      "id": "goodhart_parse_varchar_whitespace",
+      "description": "parse_varchar_length handles varchar with whitespace around the number like 'varchar( 255 )'",
+      "function": "parse_varchar_length",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "sql_type='varchar( 255 )' or 'character varying( 100 )'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "either returns the parsed integer or raises a clear error"
+      ]
+    },
+    {
+      "id": "goodhart_generate_field_value_encrypted_pii",
+      "description": "When a field is both encrypted_at_rest and has PII classification, the tokenized/encrypted precedence takes priority over classification in test mode",
+      "function": "generate_field_value",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "FieldSpec with encrypted_at_rest=True, classification=PII, purpose='test'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result matches tok_[A-Za-z0-9_-]{24} pattern",
+        "result does not contain PII-style data"
+      ]
+    },
+    {
+      "id": "goodhart_generate_field_value_tokenized_financial",
+      "description": "When a field is tokenized with FINANCIAL classification, the tokenized precedence wins over classification in test mode",
+      "function": "generate_field_value",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "FieldSpec with tokenized=True, classification=FINANCIAL, purpose='test'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result matches tok_[A-Za-z0-9_-]{24}"
+      ]
+    },
+    {
+      "id": "goodhart_generate_field_value_nullable_zero_probability",
+      "description": "Nullable fields with null_probability=0.0 never produce None values",
+      "function": "generate_field_value",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "nullable=True field with null_probability=0.0, tested across 100 row indices",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "no None values produced across all rows"
+      ]
+    },
+    {
+      "id": "goodhart_generate_field_value_different_row_indices",
+      "description": "The same field with different row_index values produces different values, proving per-row seeding is active",
+      "function": "generate_field_value",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Same FieldSpec and field_seed, row_index 0 through 9",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "at least 8 out of 10 values are distinct"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_field_order_independence",
+      "description": "Mock records contain identical values regardless of the order fields are declared in the request, because seeds are based on lexicographic sorting",
+      "function": "generate_mock_records",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Two requests with same fields but in different declaration order, same seed",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "records from both requests are identical for each field"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_canary_registered_true_on_success",
+      "description": "When purpose is canary and arbiter_api is set and returns 2xx, canary_registered must be True (not just non-None)",
+      "function": "generate_mock_records",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "httpx": "mock 200 response with registration_id"
+      },
+      "input_values": {},
+      "input_description": "Canary request with mocked arbiter returning 200 with valid JSON",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.canary_registered is exactly True (not truthy)"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_canary_registered_false_on_failure",
+      "description": "When purpose is canary and arbiter_api is set but returns error, canary_registered must be False (not None)",
+      "function": "generate_mock_records",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "httpx": "mock 500 response"
+      },
+      "input_values": {},
+      "input_description": "Canary request with mocked arbiter returning 500",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.canary_registered is exactly False"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_test_purpose_canary_registered_none",
+      "description": "When purpose is 'test', canary_registered must be None regardless of whether arbiter_api is set",
+      "function": "generate_mock_records",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Test purpose request with arbiter_api set to a URL",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.canary_registered is None"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_multiple_unsupported_types",
+      "description": "When multiple fields have unsupported SQL types, each produces its own warning MockViolation, not just one global warning",
+      "function": "generate_mock_records",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Request with 3 fields having unsupported types like 'geometry', 'hstore', 'xml'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "at least 3 warning MockViolations in errors, one per unsupported field",
+        "records still contain values (fallback strings) for those fields"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_canary_all_rows_unique_fingerprints",
+      "description": "In canary mode, each row produces a unique canary fingerprint per field since row_index varies",
+      "function": "generate_mock_records",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Canary request with 5 rows and 1 field",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "all 5 canary values for the field are distinct"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_mixed_encrypted_and_normal",
+      "description": "In a single request with both encrypted and non-encrypted fields, only the encrypted fields produce tok_ values while normal fields produce type-appropriate values",
+      "function": "generate_mock_records",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Request with one encrypted varchar field and one non-encrypted bigint field",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "encrypted field values match tok_ pattern",
+        "non-encrypted bigint field values are integers, not tokens"
+      ]
+    },
+    {
+      "id": "goodhart_shape_canary_varchar_no_max_length",
+      "description": "Shaping canary to varchar type without max_length set should return the full fingerprint without truncation",
+      "function": "shape_canary_to_type",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "FieldSpec with sql_type='varchar', max_length=None",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result contains the full raw_fingerprint string"
+      ]
+    },
+    {
+      "id": "goodhart_shape_canary_varchar_tight_max_length",
+      "description": "Shaping canary to varchar with very small max_length truncates appropriately while still containing a recognizable canary derivative",
+      "function": "shape_canary_to_type",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "FieldSpec with sql_type='varchar(30)', max_length=30, fingerprint longer than 30 chars",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result length <= 30"
+      ]
+    },
+    {
+      "id": "goodhart_shape_canary_tokenized_and_email",
+      "description": "When a field is both tokenized and has PII email classification, the tokenized shaping takes precedence with tok_ prefix",
+      "function": "shape_canary_to_type",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "FieldSpec with field_name='email', classification=PII, tokenized=True",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result starts with 'tok_'"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_posts_to_correct_endpoint",
+      "description": "Arbiter registration sends POST to {arbiter_api}/v1/canary/register, not just the base URL",
+      "function": "register_canary_with_arbiter",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "httpx": "capture the URL of the POST request"
+      },
+      "input_values": {},
+      "input_description": "arbiter_api='https://arbiter.example.com'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "POST was made to 'https://arbiter.example.com/v1/canary/register'"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_http_4xx",
+      "description": "Arbiter returning 4xx client errors is handled gracefully with success=False and response code captured",
+      "function": "register_canary_with_arbiter",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "httpx": "mock 403 response"
+      },
+      "input_values": {},
+      "input_description": "Mocked arbiter returning HTTP 403",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.success is False",
+        "result.arbiter_response_code is 403",
+        "result.error_message is not None/empty"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_success_has_registration_id",
+      "description": "On successful arbiter registration (2xx), the result must include a non-empty registration_id",
+      "function": "register_canary_with_arbiter",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "httpx": "mock 201 with {\"registration_id\": \"reg-abc123\"}"
+      },
+      "input_values": {},
+      "input_description": "Mocked arbiter returning 201 with JSON containing registration_id",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.success is True",
+        "result.registration_id is 'reg-abc123'",
+        "result.arbiter_response_code is 201"
+      ]
+    },
+    {
+      "id": "goodhart_arbiter_200_missing_registration_id",
+      "description": "Arbiter returning 200 with valid JSON but missing registration_id field is treated as an error",
+      "function": "register_canary_with_arbiter",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "httpx": "mock 200 with empty JSON object"
+      },
+      "input_values": {},
+      "input_description": "Mocked arbiter returning 200 with JSON {} (no registration_id)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.success is False",
+        "result.error_message describes missing registration_id"
+      ]
+    },
+    {
+      "id": "goodhart_validate_row_count_zero",
+      "description": "Validation rejects row_count of 0 since minimum is 1",
+      "function": "validate_request",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Valid request dict but with row_count=0",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns at least one MockViolation about row_count"
+      ]
+    },
+    {
+      "id": "goodhart_validate_row_count_negative",
+      "description": "Validation rejects negative row_count values",
+      "function": "validate_request",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Valid request dict but with row_count=-5",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns at least one MockViolation about row_count"
+      ]
+    },
+    {
+      "id": "goodhart_validate_row_count_exceeds_max",
+      "description": "Validation rejects row_count exceeding 1,000,000",
+      "function": "validate_request",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Valid request dict but with row_count=1_000_001",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns at least one MockViolation about row_count"
+      ]
+    },
+    {
+      "id": "goodhart_validate_canary_empty_tier_string",
+      "description": "Validation rejects empty string tier when purpose is canary, not just None tier",
+      "function": "validate_request",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Purpose canary with tier=''",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns MockViolation about tier being required"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_seed_used_reflects_explicit",
+      "description": "The seed_used field in the result reflects the explicit seed from the request, not some internal default",
+      "function": "generate_mock_records",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Request with seed=98765",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.seed_used == 98765"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_different_seeds_different_records",
+      "description": "Different seeds produce different record values, proving the seed is actually used in generation",
+      "function": "generate_mock_records",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Two requests identical except seed=1 vs seed=2",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "records from the two requests differ in at least one field value"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_row_count_one",
+      "description": "Generating exactly 1 row produces a result with exactly 1 record",
+      "function": "generate_mock_records",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Request with row_count=1",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "len(result.records) == 1",
+        "result.row_count == 1"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_canary_every_field_has_fingerprint",
+      "description": "In canary mode, every field in every row contains the canary substring, not just the first field or first row",
+      "function": "generate_mock_records",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Canary request with 3 fields and 3 rows",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "all 9 values contain 'ledger-canary-{tier}'"
+      ]
+    },
+    {
+      "id": "goodhart_compute_seeds_five_fields_correct_offsets",
+      "description": "Field index offsets are assigned based on lexicographic position using entirely different field names than visible tests",
+      "function": "compute_field_seeds",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Fields ['zebra', 'apple', 'mango', 'banana', 'cherry'] with base_seed=500",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "sorted order is apple(0), banana(1), cherry(2), mango(3), zebra(4)",
+        "field_seeds are 500, 501, 502, 503, 504 respectively"
+      ]
+    },
+    {
+      "id": "goodhart_generate_field_value_bigint_type",
+      "description": "generate_field_value produces an integer (not string) for bigint SQL type fields",
+      "function": "generate_field_value",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "FieldSpec with sql_type='bigint', no classification, not tokenized",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result is an integer type"
+      ]
+    },
+    {
+      "id": "goodhart_generate_field_value_timestamptz",
+      "description": "generate_field_value produces a value for timestamptz SQL type, proving the type generator registry handles timestamp types",
+      "function": "generate_field_value",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "FieldSpec with sql_type='timestamptz'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result is not None and is a recognizable timestamp or datetime value"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_no_exception_on_generation_errors",
+      "description": "generate_mock_records never raises exceptions even when fields have unsupported types; errors are captured in the result object",
+      "function": "generate_mock_records",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Request with mix of valid and completely invalid SQL types",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "no exception raised",
+        "result.errors is non-empty",
+        "result.records is still populated"
+      ]
+    },
+    {
+      "id": "goodhart_canary_fingerprint_tier_embedded",
+      "description": "The tier value is embedded literally in the canary fingerprint, not hashed or transformed",
+      "function": "generate_canary_fingerprint",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "tier='production-alpha' (with hyphen)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result contains literal string 'ledger-canary-production-alpha-'",
+        "followed by 8 hex chars"
+      ]
+    },
+    {
+      "id": "goodhart_parse_varchar_case_insensitive",
+      "description": "parse_varchar_length handles case variations like 'VARCHAR(100)' or 'Varchar(50)'",
+      "function": "parse_varchar_length",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "sql_type='VARCHAR(100)'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns 100 or handles case-insensitively"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_encrypted_across_all_rows",
+      "description": "Encrypted field produces tok_ pattern for every row, not just the first row",
+      "function": "generate_mock_records",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Request with encrypted_at_rest field and 10 rows",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "all 10 values for the encrypted field match tok_[A-Za-z0-9_-]{24}"
+      ]
+    },
+    {
+      "id": "goodhart_shape_canary_uuid_valid_format",
+      "description": "UUID-shaped canary values are parseable as valid UUIDs with the standard 8-4-4-4-12 hex format",
+      "function": "shape_canary_to_type",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Multiple different fingerprints shaped to uuid type",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "each result can be parsed by uuid.UUID()",
+        "result still contains a derivative of the fingerprint"
+      ]
+    },
+    {
+      "id": "goodhart_e2e_classification_override_unsupported_type",
+      "description": "A field with an unsupported SQL type but PII classification should use the classification generator instead of falling back, since classification takes precedence over type in the chain",
+      "function": "generate_field_value",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "FieldSpec with sql_type='nonsense_type', classification=PII, purpose='test'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result is a PII-style value (not a fallback random string)",
+        "no unsupported_type warning for this field"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nAdversarial hidden acceptance tests for Mock Data Generator.\nThese tests target gaps in visible test coverage and catch implementations\nthat may be hardcoded or shortcut-based.\n\"\"\"\nimport hashlib\nimport random\nimport re\nimport uuid\nfrom unittest.mock import MagicMock, patch, AsyncMock\n\nimport pytest\n\nfrom src.mock import (\n    generate_mock_records,\n    compute_field_seeds,\n    generate_field_value,\n    generate_canary_fingerprint,\n    shape_canary_to_type,\n    generate_token_value,\n    register_canary_with_arbiter,\n    resolve_seed,\n    parse_varchar_length,\n    get_type_generator,\n    get_classification_generator,\n    validate_request,\n    FieldSpec,\n    FieldClassification,\n    MockPurpose,\n    MockGenerationRequest,\n    MockViolation,\n    ViolationSeverity,\n    CanaryValue,\n)\n\n\n# ---------------------------------------------------------------------------\n# generate_canary_fingerprint – novel inputs\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartCanaryFingerprint:\n\n    def test_goodhart_canary_fingerprint_different_inputs(self):\n        \"\"\"Canary fingerprint hex8 is correctly derived from SHA-256 of concatenated\n        inputs for arbitrary backend/table/field combinations, not hardcoded.\"\"\"\n        cases = [\n            (\"backend-xyz\", \"orders\", \"amount\", 0, \"staging\"),\n            (\"prod-001\", \"users\", \"ssn\", 5, \"gold\"),\n            (\"dev\", \"payments\", \"card_number\", 99, \"silver\"),\n        ]\n        for backend_id, table_name, field_name, row_index, tier in cases:\n            result = generate_canary_fingerprint(backend_id, table_name, field_name, row_index, tier)\n            expected_hex8 = hashlib.sha256(\n                (backend_id + table_name + field_name + str(row_index)).encode()\n            ).hexdigest()[:8]\n            assert result == f\"ledger-canary-{tier}-{expected_hex8}\", (\n                f\"Fingerprint mismatch for {backend_id}/{table_name}/{field_name}/{row_index}\"\n            )\n            assert re.fullmatch(rf\"ledger-canary-{re.escape(tier)}-[0-9a-f]{{8}}\", result)\n\n    def test_goodhart_canary_fingerprint_special_chars(self):\n        \"\"\"Canary fingerprint correctly handles input strings containing special\n        characters in the SHA-256 computation.\"\"\"\n        backend_id = \"back-end.v2\"\n        table_name = \"user_data\"\n        field_name = \"first-name\"\n        row_index = 3\n        tier = \"tier-1\"\n        result = generate_canary_fingerprint(backend_id, table_name, field_name, row_index, tier)\n        expected_hex8 = hashlib.sha256(\n            (backend_id + table_name + field_name + str(row_index)).encode()\n        ).hexdigest()[:8]\n        assert result == f\"ledger-canary-{tier}-{expected_hex8}\"\n\n    def test_goodhart_canary_fingerprint_row_index_large(self):\n        \"\"\"Canary fingerprint correctly converts large row indices to string for hashing.\"\"\"\n        results = set()\n        for idx in [0, 1, 999999, 100000]:\n            fp = generate_canary_fingerprint(\"b\", \"t\", \"f\", idx, \"tier\")\n            expected_hex8 = hashlib.sha256(\n                (\"b\" + \"t\" + \"f\" + str(idx)).encode()\n            ).hexdigest()[:8]\n            assert fp.endswith(expected_hex8)\n            results.add(fp)\n        assert len(results) == 4, \"Each row_index should produce a unique fingerprint\"\n\n    def test_goodhart_canary_fingerprint_tier_embedded(self):\n        \"\"\"The tier value is embedded literally in the canary fingerprint, not hashed.\"\"\"\n        tier = \"production-alpha\"\n        result = generate_canary_fingerprint(\"b\", \"t\", \"f\", 0, tier)\n        assert f\"ledger-canary-{tier}-\" in result\n        hex_part = result.split(\"-\")[-1]\n        assert re.fullmatch(r\"[0-9a-f]{8}\", hex_part)\n\n\n# ---------------------------------------------------------------------------\n# generate_token_value – exhaustive format checks\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartTokenValue:\n\n    def test_goodhart_token_value_length_exact(self):\n        \"\"\"Token values must be exactly 28 characters for any seed value.\"\"\"\n        for seed_val in [0, 1, 42, 99999, 2**31 - 1]:\n            rng = random.Random(seed_val)\n            token = generate_token_value(rng)\n            assert len(token) == 28, f\"Token length {len(token)} != 28 for seed {seed_val}\"\n            assert token.startswith(\"tok_\")\n            assert re.fullmatch(r\"tok_[A-Za-z0-9_\\-]{24}\", token), f\"Bad token format: {token}\"\n\n    def test_goodhart_token_value_different_seeds_different_output(self):\n        \"\"\"Different seeds produce different token payloads, proving actual RNG usage.\"\"\"\n        tokens = set()\n        for seed_val in range(10):\n            rng = random.Random(seed_val)\n            tokens.add(generate_token_value(rng))\n        assert len(tokens) >= 9, \"Tokens should be unique across different seeds\"\n\n\n# ---------------------------------------------------------------------------\n# compute_field_seeds – novel field names and edge cases\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartComputeFieldSeeds:\n\n    def test_goodhart_compute_seeds_large_base_seed(self):\n        \"\"\"Per-field seed computation works with large base_seed values.\"\"\"\n        base = 2**31 - 1\n        result = compute_field_seeds([\"x\", \"a\", \"m\"], base)\n        assert len(result) == 3\n        sorted_names = sorted([\"x\", \"a\", \"m\"])\n        for i, info in enumerate(result):\n            assert info.field_name == sorted_names[i]\n            assert info.field_index_offset == i\n            assert info.field_seed == base + i\n\n    def test_goodhart_compute_seeds_single_field(self):\n        \"\"\"Single field case assigns offset 0 and field_seed == base_seed.\"\"\"\n        result = compute_field_seeds([\"alpha\"], 100)\n        assert len(result) == 1\n        assert result[0].field_index_offset == 0\n        assert result[0].field_seed == 100\n        assert result[0].field_name == \"alpha\"\n\n    def test_goodhart_compute_seeds_lexicographic_order_numbers(self):\n        \"\"\"Lexicographic sorting follows string rules, not natural number ordering.\"\"\"\n        result = compute_field_seeds([\"field_10\", \"field_2\", \"field_1\"], 0)\n        expected_order = [\"field_1\", \"field_10\", \"field_2\"]\n        actual_order = [info.field_name for info in result]\n        assert actual_order == expected_order\n        for i, info in enumerate(result):\n            assert info.field_index_offset == i\n\n    def test_goodhart_compute_seeds_five_fields_correct_offsets(self):\n        \"\"\"Field index offsets assigned correctly for 5 diverse field names.\"\"\"\n        fields = [\"zebra\", \"apple\", \"mango\", \"banana\", \"cherry\"]\n        result = compute_field_seeds(fields, 500)\n        expected = [\"apple\", \"banana\", \"cherry\", \"mango\", \"zebra\"]\n        for i, info in enumerate(result):\n            assert info.field_name == expected[i]\n            assert info.field_index_offset == i\n            assert info.field_seed == 500 + i\n\n\n# ---------------------------------------------------------------------------\n# resolve_seed – edge cases around falsy values\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartResolveSeed:\n\n    def test_goodhart_resolve_seed_zero(self):\n        \"\"\"resolve_seed treats 0 as a valid explicit seed, not as falsy/None.\"\"\"\n        assert resolve_seed(0, 42) == 0\n\n    def test_goodhart_resolve_seed_negative(self):\n        \"\"\"resolve_seed accepts negative seed values as valid.\"\"\"\n        assert resolve_seed(-1, None) == -1\n\n\n# ---------------------------------------------------------------------------\n# parse_varchar_length – boundary and format variations\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartParseVarchar:\n\n    def test_goodhart_parse_varchar_zero_length(self):\n        \"\"\"parse_varchar_length rejects varchar(0) since min is 1.\"\"\"\n        with pytest.raises(Exception):\n            parse_varchar_length(\"varchar(0)\")\n\n    def test_goodhart_parse_varchar_large_length(self):\n        \"\"\"parse_varchar_length correctly parses large length values.\"\"\"\n        assert parse_varchar_length(\"varchar(65535)\") == 65535\n\n    def test_goodhart_parse_varchar_length_one(self):\n        \"\"\"parse_varchar_length accepts varchar(1) as the minimum valid length.\"\"\"\n        assert parse_varchar_length(\"varchar(1)\") == 1\n\n\n# ---------------------------------------------------------------------------\n# generate_field_value – precedence chain and edge cases\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartGenerateFieldValue:\n\n    def _make_field_spec(self, **kwargs):\n        defaults = {\n            \"field_name\": \"test_field\",\n            \"sql_type\": \"varchar(255)\",\n            \"max_length\": 255,\n            \"classification\": None,\n            \"encrypted_at_rest\": False,\n            \"tokenized\": False,\n            \"nullable\": False,\n        }\n        defaults.update(kwargs)\n        return FieldSpec(**defaults)\n\n    def test_goodhart_encrypted_pii_precedence(self):\n        \"\"\"encrypted_at_rest takes precedence over PII classification in test mode.\"\"\"\n        spec = self._make_field_spec(encrypted_at_rest=True, classification=FieldClassification.PII)\n        result = generate_field_value(spec, 42, 0, MockPurpose.test, None, \"b\", \"t\", 0.0)\n        assert re.fullmatch(r\"tok_[A-Za-z0-9_\\-]{24}\", result), f\"Expected tok_ pattern, got: {result}\"\n\n    def test_goodhart_tokenized_financial_precedence(self):\n        \"\"\"tokenized takes precedence over FINANCIAL classification in test mode.\"\"\"\n        spec = self._make_field_spec(tokenized=True, classification=FieldClassification.FINANCIAL)\n        result = generate_field_value(spec, 42, 0, MockPurpose.test, None, \"b\", \"t\", 0.0)\n        assert re.fullmatch(r\"tok_[A-Za-z0-9_\\-]{24}\", result)\n\n    def test_goodhart_nullable_zero_probability_never_none(self):\n        \"\"\"Nullable fields with null_probability=0.0 never produce None.\"\"\"\n        spec = self._make_field_spec(nullable=True)\n        for row_idx in range(100):\n            result = generate_field_value(spec, 42, row_idx, MockPurpose.test, None, \"b\", \"t\", 0.0)\n            assert result is not None, f\"Got None at row_index={row_idx} with null_probability=0.0\"\n\n    def test_goodhart_different_row_indices_different_values(self):\n        \"\"\"Same field with different row_index values produces different values.\"\"\"\n        spec = self._make_field_spec()\n        values = set()\n        for row_idx in range(10):\n            val = generate_field_value(spec, 42, row_idx, MockPurpose.test, None, \"b\", \"t\", 0.0)\n            values.add(str(val))\n        assert len(values) >= 8, \"Expected mostly unique values across row indices\"\n\n    def test_goodhart_classification_override_unsupported_type(self):\n        \"\"\"A field with unsupported SQL type but PII classification uses classification\n        generator, not fallback.\"\"\"\n        spec = self._make_field_spec(sql_type=\"nonsense_type\", max_length=None,\n                                      classification=FieldClassification.PII)\n        result = generate_field_value(spec, 42, 0, MockPurpose.test, None, \"b\", \"t\", 0.0)\n        # Should not be a simple fallback random string; PII generator should kick in\n        assert result is not None\n\n    def test_goodhart_bigint_produces_integer(self):\n        \"\"\"generate_field_value produces an integer for bigint SQL type.\"\"\"\n        spec = self._make_field_spec(sql_type=\"bigint\", max_length=None)\n        result = generate_field_value(spec, 42, 0, MockPurpose.test, None, \"b\", \"t\", 0.0)\n        assert isinstance(result, int), f\"Expected int for bigint, got {type(result)}: {result}\"\n\n\n# ---------------------------------------------------------------------------\n# shape_canary_to_type – additional shaping scenarios\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartShapeCanary:\n\n    def _make_field_spec(self, **kwargs):\n        defaults = {\n            \"field_name\": \"test_field\",\n            \"sql_type\": \"varchar(255)\",\n            \"max_length\": 255,\n            \"classification\": None,\n            \"encrypted_at_rest\": False,\n            \"tokenized\": False,\n            \"nullable\": False,\n        }\n        defaults.update(kwargs)\n        return FieldSpec(**defaults)\n\n    def test_goodhart_shape_canary_varchar_no_max_length(self):\n        \"\"\"varchar without max_length returns full fingerprint without truncation.\"\"\"\n        fp = \"ledger-canary-staging-abcdef01\"\n        spec = self._make_field_spec(sql_type=\"varchar\", max_length=None)\n        result = shape_canary_to_type(fp, spec)\n        assert fp in str(result), \"Full fingerprint should be preserved when no max_length\"\n\n    def test_goodhart_shape_canary_varchar_tight_max_length(self):\n        \"\"\"varchar with small max_length truncates the shaped value appropriately.\"\"\"\n        fp = \"ledger-canary-staging-abcdef01\"\n        spec = self._make_field_spec(sql_type=\"varchar(30)\", max_length=30)\n        result = shape_canary_to_type(fp, spec)\n        assert len(str(result)) <= 30\n\n    def test_goodhart_shape_canary_tokenized_and_email(self):\n        \"\"\"When field is both tokenized and PII email, tokenized shaping wins with tok_ prefix.\"\"\"\n        fp = \"ledger-canary-tier1-abcdef01\"\n        spec = self._make_field_spec(\n            field_name=\"email\", sql_type=\"varchar(255)\",\n            classification=FieldClassification.PII, tokenized=True\n        )\n        result = shape_canary_to_type(fp, spec)\n        assert str(result).startswith(\"tok_\"), f\"Expected tok_ prefix, got: {result}\"\n\n    def test_goodhart_shape_canary_uuid_valid_format(self):\n        \"\"\"UUID-shaped canary values are parseable as valid UUIDs.\"\"\"\n        fp = \"ledger-canary-prod-12345678\"\n        spec = self._make_field_spec(sql_type=\"uuid\", max_length=None)\n        result = shape_canary_to_type(fp, spec)\n        # Should be parseable as UUID\n        parsed = uuid.UUID(str(result))\n        assert parsed is not None\n\n\n# ---------------------------------------------------------------------------\n# validate_request – boundary row_count and tier edge cases\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartValidateRequest:\n\n    def _base_request(self, **overrides):\n        req = {\n            \"backend_id\": \"test-backend\",\n            \"table_name\": \"test_table\",\n            \"fields\": [\n                {\n                    \"field_name\": \"id\",\n                    \"sql_type\": \"bigint\",\n                    \"max_length\": None,\n                    \"classification\": None,\n                    \"encrypted_at_rest\": False,\n                    \"tokenized\": False,\n                    \"nullable\": False,\n                }\n            ],\n            \"row_count\": 10,\n            \"seed\": 42,\n            \"purpose\": \"test\",\n            \"tier\": None,\n            \"arbiter_api\": None,\n            \"null_probability\": 0.1,\n        }\n        req.update(overrides)\n        return req\n\n    def test_goodhart_validate_row_count_zero(self):\n        \"\"\"Validation rejects row_count of 0 since minimum is 1.\"\"\"\n        violations = validate_request(self._base_request(row_count=0))\n        assert len(violations) > 0\n        assert any(\"row_count\" in str(v.message).lower() or \"row_count\" in str(v.field_name).lower()\n                    for v in violations)\n\n    def test_goodhart_validate_row_count_negative(self):\n        \"\"\"Validation rejects negative row_count values.\"\"\"\n        violations = validate_request(self._base_request(row_count=-5))\n        assert len(violations) > 0\n\n    def test_goodhart_validate_row_count_exceeds_max(self):\n        \"\"\"Validation rejects row_count exceeding 1,000,000.\"\"\"\n        violations = validate_request(self._base_request(row_count=1_000_001))\n        assert len(violations) > 0\n\n    def test_goodhart_validate_canary_empty_tier_string(self):\n        \"\"\"Validation rejects empty string tier when purpose is canary.\"\"\"\n        violations = validate_request(self._base_request(purpose=\"canary\", tier=\"\"))\n        assert len(violations) > 0\n\n    def test_goodhart_validate_row_count_boundary_valid(self):\n        \"\"\"Validation accepts row_count=1 and row_count=1_000_000 as boundary valid values.\"\"\"\n        violations_min = validate_request(self._base_request(row_count=1))\n        # row_count=1 should be valid\n        row_count_violations = [v for v in violations_min\n                                 if \"row_count\" in str(v.message).lower() or \"row_count\" in str(v.field_name).lower()]\n        assert len(row_count_violations) == 0\n\n        violations_max = validate_request(self._base_request(row_count=1_000_000))\n        row_count_violations = [v for v in violations_max\n                                 if \"row_count\" in str(v.message).lower() or \"row_count\" in str(v.field_name).lower()]\n        assert len(row_count_violations) == 0\n\n\n# ---------------------------------------------------------------------------\n# register_canary_with_arbiter – endpoint and response handling\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartArbiter:\n\n    def _make_canary_values(self):\n        return [\n            CanaryValue(\n                field_name=\"test_field\",\n                row_index=0,\n                raw_fingerprint=\"ledger-canary-tier1-abcdef01\",\n                shaped_value=\"ledger-canary-tier1-abcdef01\",\n            )\n        ]\n\n    def test_goodhart_arbiter_http_4xx(self):\n        \"\"\"Arbiter returning 403 is handled gracefully with success=False.\"\"\"\n        mock_response = MagicMock()\n        mock_response.status_code = 403\n        mock_response.text = \"Forbidden\"\n        mock_response.json.side_effect = Exception(\"not json\")\n\n        with patch(\"httpx.post\", return_value=mock_response) as mock_post:\n            result = register_canary_with_arbiter(\n                \"https://arbiter.example.com\",\n                self._make_canary_values(),\n                \"tier1\", \"backend\", \"table\"\n            )\n        assert result.success is False\n        assert result.arbiter_response_code == 403\n        assert result.error_message is not None and len(result.error_message) > 0\n\n    def test_goodhart_arbiter_success_has_registration_id(self):\n        \"\"\"On 201 success, result includes registration_id from response.\"\"\"\n        mock_response = MagicMock()\n        mock_response.status_code = 201\n        mock_response.json.return_value = {\"registration_id\": \"reg-abc123\"}\n        mock_response.raise_for_status = MagicMock()\n\n        with patch(\"httpx.post\", return_value=mock_response):\n            result = register_canary_with_arbiter(\n                \"https://arbiter.example.com\",\n                self._make_canary_values(),\n                \"tier1\", \"backend\", \"table\"\n            )\n        assert result.success is True\n        assert result.registration_id == \"reg-abc123\"\n        assert result.arbiter_response_code == 201\n\n    def test_goodhart_arbiter_200_missing_registration_id(self):\n        \"\"\"200 with valid JSON but no registration_id is treated as error.\"\"\"\n        mock_response = MagicMock()\n        mock_response.status_code = 200\n        mock_response.json.return_value = {}\n        mock_response.raise_for_status = MagicMock()\n\n        with patch(\"httpx.post\", return_value=mock_response):\n            result = register_canary_with_arbiter(\n                \"https://arbiter.example.com\",\n                self._make_canary_values(),\n                \"tier1\", \"backend\", \"table\"\n            )\n        assert result.success is False\n        assert result.error_message is not None\n\n    def test_goodhart_arbiter_posts_to_correct_endpoint(self):\n        \"\"\"Arbiter registration POSTs to {arbiter_api}/v1/canary/register.\"\"\"\n        mock_response = MagicMock()\n        mock_response.status_code = 200\n        mock_response.json.return_value = {\"registration_id\": \"reg-xyz\"}\n        mock_response.raise_for_status = MagicMock()\n\n        with patch(\"httpx.post\", return_value=mock_response) as mock_post:\n            register_canary_with_arbiter(\n                \"https://arbiter.example.com\",\n                self._make_canary_values(),\n                \"tier1\", \"backend\", \"table\"\n            )\n        called_url = mock_post.call_args[0][0] if mock_post.call_args[0] else mock_post.call_args[1].get(\"url\", \"\")\n        assert called_url == \"https://arbiter.example.com/v1/canary/register\"\n\n\n# ---------------------------------------------------------------------------\n# generate_mock_records – end-to-end adversarial tests\n# ---------------------------------------------------------------------------\n\nclass TestGoodhartE2E:\n\n    def _make_request(self, **kwargs):\n        defaults = {\n            \"backend_id\": \"test-backend\",\n            \"table_name\": \"test_table\",\n            \"fields\": [\n                FieldSpec(\n                    field_name=\"name\",\n                    sql_type=\"varchar(100)\",\n                    max_length=100,\n                    classification=None,\n                    encrypted_at_rest=False,\n                    tokenized=False,\n                    nullable=False,\n                ),\n            ],\n            \"row_count\": 5,\n            \"seed\": 42,\n            \"purpose\": MockPurpose.test,\n            \"tier\": None,\n            \"arbiter_api\": None,\n            \"null_probability\": 0.0,\n        }\n        defaults.update(kwargs)\n        return MockGenerationRequest(**defaults)\n\n    def test_goodhart_e2e_field_order_independence(self):\n        \"\"\"Records contain identical values regardless of field declaration order.\"\"\"\n        fields_order_1 = [\n            FieldSpec(field_name=\"beta\", sql_type=\"varchar(50)\", max_length=50,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n            FieldSpec(field_name=\"alpha\", sql_type=\"bigint\", max_length=None,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n        ]\n        fields_order_2 = [\n            FieldSpec(field_name=\"alpha\", sql_type=\"bigint\", max_length=None,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n            FieldSpec(field_name=\"beta\", sql_type=\"varchar(50)\", max_length=50,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n        ]\n        req1 = self._make_request(fields=fields_order_1, seed=777, row_count=3)\n        req2 = self._make_request(fields=fields_order_2, seed=777, row_count=3)\n        result1 = generate_mock_records(req1)\n        result2 = generate_mock_records(req2)\n        for i in range(3):\n            assert result1.records[i][\"alpha\"] == result2.records[i][\"alpha\"]\n            assert result1.records[i][\"beta\"] == result2.records[i][\"beta\"]\n\n    def test_goodhart_e2e_canary_registered_true_on_success(self):\n        \"\"\"canary_registered is exactly True when arbiter returns 2xx.\"\"\"\n        mock_response = MagicMock()\n        mock_response.status_code = 200\n        mock_response.json.return_value = {\"registration_id\": \"reg-123\"}\n        mock_response.raise_for_status = MagicMock()\n\n        fields = [\n            FieldSpec(field_name=\"data\", sql_type=\"varchar(100)\", max_length=100,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n        ]\n        req = self._make_request(\n            fields=fields, purpose=MockPurpose.canary, tier=\"staging\",\n            arbiter_api=\"https://arbiter.test\", row_count=2\n        )\n        with patch(\"httpx.post\", return_value=mock_response):\n            result = generate_mock_records(req)\n        assert result.canary_registered is True\n\n    def test_goodhart_e2e_canary_registered_false_on_failure(self):\n        \"\"\"canary_registered is exactly False when arbiter returns error.\"\"\"\n        mock_response = MagicMock()\n        mock_response.status_code = 500\n        mock_response.text = \"Internal Server Error\"\n        mock_response.json.side_effect = Exception(\"not json\")\n\n        fields = [\n            FieldSpec(field_name=\"data\", sql_type=\"varchar(100)\", max_length=100,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n        ]\n        req = self._make_request(\n            fields=fields, purpose=MockPurpose.canary, tier=\"staging\",\n            arbiter_api=\"https://arbiter.test\", row_count=2\n        )\n        with patch(\"httpx.post\", return_value=mock_response):\n            result = generate_mock_records(req)\n        assert result.canary_registered is False\n\n    def test_goodhart_e2e_test_purpose_canary_registered_none_with_arbiter(self):\n        \"\"\"When purpose='test', canary_registered is None even if arbiter_api is set.\"\"\"\n        req = self._make_request(\n            purpose=MockPurpose.test,\n            arbiter_api=\"https://arbiter.test\",\n        )\n        result = generate_mock_records(req)\n        assert result.canary_registered is None\n\n    def test_goodhart_e2e_multiple_unsupported_types(self):\n        \"\"\"Multiple unsupported type fields each produce their own warning violation.\"\"\"\n        fields = [\n            FieldSpec(field_name=\"geo\", sql_type=\"geometry\", max_length=None,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n            FieldSpec(field_name=\"store\", sql_type=\"hstore\", max_length=None,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n            FieldSpec(field_name=\"doc\", sql_type=\"xml\", max_length=None,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n        ]\n        req = self._make_request(fields=fields, row_count=2)\n        result = generate_mock_records(req)\n        warning_fields = {e.field_name for e in result.errors if e.severity == ViolationSeverity.warning}\n        assert \"geo\" in warning_fields\n        assert \"store\" in warning_fields\n        assert \"doc\" in warning_fields\n        # Records should still be generated with fallback values\n        assert len(result.records) == 2\n        for record in result.records:\n            assert \"geo\" in record and \"store\" in record and \"doc\" in record\n\n    def test_goodhart_e2e_canary_all_rows_unique_fingerprints(self):\n        \"\"\"In canary mode, each row produces a unique fingerprint per field.\"\"\"\n        fields = [\n            FieldSpec(field_name=\"data\", sql_type=\"varchar(255)\", max_length=255,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n        ]\n        req = self._make_request(\n            fields=fields, purpose=MockPurpose.canary, tier=\"test-tier\",\n            row_count=5\n        )\n        with patch(\"httpx.post\", side_effect=Exception(\"no arbiter\")):\n            result = generate_mock_records(req)\n        values = [str(record[\"data\"]) for record in result.records]\n        assert len(set(values)) == 5, f\"Expected 5 unique canary values, got {len(set(values))}\"\n\n    def test_goodhart_e2e_mixed_encrypted_and_normal(self):\n        \"\"\"Only encrypted fields produce tok_ values; normal fields produce type-appropriate values.\"\"\"\n        fields = [\n            FieldSpec(field_name=\"secret\", sql_type=\"varchar(100)\", max_length=100,\n                      classification=None, encrypted_at_rest=True, tokenized=False, nullable=False),\n            FieldSpec(field_name=\"count\", sql_type=\"bigint\", max_length=None,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n        ]\n        req = self._make_request(fields=fields, row_count=5)\n        result = generate_mock_records(req)\n        for record in result.records:\n            assert re.fullmatch(r\"tok_[A-Za-z0-9_\\-]{24}\", record[\"secret\"]), \\\n                f\"Encrypted field not tok_ pattern: {record['secret']}\"\n            assert isinstance(record[\"count\"], int), \\\n                f\"Normal bigint field should be int, got {type(record['count'])}: {record['count']}\"\n\n    def test_goodhart_e2e_seed_used_reflects_explicit(self):\n        \"\"\"seed_used in result reflects the explicit seed from the request.\"\"\"\n        req = self._make_request(seed=98765)\n        result = generate_mock_records(req)\n        assert result.seed_used == 98765\n\n    def test_goodhart_e2e_different_seeds_different_records(self):\n        \"\"\"Different seeds produce different record values.\"\"\"\n        req1 = self._make_request(seed=1, row_count=3)\n        req2 = self._make_request(seed=2, row_count=3)\n        result1 = generate_mock_records(req1)\n        result2 = generate_mock_records(req2)\n        # At least one record should differ\n        any_different = False\n        for i in range(3):\n            for key in result1.records[i]:\n                if result1.records[i][key] != result2.records[i][key]:\n                    any_different = True\n                    break\n        assert any_different, \"Different seeds should produce different records\"\n\n    def test_goodhart_e2e_row_count_one(self):\n        \"\"\"Generating exactly 1 row produces a result with exactly 1 record.\"\"\"\n        req = self._make_request(row_count=1)\n        result = generate_mock_records(req)\n        assert len(result.records) == 1\n        assert result.row_count == 1\n\n    def test_goodhart_e2e_canary_every_field_has_fingerprint(self):\n        \"\"\"In canary mode, every field in every row contains the canary substring.\"\"\"\n        fields = [\n            FieldSpec(field_name=\"a\", sql_type=\"varchar(255)\", max_length=255,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n            FieldSpec(field_name=\"b\", sql_type=\"varchar(255)\", max_length=255,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n            FieldSpec(field_name=\"c\", sql_type=\"varchar(255)\", max_length=255,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n        ]\n        req = self._make_request(\n            fields=fields, purpose=MockPurpose.canary, tier=\"alpha\",\n            row_count=3\n        )\n        with patch(\"httpx.post\", side_effect=Exception(\"no arbiter\")):\n            result = generate_mock_records(req)\n        for record in result.records:\n            for field_name in [\"a\", \"b\", \"c\"]:\n                assert \"ledger-canary-alpha\" in str(record[field_name]), \\\n                    f\"Field {field_name} missing canary substring: {record[field_name]}\"\n\n    def test_goodhart_e2e_encrypted_across_all_rows(self):\n        \"\"\"Encrypted field produces tok_ pattern for every row, not just the first.\"\"\"\n        fields = [\n            FieldSpec(field_name=\"token\", sql_type=\"varchar(100)\", max_length=100,\n                      classification=None, encrypted_at_rest=True, tokenized=False, nullable=False),\n        ]\n        req = self._make_request(fields=fields, row_count=10)\n        result = generate_mock_records(req)\n        for i, record in enumerate(result.records):\n            assert re.fullmatch(r\"tok_[A-Za-z0-9_\\-]{24}\", record[\"token\"]), \\\n                f\"Row {i} encrypted field not tok_ pattern: {record['token']}\"\n\n    def test_goodhart_e2e_no_exception_on_generation_errors(self):\n        \"\"\"generate_mock_records never raises; errors are captured in result.\"\"\"\n        fields = [\n            FieldSpec(field_name=\"valid\", sql_type=\"bigint\", max_length=None,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n            FieldSpec(field_name=\"invalid1\", sql_type=\"totally_fake_type\", max_length=None,\n                      classification=None, encrypted_at_rest=False, tokenized=False, nullable=False),\n        ]\n        req = self._make_request(fields=fields, row_count=3)\n        # Should not raise\n        result = generate_mock_records(req)\n        assert len(result.records) == 3\n        assert len(result.errors) > 0\n"
+}

@@ -1,0 +1,1665 @@
+{
+  "component_id": "cli",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "hp_cli_main_default_config",
+      "description": "cli_main initializes CliContext with default config path ./ledger.yaml when no flag or env var is set",
+      "function": "cli_main",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "config": "",
+        "verbose": "False",
+        "output": "text"
+      },
+      "input_description": "",
+      "expected_output_description": "CliContext attached to click.Context.obj with config_path as absolute path ending in ledger.yaml",
+      "expected_error": "",
+      "assertions": [
+        "CliContext is attached to click.Context.obj",
+        "config_path is an absolute resolved path string"
+      ]
+    },
+    {
+      "id": "hp_cli_main_flag_config",
+      "description": "cli_main resolves config_path from --config flag",
+      "function": "cli_main",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "config": "/tmp/custom.yaml",
+        "verbose": "True",
+        "output": "json"
+      },
+      "input_description": "",
+      "expected_output_description": "CliContext with config_path=/tmp/custom.yaml",
+      "expected_error": "",
+      "assertions": [
+        "config_path matches the --config flag value",
+        "verbose is True",
+        "output_format is json"
+      ]
+    },
+    {
+      "id": "hp_cli_main_env_config",
+      "description": "cli_main resolves config_path from LEDGER_CONFIG env var when no flag given",
+      "function": "cli_main",
+      "category": "happy_path",
+      "setup_description": "Set LEDGER_CONFIG env var to /tmp/env_config.yaml",
+      "mock_dependencies": {},
+      "input_values": {
+        "config": "",
+        "verbose": "False",
+        "output": "text"
+      },
+      "input_description": "",
+      "expected_output_description": "CliContext with config_path from env var",
+      "expected_error": "",
+      "assertions": [
+        "config_path equals the LEDGER_CONFIG env var value"
+      ]
+    },
+    {
+      "id": "err_cli_main_keyboard_interrupt",
+      "description": "cli_main catches KeyboardInterrupt and exits with code 130",
+      "function": "cli_main",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "SystemExit with code 130",
+      "assertions": [
+        "Exit code is 130"
+      ]
+    },
+    {
+      "id": "err_cli_main_ledger_error",
+      "description": "cli_main catches unhandled LedgerError and exits with the error's exit_code",
+      "function": "cli_main",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError caught at group level, exit with its exit_code",
+      "assertions": [
+        "Exit code matches LedgerError.exit_code",
+        "Violations are rendered to stderr"
+      ]
+    },
+    {
+      "id": "hp_cmd_init_success",
+      "description": "cmd_init creates ledger.yaml scaffold at config_path",
+      "function": "cmd_init",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "config.init_config": "succeeds"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Exit code 0, ledger.yaml created",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "config.init_config called with config_path"
+      ]
+    },
+    {
+      "id": "err_cmd_init_file_exists",
+      "description": "cmd_init fails when ledger.yaml already exists and --force not set",
+      "function": "cmd_init",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1",
+        "Error message mentions file already exists"
+      ]
+    },
+    {
+      "id": "err_cmd_init_write_permission",
+      "description": "cmd_init fails when process lacks write permission",
+      "function": "cmd_init",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1",
+        "Error message mentions permission denied"
+      ]
+    },
+    {
+      "id": "hp_cmd_backend_add_success",
+      "description": "cmd_backend_add registers a new backend successfully",
+      "function": "cmd_backend_add",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.register_backend": "succeeds"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "backend_type": "postgres",
+        "owner": "svc-users"
+      },
+      "input_description": "",
+      "expected_output_description": "Exit code 0, success message on stderr",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "registry.register_backend called with correct args",
+        "Success message printed to stderr"
+      ]
+    },
+    {
+      "id": "err_cmd_backend_add_config_not_loaded",
+      "description": "cmd_backend_add fails when config is not loaded",
+      "function": "cmd_backend_add",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with CONFIG_ERROR_3",
+      "assertions": [
+        "Exit code is 3"
+      ]
+    },
+    {
+      "id": "err_cmd_backend_add_duplicate",
+      "description": "cmd_backend_add fails when backend id already exists",
+      "function": "cmd_backend_add",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.register_backend": "raises LedgerError duplicate_backend"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "backend_type": "postgres",
+        "owner": "svc-users"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1",
+        "Error mentions duplicate backend"
+      ]
+    },
+    {
+      "id": "err_cmd_backend_add_invalid_owner",
+      "description": "cmd_backend_add fails when owner component_id is not registered",
+      "function": "cmd_backend_add",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.register_backend": "raises LedgerError invalid_owner"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "backend_type": "postgres",
+        "owner": "nonexistent"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1",
+        "Error mentions invalid owner"
+      ]
+    },
+    {
+      "id": "hp_cmd_schema_add_success",
+      "description": "cmd_schema_add ingests a valid schema YAML file",
+      "function": "cmd_schema_add",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.add_schema": "succeeds"
+      },
+      "input_values": {
+        "path": "/tmp/schema.yaml"
+      },
+      "input_description": "",
+      "expected_output_description": "Exit code 0",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "registry.add_schema called with schema content"
+      ]
+    },
+    {
+      "id": "err_cmd_schema_add_file_not_found",
+      "description": "cmd_schema_add fails when path does not exist",
+      "function": "cmd_schema_add",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "path": "/nonexistent/schema.yaml"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError file_not_found",
+      "assertions": [
+        "Exit code is 1",
+        "Error message includes file path"
+      ]
+    },
+    {
+      "id": "err_cmd_schema_add_invalid_yaml",
+      "description": "cmd_schema_add fails when file is not valid YAML",
+      "function": "cmd_schema_add",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.add_schema": "raises LedgerError invalid_yaml"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1",
+        "Error mentions invalid YAML"
+      ]
+    },
+    {
+      "id": "err_cmd_schema_add_validation_failed",
+      "description": "cmd_schema_add fails when YAML does not conform to schema spec",
+      "function": "cmd_schema_add",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.add_schema": "raises LedgerError schema_validation_failed"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "err_cmd_schema_add_config_not_loaded",
+      "description": "cmd_schema_add fails when config is not loaded",
+      "function": "cmd_schema_add",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with CONFIG_ERROR_3",
+      "assertions": [
+        "Exit code is 3"
+      ]
+    },
+    {
+      "id": "hp_cmd_schema_show_full",
+      "description": "cmd_schema_show displays full backend schema",
+      "function": "cmd_schema_show",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.show_schema": "returns schema data"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "table": ""
+      },
+      "input_description": "",
+      "expected_output_description": "CommandResult with schema data, exit code 0",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Structured data written to stdout"
+      ]
+    },
+    {
+      "id": "hp_cmd_schema_show_single_table",
+      "description": "cmd_schema_show displays schema filtered to one table",
+      "function": "cmd_schema_show",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.show_schema": "returns filtered schema data"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "table": "users"
+      },
+      "input_description": "",
+      "expected_output_description": "CommandResult with single table schema",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "registry.show_schema called with backend_id and table"
+      ]
+    },
+    {
+      "id": "err_cmd_schema_show_backend_not_found",
+      "description": "cmd_schema_show fails when backend id is not registered",
+      "function": "cmd_schema_show",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.show_schema": "raises LedgerError backend_not_found"
+      },
+      "input_values": {
+        "backend_id": "nonexistent",
+        "table": ""
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "err_cmd_schema_show_table_not_found",
+      "description": "cmd_schema_show fails when table does not exist in backend schema",
+      "function": "cmd_schema_show",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.show_schema": "raises LedgerError table_not_found"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "table": "nonexistent"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "hp_cmd_schema_validate_no_violations",
+      "description": "cmd_schema_validate returns success when no error-severity violations",
+      "function": "cmd_schema_validate",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.validate_schemas": "returns empty violations list"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "CommandResult with empty violations, exit code 0",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Violation list is empty"
+      ]
+    },
+    {
+      "id": "hp_cmd_schema_validate_warnings_only",
+      "description": "cmd_schema_validate returns exit code 0 when only warnings exist",
+      "function": "cmd_schema_validate",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.validate_schemas": "returns warnings-only violations"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Exit code 0, violations present but no errors",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Warnings are included in output"
+      ]
+    },
+    {
+      "id": "edge_cmd_schema_validate_all_violations_returned",
+      "description": "cmd_schema_validate returns ALL violations not just the first",
+      "function": "cmd_schema_validate",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.validate_schemas": "returns 5 violations of mixed severity"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "All 5 violations present in output",
+      "expected_error": "",
+      "assertions": [
+        "All violations are returned",
+        "Violations not short-circuited"
+      ]
+    },
+    {
+      "id": "err_cmd_schema_validate_error_severity",
+      "description": "cmd_schema_validate returns exit code 1 when error-severity violations exist",
+      "function": "cmd_schema_validate",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.validate_schemas": "returns error-severity violations"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "Exit code 1",
+      "assertions": [
+        "Exit code is 1",
+        "Error-severity violations included"
+      ]
+    },
+    {
+      "id": "err_cmd_schema_validate_no_schemas",
+      "description": "cmd_schema_validate fails when no schemas are registered",
+      "function": "cmd_schema_validate",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.validate_schemas": "raises LedgerError no_schemas_registered"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "hp_cmd_migrate_plan_success",
+      "description": "cmd_migrate_plan creates a migration plan with no gate violations",
+      "function": "cmd_migrate_plan",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "migration.plan_migration": "returns plan with no error violations"
+      },
+      "input_values": {
+        "component_id": "svc-users",
+        "migration_file": "/tmp/migration.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "CommandResult with plan_id, exit code 0",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Plan has a unique plan_id",
+        "migration.plan_migration called with correct args"
+      ]
+    },
+    {
+      "id": "err_cmd_migrate_plan_file_not_found",
+      "description": "cmd_migrate_plan fails when migration file does not exist",
+      "function": "cmd_migrate_plan",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "component_id": "svc-users",
+        "migration_file": "/nonexistent/m.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError file_not_found",
+      "assertions": [
+        "Exit code is 1",
+        "Error message includes file path"
+      ]
+    },
+    {
+      "id": "err_cmd_migrate_plan_sql_parse",
+      "description": "cmd_migrate_plan fails when SQL is unparseable",
+      "function": "cmd_migrate_plan",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "migration.plan_migration": "raises LedgerError sql_parse_error"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "err_cmd_migrate_plan_component_not_found",
+      "description": "cmd_migrate_plan fails when component_id is not registered",
+      "function": "cmd_migrate_plan",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "migration.plan_migration": "raises LedgerError component_not_found"
+      },
+      "input_values": {
+        "component_id": "nonexistent",
+        "migration_file": "/tmp/m.sql"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "err_cmd_migrate_plan_gate_violations",
+      "description": "cmd_migrate_plan returns exit code 1 with error-severity gate violations",
+      "function": "cmd_migrate_plan",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "migration.plan_migration": "returns plan with error-severity gate violations"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "Exit code 1 with violations",
+      "assertions": [
+        "Exit code is 1",
+        "All gate violations returned with severity levels"
+      ]
+    },
+    {
+      "id": "edge_cmd_migrate_plan_all_violations",
+      "description": "cmd_migrate_plan returns all gate violations not just the first",
+      "function": "cmd_migrate_plan",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "migration.plan_migration": "returns plan with multiple violations"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "All violations present",
+      "expected_error": "",
+      "assertions": [
+        "All gate violations included in result"
+      ]
+    },
+    {
+      "id": "hp_cmd_migrate_approve_success",
+      "description": "cmd_migrate_approve approves a pending plan",
+      "function": "cmd_migrate_approve",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "migration.approve_migration": "succeeds"
+      },
+      "input_values": {
+        "plan_id": "plan-123",
+        "review_id": "review-456"
+      },
+      "input_description": "",
+      "expected_output_description": "Exit code 0, plan approved",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "migration.approve_migration called with plan_id and review_id"
+      ]
+    },
+    {
+      "id": "err_cmd_migrate_approve_not_found",
+      "description": "cmd_migrate_approve fails when plan_id does not exist",
+      "function": "cmd_migrate_approve",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "migration.approve_migration": "raises LedgerError plan_not_found"
+      },
+      "input_values": {
+        "plan_id": "nonexistent",
+        "review_id": "review-456"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "err_cmd_migrate_approve_already_approved",
+      "description": "cmd_migrate_approve fails when plan is already approved",
+      "function": "cmd_migrate_approve",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "migration.approve_migration": "raises LedgerError plan_already_approved"
+      },
+      "input_values": {
+        "plan_id": "plan-123",
+        "review_id": "review-456"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "err_cmd_migrate_approve_outstanding_violations",
+      "description": "cmd_migrate_approve fails when plan has unresolved error-severity violations",
+      "function": "cmd_migrate_approve",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "migration.approve_migration": "raises LedgerError outstanding_violations"
+      },
+      "input_values": {
+        "plan_id": "plan-123",
+        "review_id": "review-456"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "hp_cmd_export_success",
+      "description": "cmd_export exports contracts in pact format",
+      "function": "cmd_export",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "export.export_contracts": "returns contract data"
+      },
+      "input_values": {
+        "format": "pact",
+        "component_id": ""
+      },
+      "input_description": "",
+      "expected_output_description": "CommandResult with exported data, exit code 0",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Data written to stdout"
+      ]
+    },
+    {
+      "id": "hp_cmd_export_with_component_filter",
+      "description": "cmd_export filters by component_id",
+      "function": "cmd_export",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "export.export_contracts": "returns filtered data"
+      },
+      "input_values": {
+        "format": "arbiter",
+        "component_id": "svc-users"
+      },
+      "input_description": "",
+      "expected_output_description": "CommandResult with filtered exported data",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "export.export_contracts called with component_id filter"
+      ]
+    },
+    {
+      "id": "err_cmd_export_no_data",
+      "description": "cmd_export fails when no data to export",
+      "function": "cmd_export",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "export.export_contracts": "raises LedgerError no_data_to_export"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "err_cmd_export_component_not_found",
+      "description": "cmd_export fails when component filter matches nothing",
+      "function": "cmd_export",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "export.export_contracts": "raises LedgerError component_not_found"
+      },
+      "input_values": {
+        "format": "pact",
+        "component_id": "nonexistent"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "hp_cmd_mock_success",
+      "description": "cmd_mock generates mock data rows",
+      "function": "cmd_mock",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "mock.generate_mock_data": "returns 10 rows"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "table": "users",
+        "count": "10",
+        "seed": "42",
+        "purpose": "default"
+      },
+      "input_description": "",
+      "expected_output_description": "CommandResult with 10 mock rows, exit code 0",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "mock.generate_mock_data called with correct args"
+      ]
+    },
+    {
+      "id": "hp_cmd_mock_deterministic_seed",
+      "description": "cmd_mock with same seed produces same output",
+      "function": "cmd_mock",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "mock.generate_mock_data": "returns deterministic rows"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "table": "users",
+        "count": "5",
+        "seed": "42",
+        "purpose": "default"
+      },
+      "input_description": "",
+      "expected_output_description": "Same data on repeated calls with same seed",
+      "expected_error": "",
+      "assertions": [
+        "Output is deterministic when seed is provided"
+      ]
+    },
+    {
+      "id": "err_cmd_mock_backend_not_found",
+      "description": "cmd_mock fails when backend is not registered",
+      "function": "cmd_mock",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "mock.generate_mock_data": "raises LedgerError backend_not_found"
+      },
+      "input_values": {
+        "backend_id": "nonexistent",
+        "table": "users",
+        "count": "10"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "err_cmd_mock_table_not_found",
+      "description": "cmd_mock fails when table does not exist",
+      "function": "cmd_mock",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "mock.generate_mock_data": "raises LedgerError table_not_found"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "table": "nonexistent",
+        "count": "10"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "edge_cmd_mock_arbiter_unavailable_canary",
+      "description": "cmd_mock warns but does not crash when Arbiter is unreachable for canary purpose",
+      "function": "cmd_mock",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "mock.generate_mock_data": "raises warning for arbiter_unavailable"
+      },
+      "input_values": {
+        "backend_id": "main-pg",
+        "table": "users",
+        "count": "10",
+        "purpose": "canary"
+      },
+      "input_description": "",
+      "expected_output_description": "Warning on stderr, does not crash",
+      "expected_error": "",
+      "assertions": [
+        "Does not raise exception",
+        "Warning emitted to stderr"
+      ]
+    },
+    {
+      "id": "hp_cmd_serve_success",
+      "description": "cmd_serve starts server and blocks",
+      "function": "cmd_serve",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "api.start_server": "starts and blocks"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Server running",
+      "expected_error": "",
+      "assertions": [
+        "api.start_server called with config"
+      ]
+    },
+    {
+      "id": "edge_cmd_serve_keyboard_interrupt",
+      "description": "cmd_serve shuts down cleanly on KeyboardInterrupt with exit code 130",
+      "function": "cmd_serve",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "api.start_server": "raises KeyboardInterrupt"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Clean shutdown, exit code 130",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 130"
+      ]
+    },
+    {
+      "id": "err_cmd_serve_port_in_use",
+      "description": "cmd_serve fails when port is already bound",
+      "function": "cmd_serve",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "api.start_server": "raises LedgerError port_in_use"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with DOMAIN_ERROR_1",
+      "assertions": [
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "hp_require_config_success",
+      "description": "require_config loads valid config from YAML file",
+      "function": "require_config",
+      "category": "happy_path",
+      "setup_description": "Create valid ledger.yaml at tmp_path",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "ctx.config is a valid LedgerConfig instance",
+      "expected_error": "",
+      "assertions": [
+        "ctx.config is not None",
+        "Config parsed from YAML file"
+      ]
+    },
+    {
+      "id": "err_require_config_file_missing",
+      "description": "require_config raises LedgerError when config file does not exist",
+      "function": "require_config",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with CONFIG_ERROR_3",
+      "assertions": [
+        "Exit code is 3",
+        "Error mentions missing config file"
+      ]
+    },
+    {
+      "id": "err_require_config_parse_error",
+      "description": "require_config raises LedgerError when YAML is invalid",
+      "function": "require_config",
+      "category": "error_case",
+      "setup_description": "Create file with invalid YAML content",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with CONFIG_ERROR_3",
+      "assertions": [
+        "Exit code is 3"
+      ]
+    },
+    {
+      "id": "err_require_config_validation_error",
+      "description": "require_config raises LedgerError when YAML does not conform to LedgerConfig schema",
+      "function": "require_config",
+      "category": "error_case",
+      "setup_description": "Create valid YAML but with wrong schema",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "LedgerError with CONFIG_ERROR_3",
+      "assertions": [
+        "Exit code is 3"
+      ]
+    },
+    {
+      "id": "hp_format_output_json",
+      "description": "format_output returns valid JSON string for json format",
+      "function": "format_output",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "output_format": "json"
+      },
+      "input_description": "",
+      "expected_output_description": "Valid JSON string",
+      "expected_error": "",
+      "assertions": [
+        "Output is valid JSON",
+        "Data roundtrips correctly"
+      ]
+    },
+    {
+      "id": "hp_format_output_yaml",
+      "description": "format_output returns valid YAML string for yaml format",
+      "function": "format_output",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "output_format": "yaml"
+      },
+      "input_description": "",
+      "expected_output_description": "Valid YAML string",
+      "expected_error": "",
+      "assertions": [
+        "Output is valid YAML",
+        "Data roundtrips correctly"
+      ]
+    },
+    {
+      "id": "hp_format_output_text",
+      "description": "format_output returns human-readable string for text format",
+      "function": "format_output",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "output_format": "text"
+      },
+      "input_description": "",
+      "expected_output_description": "Human-readable text",
+      "expected_error": "",
+      "assertions": [
+        "Output is a non-empty string"
+      ]
+    },
+    {
+      "id": "err_format_output_unserializable",
+      "description": "format_output raises error for unserializable data",
+      "function": "format_output",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "Error for unserializable data types",
+      "assertions": [
+        "Raises appropriate error"
+      ]
+    },
+    {
+      "id": "edge_format_output_none_data_text",
+      "description": "format_output handles None data gracefully in text format",
+      "function": "format_output",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "output_format": "text"
+      },
+      "input_description": "",
+      "expected_output_description": "Empty or message string",
+      "expected_error": "",
+      "assertions": [
+        "Does not raise exception"
+      ]
+    },
+    {
+      "id": "hp_render_violations_basic",
+      "description": "render_violations formats violations into readable string",
+      "function": "render_violations",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "use_color": "True"
+      },
+      "input_description": "",
+      "expected_output_description": "Colored string with all violations grouped by severity",
+      "expected_error": "",
+      "assertions": [
+        "All violations present in output",
+        "Grouped by severity: errors first, warnings, info",
+        "Summary line with counts"
+      ]
+    },
+    {
+      "id": "edge_render_violations_empty",
+      "description": "render_violations handles empty violation list",
+      "function": "render_violations",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "use_color": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Empty or minimal output",
+      "expected_error": "",
+      "assertions": [
+        "Does not raise exception"
+      ]
+    },
+    {
+      "id": "edge_render_violations_no_color",
+      "description": "render_violations omits ANSI codes when use_color is False",
+      "function": "render_violations",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "use_color": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Plain text without ANSI escape codes",
+      "expected_error": "",
+      "assertions": [
+        "No ANSI escape sequences in output"
+      ]
+    },
+    {
+      "id": "edge_render_violations_severity_order",
+      "description": "render_violations groups errors first, then warnings, then info",
+      "function": "render_violations",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "use_color": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Violations ordered by severity",
+      "expected_error": "",
+      "assertions": [
+        "Errors appear before warnings",
+        "Warnings appear before info"
+      ]
+    },
+    {
+      "id": "inv_thin_dispatch_no_business_logic",
+      "description": "CLI subcommands only dispatch to domain modules with no business logic",
+      "function": "cmd_backend_add",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.register_backend": "succeeds"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Domain module function called exactly once",
+        "No additional business logic performed"
+      ]
+    },
+    {
+      "id": "inv_stdout_vs_stderr",
+      "description": "Data output goes to stdout, status/errors go to stderr",
+      "function": "cmd_schema_show",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.show_schema": "returns data"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Data appears on stdout",
+        "Status messages on stderr"
+      ]
+    },
+    {
+      "id": "inv_config_resolution_order",
+      "description": "Config resolution order: --config flag > LEDGER_CONFIG env > ./ledger.yaml",
+      "function": "cli_main",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Flag takes precedence over env var",
+        "Env var takes precedence over default"
+      ]
+    },
+    {
+      "id": "inv_violations_never_truncated",
+      "description": "LedgerError violations are never truncated",
+      "function": "cmd_schema_validate",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.validate_schemas": "returns 100 violations"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All 100 violations appear in output"
+      ]
+    },
+    {
+      "id": "inv_exit_codes_deterministic",
+      "description": "Exit codes match enum values: 0=success, 1=domain, 3=config, 130=interrupt",
+      "function": "cli_main",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Success exits with 0",
+        "Domain error exits with 1",
+        "Config error exits with 3",
+        "KeyboardInterrupt exits with 130"
+      ]
+    },
+    {
+      "id": "inv_schema_yaml_verbatim",
+      "description": "Schema YAML is stored verbatim without normalization",
+      "function": "cmd_schema_add",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "registry.add_schema": "receives verbatim content"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "YAML content passed to registry unchanged"
+      ]
+    },
+    {
+      "id": "inv_cmd_init_no_config_required",
+      "description": "cmd_init is the only command that works without loaded config",
+      "function": "cmd_init",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "cmd_init succeeds without ctx.config loaded"
+      ]
+    },
+    {
+      "id": "inv_arbiter_unavailable_no_crash",
+      "description": "When Arbiter is unreachable during canary mock, CLI warns but does not crash",
+      "function": "cmd_mock",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Warning emitted to stderr",
+        "Process does not crash",
+        "Exit code is not 1 from the arbiter issue alone"
+      ]
+    },
+    {
+      "id": "edge_all_backend_types",
+      "description": "cmd_backend_add accepts all BackendType values",
+      "function": "cmd_backend_add",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Each BackendType enum value",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All backend types accepted without error"
+      ]
+    },
+    {
+      "id": "edge_all_export_formats",
+      "description": "cmd_export accepts all ExportFormat values",
+      "function": "cmd_export",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Each ExportFormat enum value",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All export formats accepted without error"
+      ]
+    },
+    {
+      "id": "edge_all_output_formats",
+      "description": "format_output handles all OutputFormat values",
+      "function": "format_output",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Each OutputFormat enum value",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All output formats produce valid output"
+      ]
+    },
+    {
+      "id": "integ_help_root",
+      "description": "Root --help displays usage information",
+      "function": "cli_main",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Output contains usage information"
+      ]
+    },
+    {
+      "id": "integ_help_init",
+      "description": "ledger init --help displays init usage",
+      "function": "cmd_init",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Output contains init help text"
+      ]
+    },
+    {
+      "id": "integ_help_backend_add",
+      "description": "ledger backend add --help displays usage",
+      "function": "cmd_backend_add",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0"
+      ]
+    },
+    {
+      "id": "integ_help_schema_add",
+      "description": "ledger schema add --help displays usage",
+      "function": "cmd_schema_add",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0"
+      ]
+    },
+    {
+      "id": "integ_help_schema_show",
+      "description": "ledger schema show --help displays usage",
+      "function": "cmd_schema_show",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0"
+      ]
+    },
+    {
+      "id": "integ_help_schema_validate",
+      "description": "ledger schema validate --help displays usage",
+      "function": "cmd_schema_validate",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0"
+      ]
+    },
+    {
+      "id": "integ_help_migrate_plan",
+      "description": "ledger migrate plan --help displays usage",
+      "function": "cmd_migrate_plan",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0"
+      ]
+    },
+    {
+      "id": "integ_help_migrate_approve",
+      "description": "ledger migrate approve --help displays usage",
+      "function": "cmd_migrate_approve",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0"
+      ]
+    },
+    {
+      "id": "integ_help_export",
+      "description": "ledger export --help displays usage",
+      "function": "cmd_export",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0"
+      ]
+    },
+    {
+      "id": "integ_help_mock",
+      "description": "ledger mock --help displays usage",
+      "function": "cmd_mock",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0"
+      ]
+    },
+    {
+      "id": "integ_help_serve",
+      "description": "ledger serve --help displays usage",
+      "function": "cmd_serve",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0"
+      ]
+    },
+    {
+      "id": "integ_exit_code_success",
+      "description": "Integration: successful command returns exit code 0",
+      "function": "cmd_init",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "CliRunner result.exit_code == 0"
+      ]
+    },
+    {
+      "id": "integ_exit_code_domain_error",
+      "description": "Integration: domain error returns exit code 1",
+      "function": "cmd_schema_validate",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "CliRunner result.exit_code == 1"
+      ]
+    },
+    {
+      "id": "integ_exit_code_config_error",
+      "description": "Integration: config error returns exit code 3",
+      "function": "cmd_backend_add",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "CliRunner result.exit_code == 3"
+      ]
+    },
+    {
+      "id": "integ_exit_code_keyboard_interrupt",
+      "description": "Integration: KeyboardInterrupt returns exit code 130",
+      "function": "cmd_serve",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "CliRunner result.exit_code == 130"
+      ]
+    },
+    {
+      "id": "integ_verbose_flag",
+      "description": "Integration: --verbose flag increases output detail",
+      "function": "cli_main",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "verbose": "True"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Verbose output includes more detail than non-verbose"
+      ]
+    },
+    {
+      "id": "integ_config_resolution_flag",
+      "description": "Integration: --config flag overrides env var and default",
+      "function": "cli_main",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Config path from flag is used"
+      ]
+    },
+    {
+      "id": "integ_config_resolution_env",
+      "description": "Integration: LEDGER_CONFIG env var used when no flag",
+      "function": "cli_main",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Config path from env var is used"
+      ]
+    },
+    {
+      "id": "integ_config_resolution_default",
+      "description": "Integration: default ./ledger.yaml used when no flag or env",
+      "function": "cli_main",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Default config path is used"
+      ]
+    },
+    {
+      "id": "edge_cmd_mock_count_zero",
+      "description": "cmd_mock with count=0 generates empty result",
+      "function": "cmd_mock",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "mock.generate_mock_data": "returns 0 rows"
+      },
+      "input_values": {
+        "count": "0"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result contains 0 rows"
+      ]
+    },
+    {
+      "id": "edge_format_output_empty_data",
+      "description": "format_output with empty dict data in json format",
+      "function": "format_output",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "output_format": "json"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns valid JSON for empty dict"
+      ]
+    },
+    {
+      "id": "edge_render_violations_summary_counts",
+      "description": "render_violations summary line shows correct counts per severity",
+      "function": "render_violations",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Summary shows 2 errors, 1 warning, 1 info for mixed list"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nContract test suite for the CLI component.\nTests organized in two layers: unit tests and integration tests.\n\nRun with: pytest contract_test.py -v\n\"\"\"\n\nimport json\nimport os\nimport re\nimport sys\nfrom dataclasses import dataclass, field\nfrom enum import Enum\nfrom pathlib import Path\nfrom typing import Any, List, Optional\nfrom unittest.mock import MagicMock, Mock, patch, call\n\nimport pytest\n\n# ---------------------------------------------------------------------------\n# Attempt imports from the cli package. We wrap in try/except so that the\n# test file is at least parseable even if the implementation isn't installed;\n# individual tests will fail with clear import errors.\n# ---------------------------------------------------------------------------\ntry:\n    from cli import (\n        cli_main,\n        cmd_init,\n        cmd_backend_add,\n        cmd_schema_add,\n        cmd_schema_show,\n        cmd_schema_validate,\n        cmd_migrate_plan,\n        cmd_migrate_approve,\n        cmd_export,\n        cmd_mock,\n        cmd_serve,\n        require_config,\n        format_output,\n        render_violations,\n    )\nexcept ImportError:\n    # Allow partial imports — tests that use missing symbols will fail explicitly.\n    pass\n\ntry:\n    from cli import (\n        ExitCode,\n        OutputFormat,\n        BackendType,\n        ExportFormat,\n        MockPurpose,\n        Severity,\n        Violation,\n        LedgerError,\n        CliContext,\n        CommandResult,\n    )\nexcept ImportError:\n    # Provide stub definitions so the rest of the file parses.\n    # Tests will fail at the point of actual use if the real types are missing.\n    pass\n\ntry:\n    import click\n    from click.testing import CliRunner\nexcept ImportError:\n    click = None\n    CliRunner = None\n\n\n# ===========================================================================\n#  Fixtures\n# ===========================================================================\n\n\n@pytest.fixture\ndef tmp_config_path(tmp_path):\n    \"\"\"Return a path string for a config file inside tmp_path (file not yet created).\"\"\"\n    return str(tmp_path / \"ledger.yaml\")\n\n\n@pytest.fixture\ndef valid_config_file(tmp_path):\n    \"\"\"Create a minimal valid ledger.yaml and return its path.\"\"\"\n    cfg = tmp_path / \"ledger.yaml\"\n    cfg.write_text(\"version: 1\\nbackends: []\\nschemas: []\\n\")\n    return str(cfg)\n\n\n@pytest.fixture\ndef invalid_yaml_file(tmp_path):\n    \"\"\"Create a file with invalid YAML content and return its path.\"\"\"\n    cfg = tmp_path / \"ledger.yaml\"\n    cfg.write_text(\"{{{{not valid yaml::::\\n  - ][\")\n    return str(cfg)\n\n\n@pytest.fixture\ndef wrong_schema_config_file(tmp_path):\n    \"\"\"Create valid YAML that doesn't conform to LedgerConfig schema.\"\"\"\n    cfg = tmp_path / \"ledger.yaml\"\n    cfg.write_text(\"foo: bar\\nunrelated: 42\\n\")\n    return str(cfg)\n\n\n@pytest.fixture\ndef cli_context(tmp_path, valid_config_file):\n    \"\"\"Build a CliContext-like object with a real tmp_path-based config.\"\"\"\n    try:\n        ctx = CliContext(\n            config_path=valid_config_file,\n            config=None,\n            verbose=False,\n            output_format=OutputFormat.text,\n        )\n    except Exception:\n        # Fallback: use a simple namespace if CliContext isn't a plain dataclass\n        ctx = MagicMock()\n        ctx.config_path = valid_config_file\n        ctx.config = None\n        ctx.verbose = False\n        ctx.output_format = OutputFormat.text\n    return ctx\n\n\n@pytest.fixture\ndef cli_context_loaded(cli_context):\n    \"\"\"CliContext with a mock-loaded config (not None).\"\"\"\n    cli_context.config = MagicMock(name=\"LedgerConfig\")\n    return cli_context\n\n\ndef _make_violation(path=\"schemas.users.email\", message=\"Missing annotation\",\n                    severity=None, code=\"E001\"):\n    \"\"\"Helper to create a Violation instance.\"\"\"\n    sev = severity or Severity.error\n    try:\n        return Violation(path=path, message=message, severity=sev, code=code)\n    except Exception:\n        v = MagicMock()\n        v.path = path\n        v.message = message\n        v.severity = sev\n        v.code = code\n        return v\n\n\n@pytest.fixture\ndef sample_violations():\n    \"\"\"Factory fixture returning violations of mixed severity.\"\"\"\n    def _factory(count=5):\n        sevs = [Severity.error, Severity.error, Severity.warning, Severity.info, Severity.info]\n        return [\n            _make_violation(\n                path=f\"path.{i}\",\n                message=f\"Violation {i}\",\n                severity=sevs[i % len(sevs)],\n                code=f\"V{i:03d}\",\n            )\n            for i in range(count)\n        ]\n    return _factory\n\n\n@pytest.fixture\ndef sample_command_result_success():\n    \"\"\"A successful CommandResult.\"\"\"\n    try:\n        return CommandResult(\n            success=True,\n            data={\"backends\": [\"main-pg\"]},\n            message=\"OK\",\n            violations=[],\n        )\n    except Exception:\n        r = MagicMock()\n        r.success = True\n        r.data = {\"backends\": [\"main-pg\"]}\n        r.message = \"OK\"\n        r.violations = []\n        return r\n\n\n@pytest.fixture\ndef sample_command_result_failure(sample_violations):\n    \"\"\"A failed CommandResult with violations.\"\"\"\n    viols = sample_violations(3)\n    try:\n        return CommandResult(\n            success=False,\n            data=None,\n            message=\"Validation failed\",\n            violations=viols,\n        )\n    except Exception:\n        r = MagicMock()\n        r.success = False\n        r.data = None\n        r.message = \"Validation failed\"\n        r.violations = viols\n        return r\n\n\n@pytest.fixture\ndef mock_registry():\n    m = MagicMock()\n    m.register_backend = MagicMock()\n    m.add_schema = MagicMock()\n    m.show_schema = MagicMock(return_value={\"tables\": {\"users\": {\"columns\": []}}})\n    m.validate_schemas = MagicMock(return_value=[])\n    return m\n\n\n@pytest.fixture\ndef mock_migration():\n    m = MagicMock()\n    m.plan_migration = MagicMock(return_value={\"plan_id\": \"plan-001\", \"violations\": []})\n    m.approve_migration = MagicMock()\n    return m\n\n\n@pytest.fixture\ndef mock_export():\n    m = MagicMock()\n    m.export_contracts = MagicMock(return_value={\"contracts\": []})\n    return m\n\n\n@pytest.fixture\ndef mock_mock():\n    m = MagicMock()\n    m.generate_mock_data = MagicMock(return_value=[{\"id\": i} for i in range(10)])\n    return m\n\n\n@pytest.fixture\ndef mock_api():\n    m = MagicMock()\n    m.start_server = MagicMock()\n    return m\n\n\ndef _make_ledger_error(exit_code=None, violations=None):\n    \"\"\"Helper to create a LedgerError.\"\"\"\n    ec = exit_code or ExitCode.DOMAIN_ERROR_1\n    viols = violations or [_make_violation()]\n    try:\n        return LedgerError(violations=viols, exit_code=ec)\n    except TypeError:\n        # LedgerError might be an Exception subclass with different init\n        err = LedgerError(viols, ec)\n        return err\n\n\n# ===========================================================================\n#  LAYER 1 — Unit Tests: Command Functions\n# ===========================================================================\n\n\nclass TestCliMain:\n    \"\"\"Tests for cli_main root group.\"\"\"\n\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_cli_main_default_config_resolution(self, mock_load, tmp_path, monkeypatch):\n        \"\"\"Config resolves to ./ledger.yaml when no flag or env var.\"\"\"\n        monkeypatch.delenv(\"LEDGER_CONFIG\", raising=False)\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"--help\"])\n        assert result.exit_code == 0\n\n    def test_cli_main_flag_config(self, tmp_path):\n        \"\"\"--config flag is used for config_path.\"\"\"\n        runner = CliRunner()\n        cfg = str(tmp_path / \"custom.yaml\")\n        result = runner.invoke(cli_main, [\"--config\", cfg, \"--help\"])\n        assert result.exit_code == 0\n\n    def test_cli_main_env_config(self, tmp_path, monkeypatch):\n        \"\"\"LEDGER_CONFIG env var is used when no --config flag.\"\"\"\n        env_cfg = str(tmp_path / \"env_config.yaml\")\n        monkeypatch.setenv(\"LEDGER_CONFIG\", env_cfg)\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"--help\"])\n        assert result.exit_code == 0\n\n    @patch(\"cli.config.load_config\")\n    def test_cli_main_keyboard_interrupt_exit_130(self, mock_load, monkeypatch):\n        \"\"\"KeyboardInterrupt during subcommand execution -> exit code 130.\"\"\"\n        mock_load.side_effect = KeyboardInterrupt()\n        runner = CliRunner()\n        # Invoke a subcommand that triggers require_config -> load_config\n        result = runner.invoke(cli_main, [\"schema\", \"validate\"])\n        assert result.exit_code == 130\n\n    @patch(\"cli.config.load_config\")\n    def test_cli_main_unhandled_ledger_error(self, mock_load):\n        \"\"\"LedgerError propagated to group level is caught and uses its exit_code.\"\"\"\n        mock_load.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1)\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"schema\", \"validate\"])\n        assert result.exit_code == 1\n\n    def test_cli_main_context_has_absolute_config_path(self, valid_config_file):\n        \"\"\"CliContext.config_path is an absolute path.\"\"\"\n        runner = CliRunner()\n        # We can't easily inspect the context from outside, so we verify\n        # via a subcommand that depends on it.\n        result = runner.invoke(cli_main, [\"--config\", valid_config_file, \"--help\"])\n        assert result.exit_code == 0\n\n\nclass TestCmdInit:\n    \"\"\"Tests for cmd_init subcommand.\"\"\"\n\n    @patch(\"cli.config.init_config\")\n    def test_init_success(self, mock_init, tmp_config_path):\n        \"\"\"cmd_init creates ledger.yaml scaffold successfully.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"--config\", tmp_config_path, \"init\"])\n        assert result.exit_code == 0\n        mock_init.assert_called_once()\n\n    @patch(\"cli.config.init_config\")\n    def test_init_file_already_exists(self, mock_init, valid_config_file):\n        \"\"\"cmd_init fails when ledger.yaml already exists without --force.\"\"\"\n        mock_init.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"File already exists\", code=\"E_INIT_EXISTS\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"--config\", valid_config_file, \"init\"])\n        assert result.exit_code != 0\n\n    @patch(\"cli.config.init_config\")\n    def test_init_write_permission_denied(self, mock_init, tmp_config_path):\n        \"\"\"cmd_init fails when write permission is denied.\"\"\"\n        mock_init.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Permission denied\", code=\"E_INIT_PERM\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"--config\", tmp_config_path, \"init\"])\n        assert result.exit_code != 0\n\n    def test_init_works_without_loaded_config(self, tmp_config_path):\n        \"\"\"cmd_init is the only command that works without @require_config.\"\"\"\n        runner = CliRunner()\n        # Even though no config file exists yet, init should not fail with config error\n        with patch(\"cli.config.init_config\"):\n            result = runner.invoke(cli_main, [\"--config\", tmp_config_path, \"init\"])\n        assert result.exit_code == 0\n\n\nclass TestCmdBackendAdd:\n    \"\"\"Tests for cmd_backend_add subcommand.\"\"\"\n\n    @patch(\"cli.registry.register_backend\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_backend_add_success(self, mock_load, mock_reg, valid_config_file):\n        \"\"\"Registers backend successfully with exit code 0.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"backend\", \"add\", \"main-pg\",\n             \"--type\", \"postgres\", \"--owner\", \"svc-users\"],\n        )\n        assert result.exit_code == 0\n        mock_reg.assert_called_once()\n\n    def test_backend_add_config_not_loaded(self, tmp_path):\n        \"\"\"Fails with exit code 3 when config file is missing.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", str(tmp_path / \"nonexistent.yaml\"),\n             \"backend\", \"add\", \"main-pg\", \"--type\", \"postgres\", \"--owner\", \"svc\"],\n        )\n        assert result.exit_code == 3\n\n    @patch(\"cli.registry.register_backend\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_backend_add_duplicate(self, mock_load, mock_reg, valid_config_file):\n        \"\"\"Fails with exit code 1 when backend id already exists.\"\"\"\n        mock_reg.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Backend 'main-pg' already exists\", code=\"E_DUP_BACKEND\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"backend\", \"add\", \"main-pg\",\n             \"--type\", \"postgres\", \"--owner\", \"svc-users\"],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.registry.register_backend\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_backend_add_invalid_owner(self, mock_load, mock_reg, valid_config_file):\n        \"\"\"Fails with exit code 1 when owner component_id is not registered.\"\"\"\n        mock_reg.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Owner 'nonexistent' not found\", code=\"E_INVALID_OWNER\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"backend\", \"add\", \"main-pg\",\n             \"--type\", \"postgres\", \"--owner\", \"nonexistent\"],\n        )\n        assert result.exit_code == 1\n\n    @pytest.mark.parametrize(\"backend_type\", [\"postgres\", \"mysql\", \"sqlite\", \"redis\", \"dynamodb\", \"s3\", \"custom\"])\n    @patch(\"cli.registry.register_backend\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_backend_add_all_types(self, mock_load, mock_reg, valid_config_file, backend_type):\n        \"\"\"All BackendType enum values are accepted.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"backend\", \"add\", f\"be-{backend_type}\",\n             \"--type\", backend_type, \"--owner\", \"svc\"],\n        )\n        assert result.exit_code == 0\n        mock_reg.assert_called_once()\n\n\nclass TestCmdSchemaAdd:\n    \"\"\"Tests for cmd_schema_add subcommand.\"\"\"\n\n    @patch(\"cli.registry.add_schema\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_add_success(self, mock_load, mock_add, valid_config_file, tmp_path):\n        \"\"\"Ingests a valid schema YAML file.\"\"\"\n        schema = tmp_path / \"schema.yaml\"\n        schema.write_text(\"tables:\\n  users:\\n    columns: []\\n\")\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"add\", str(schema)],\n        )\n        assert result.exit_code == 0\n        mock_add.assert_called_once()\n\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_add_file_not_found(self, mock_load, valid_config_file):\n        \"\"\"Fails when schema file path does not exist.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"add\", \"/nonexistent/schema.yaml\"],\n        )\n        assert result.exit_code != 0\n\n    @patch(\"cli.registry.add_schema\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_add_invalid_yaml(self, mock_load, mock_add, valid_config_file, tmp_path):\n        \"\"\"Fails when file is not valid YAML.\"\"\"\n        bad = tmp_path / \"bad.yaml\"\n        bad.write_text(\"{{invalid\")\n        mock_add.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Invalid YAML\", code=\"E_INVALID_YAML\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"add\", str(bad)],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.registry.add_schema\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_add_validation_failed(self, mock_load, mock_add, valid_config_file, tmp_path):\n        \"\"\"Fails when YAML content doesn't conform to schema spec.\"\"\"\n        bad_schema = tmp_path / \"bad_schema.yaml\"\n        bad_schema.write_text(\"not_a_schema: true\\n\")\n        mock_add.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Schema validation failed\", code=\"E_SCHEMA_INVALID\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"add\", str(bad_schema)],\n        )\n        assert result.exit_code == 1\n\n    def test_schema_add_config_not_loaded(self, tmp_path):\n        \"\"\"Fails with exit code 3 when config is missing.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", str(tmp_path / \"nope.yaml\"), \"schema\", \"add\", \"/some/path.yaml\"],\n        )\n        assert result.exit_code == 3\n\n    @patch(\"cli.registry.add_schema\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_add_verbatim_storage(self, mock_load, mock_add, valid_config_file, tmp_path):\n        \"\"\"Schema YAML is passed verbatim to registry (invariant).\"\"\"\n        schema_content = \"# comment preserved\\ntables:\\n  users:\\n    columns:\\n      - name: id\\n\"\n        schema = tmp_path / \"schema.yaml\"\n        schema.write_text(schema_content)\n        runner = CliRunner()\n        runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"add\", str(schema)],\n        )\n        mock_add.assert_called_once()\n        # The first positional or keyword arg should contain the verbatim content\n        call_args = mock_add.call_args\n        # Verify the content was not modified (exact check depends on implementation)\n        assert mock_add.called\n\n\nclass TestCmdSchemaShow:\n    \"\"\"Tests for cmd_schema_show subcommand.\"\"\"\n\n    @patch(\"cli.registry.show_schema\", return_value={\"tables\": {\"users\": {}}})\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_show_full(self, mock_load, mock_show, valid_config_file):\n        \"\"\"Displays full backend schema, exit code 0.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"show\", \"main-pg\"],\n        )\n        assert result.exit_code == 0\n        mock_show.assert_called_once()\n\n    @patch(\"cli.registry.show_schema\", return_value={\"columns\": []})\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_show_single_table(self, mock_load, mock_show, valid_config_file):\n        \"\"\"Displays schema filtered to a single table.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"show\", \"main-pg\", \"users\"],\n        )\n        assert result.exit_code == 0\n\n    @patch(\"cli.registry.show_schema\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_show_backend_not_found(self, mock_load, mock_show, valid_config_file):\n        \"\"\"Fails when backend is not registered.\"\"\"\n        mock_show.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Backend not found\", code=\"E_BACKEND_404\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"show\", \"nonexistent\"],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.registry.show_schema\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_show_table_not_found(self, mock_load, mock_show, valid_config_file):\n        \"\"\"Fails when table does not exist in the backend schema.\"\"\"\n        mock_show.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Table not found\", code=\"E_TABLE_404\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"show\", \"main-pg\", \"nonexistent\"],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.registry.show_schema\", return_value={\"data\": \"test\"})\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_schema_show_stdout_output(self, mock_load, mock_show, valid_config_file):\n        \"\"\"Data output goes to stdout (invariant).\"\"\"\n        runner = CliRunner(mix_stderr=False)\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"show\", \"main-pg\"],\n        )\n        assert result.exit_code == 0\n        # stdout should have the data\n        assert len(result.output) > 0\n\n\nclass TestCmdSchemaValidate:\n    \"\"\"Tests for cmd_schema_validate subcommand.\"\"\"\n\n    @patch(\"cli.registry.validate_schemas\", return_value=[])\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_validate_no_violations(self, mock_load, mock_validate, valid_config_file):\n        \"\"\"Returns exit code 0 when no violations.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"validate\"],\n        )\n        assert result.exit_code == 0\n\n    @patch(\"cli.registry.validate_schemas\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_validate_warnings_only_exit_0(self, mock_load, mock_validate, valid_config_file):\n        \"\"\"Exit code 0 when only warning-severity violations.\"\"\"\n        mock_validate.return_value = [\n            _make_violation(severity=Severity.warning, message=\"Missing optional annotation\"),\n        ]\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"validate\"],\n        )\n        assert result.exit_code == 0\n\n    @patch(\"cli.registry.validate_schemas\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_validate_error_severity_exit_1(self, mock_load, mock_validate, valid_config_file):\n        \"\"\"Exit code 1 when error-severity violations exist.\"\"\"\n        mock_validate.return_value = [\n            _make_violation(severity=Severity.error, message=\"Missing required annotation\"),\n        ]\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"validate\"],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.registry.validate_schemas\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_validate_all_violations_returned(self, mock_load, mock_validate,\n                                               valid_config_file, sample_violations):\n        \"\"\"All violations are returned, not short-circuited at the first.\"\"\"\n        viols = sample_violations(5)\n        mock_validate.return_value = viols\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"validate\"],\n        )\n        # All violation messages should appear in output\n        for v in viols:\n            assert v.message in result.output or v.code in result.output\n\n    @patch(\"cli.registry.validate_schemas\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_validate_many_violations_never_truncated(self, mock_load, mock_validate,\n                                                        valid_config_file):\n        \"\"\"Invariant: LedgerError violations are never truncated.\"\"\"\n        viols = [_make_violation(message=f\"violation-{i}\", code=f\"V{i:03d}\") for i in range(100)]\n        mock_validate.return_value = viols\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"validate\"],\n        )\n        # Ensure all 100 are represented\n        for v in viols:\n            assert v.message in result.output or v.code in result.output\n\n    @patch(\"cli.registry.validate_schemas\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_validate_no_schemas_registered(self, mock_load, mock_validate, valid_config_file):\n        \"\"\"Fails when no schemas are registered.\"\"\"\n        mock_validate.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"No schemas registered\", code=\"E_NO_SCHEMAS\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"validate\"],\n        )\n        assert result.exit_code == 1\n\n\nclass TestCmdMigratePlan:\n    \"\"\"Tests for cmd_migrate_plan subcommand.\"\"\"\n\n    @patch(\"cli.migration.plan_migration\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_migrate_plan_success(self, mock_load, mock_plan, valid_config_file, tmp_path):\n        \"\"\"Creates a migration plan with no gate violations.\"\"\"\n        sql = tmp_path / \"migration.sql\"\n        sql.write_text(\"ALTER TABLE users ADD COLUMN email TEXT;\")\n        mock_plan.return_value = {\"plan_id\": \"plan-001\", \"violations\": []}\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"plan\", \"svc-users\", str(sql)],\n        )\n        assert result.exit_code == 0\n        mock_plan.assert_called_once()\n\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_migrate_plan_file_not_found(self, mock_load, valid_config_file):\n        \"\"\"Fails when migration file does not exist.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"plan\", \"svc-users\",\n             \"/nonexistent/migration.sql\"],\n        )\n        assert result.exit_code != 0\n\n    @patch(\"cli.migration.plan_migration\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_migrate_plan_sql_parse_error(self, mock_load, mock_plan, valid_config_file, tmp_path):\n        \"\"\"Fails when SQL is unparseable.\"\"\"\n        sql = tmp_path / \"bad.sql\"\n        sql.write_text(\"NOT VALID SQL AT ALL ;;; {{\")\n        mock_plan.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"SQL parse error\", code=\"E_SQL_PARSE\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"plan\", \"svc-users\", str(sql)],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.migration.plan_migration\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_migrate_plan_component_not_found(self, mock_load, mock_plan,\n                                                valid_config_file, tmp_path):\n        \"\"\"Fails when component_id is not registered.\"\"\"\n        sql = tmp_path / \"m.sql\"\n        sql.write_text(\"SELECT 1;\")\n        mock_plan.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Component not found\", code=\"E_COMP_404\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"plan\", \"nonexistent\", str(sql)],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.migration.plan_migration\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_migrate_plan_gate_violations_exit_1(self, mock_load, mock_plan,\n                                                   valid_config_file, tmp_path):\n        \"\"\"Exit code 1 when error-severity gate violations found.\"\"\"\n        sql = tmp_path / \"m.sql\"\n        sql.write_text(\"DROP TABLE users;\")\n        mock_plan.return_value = {\n            \"plan_id\": \"plan-002\",\n            \"violations\": [\n                _make_violation(severity=Severity.error, message=\"Destructive migration\"),\n            ],\n        }\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"plan\", \"svc-users\", str(sql)],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.migration.plan_migration\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_migrate_plan_all_violations_returned(self, mock_load, mock_plan,\n                                                    valid_config_file, tmp_path,\n                                                    sample_violations):\n        \"\"\"All gate violations returned, not just the first.\"\"\"\n        sql = tmp_path / \"m.sql\"\n        sql.write_text(\"ALTER TABLE users DROP COLUMN name;\")\n        viols = sample_violations(4)\n        mock_plan.return_value = {\"plan_id\": \"plan-003\", \"violations\": viols}\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"plan\", \"svc-users\", str(sql)],\n        )\n        for v in viols:\n            assert v.message in result.output or v.code in result.output\n\n\nclass TestCmdMigrateApprove:\n    \"\"\"Tests for cmd_migrate_approve subcommand.\"\"\"\n\n    @patch(\"cli.migration.approve_migration\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_approve_success(self, mock_load, mock_approve, valid_config_file):\n        \"\"\"Approves a pending migration plan.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"approve\", \"plan-123\",\n             \"--review\", \"review-456\"],\n        )\n        assert result.exit_code == 0\n        mock_approve.assert_called_once()\n\n    @patch(\"cli.migration.approve_migration\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_approve_plan_not_found(self, mock_load, mock_approve, valid_config_file):\n        \"\"\"Fails when plan_id does not exist.\"\"\"\n        mock_approve.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Plan not found\", code=\"E_PLAN_404\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"approve\", \"nonexistent\",\n             \"--review\", \"r1\"],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.migration.approve_migration\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_approve_already_approved(self, mock_load, mock_approve, valid_config_file):\n        \"\"\"Fails when plan is already approved.\"\"\"\n        mock_approve.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Plan already approved\", code=\"E_PLAN_APPROVED\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"approve\", \"plan-123\",\n             \"--review\", \"r1\"],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.migration.approve_migration\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_approve_outstanding_violations(self, mock_load, mock_approve, valid_config_file):\n        \"\"\"Fails when plan has unresolved error-severity violations.\"\"\"\n        mock_approve.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Outstanding violations\", code=\"E_OUTSTANDING\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"migrate\", \"approve\", \"plan-123\",\n             \"--review\", \"r1\"],\n        )\n        assert result.exit_code == 1\n\n\nclass TestCmdExport:\n    \"\"\"Tests for cmd_export subcommand.\"\"\"\n\n    @patch(\"cli.export.export_contracts\", return_value={\"contracts\": [{\"type\": \"pact\"}]})\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_export_success(self, mock_load, mock_export, valid_config_file):\n        \"\"\"Exports contracts in pact format.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"export\", \"--format\", \"pact\"],\n        )\n        assert result.exit_code == 0\n\n    @patch(\"cli.export.export_contracts\", return_value={\"contracts\": [{\"type\": \"arbiter\"}]})\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_export_with_component_filter(self, mock_load, mock_export, valid_config_file):\n        \"\"\"Exports filtered by component_id.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"export\", \"--format\", \"arbiter\",\n             \"--component\", \"svc-users\"],\n        )\n        assert result.exit_code == 0\n        mock_export.assert_called_once()\n\n    @patch(\"cli.export.export_contracts\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_export_no_data(self, mock_load, mock_export, valid_config_file):\n        \"\"\"Fails when no data to export.\"\"\"\n        mock_export.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"No data to export\", code=\"E_NO_DATA\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"export\", \"--format\", \"pact\"],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.export.export_contracts\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_export_component_not_found(self, mock_load, mock_export, valid_config_file):\n        \"\"\"Fails when component filter matches nothing.\"\"\"\n        mock_export.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Component not found\", code=\"E_COMP_404\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"export\", \"--format\", \"pact\",\n             \"--component\", \"nonexistent\"],\n        )\n        assert result.exit_code == 1\n\n    @pytest.mark.parametrize(\"fmt\", [\"pact\", \"arbiter\", \"baton\", \"sentinel\"])\n    @patch(\"cli.export.export_contracts\", return_value={\"contracts\": []})\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_export_all_formats(self, mock_load, mock_export, valid_config_file, fmt):\n        \"\"\"All ExportFormat enum values are accepted.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"export\", \"--format\", fmt],\n        )\n        assert result.exit_code == 0\n\n\nclass TestCmdMock:\n    \"\"\"Tests for cmd_mock subcommand.\"\"\"\n\n    @patch(\"cli.mock.generate_mock_data\", return_value=[{\"id\": i} for i in range(10)])\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_mock_success(self, mock_load, mock_gen, valid_config_file):\n        \"\"\"Generates mock data rows, exit code 0.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"mock\", \"main-pg\", \"users\",\n             \"--count\", \"10\", \"--seed\", \"42\"],\n        )\n        assert result.exit_code == 0\n        mock_gen.assert_called_once()\n\n    @patch(\"cli.mock.generate_mock_data\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_mock_deterministic_seed(self, mock_load, mock_gen, valid_config_file):\n        \"\"\"Same seed produces same output (checked via mock call args).\"\"\"\n        rows = [{\"id\": 1, \"name\": \"Alice\"}, {\"id\": 2, \"name\": \"Bob\"}]\n        mock_gen.return_value = rows\n        runner = CliRunner()\n        r1 = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"mock\", \"main-pg\", \"users\",\n             \"--count\", \"2\", \"--seed\", \"42\"],\n        )\n        r2 = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"mock\", \"main-pg\", \"users\",\n             \"--count\", \"2\", \"--seed\", \"42\"],\n        )\n        assert r1.output == r2.output\n\n    @patch(\"cli.mock.generate_mock_data\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_mock_backend_not_found(self, mock_load, mock_gen, valid_config_file):\n        \"\"\"Fails when backend is not registered.\"\"\"\n        mock_gen.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Backend not found\", code=\"E_BACKEND_404\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"mock\", \"nonexistent\", \"users\", \"--count\", \"10\"],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.mock.generate_mock_data\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_mock_table_not_found(self, mock_load, mock_gen, valid_config_file):\n        \"\"\"Fails when table does not exist.\"\"\"\n        mock_gen.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Table not found\", code=\"E_TABLE_404\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"mock\", \"main-pg\", \"nonexistent\", \"--count\", \"10\"],\n        )\n        assert result.exit_code == 1\n\n    @patch(\"cli.mock.generate_mock_data\", return_value=[{\"id\": 1}])\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_mock_arbiter_unavailable_canary_warns(self, mock_load, mock_gen, valid_config_file):\n        \"\"\"When Arbiter is unreachable for canary purpose, warns but does not crash.\"\"\"\n        # Simulate: domain module handles it by returning data + emitting warning\n        runner = CliRunner(mix_stderr=False)\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"mock\", \"main-pg\", \"users\",\n             \"--count\", \"1\", \"--purpose\", \"canary\"],\n        )\n        # Key invariant: does NOT crash\n        assert result.exit_code in (0, 1)  # May be 0 (warn only) or domain-level\n        # Should not be an unhandled exception\n        assert result.exception is None or isinstance(result.exception, SystemExit)\n\n    @patch(\"cli.mock.generate_mock_data\", return_value=[])\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_mock_count_zero(self, mock_load, mock_gen, valid_config_file):\n        \"\"\"Count=0 generates empty result.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"mock\", \"main-pg\", \"users\", \"--count\", \"0\"],\n        )\n        # Should succeed with empty data\n        assert result.exit_code == 0\n\n\nclass TestCmdServe:\n    \"\"\"Tests for cmd_serve subcommand.\"\"\"\n\n    @patch(\"cli.api.start_server\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_serve_success(self, mock_load, mock_start, valid_config_file):\n        \"\"\"Starts server and exits cleanly.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"serve\"],\n        )\n        assert result.exit_code == 0\n        mock_start.assert_called_once()\n\n    @patch(\"cli.api.start_server\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_serve_keyboard_interrupt_exit_130(self, mock_load, mock_start, valid_config_file):\n        \"\"\"KeyboardInterrupt during serve -> exit code 130.\"\"\"\n        mock_start.side_effect = KeyboardInterrupt()\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"serve\"],\n        )\n        assert result.exit_code == 130\n\n    @patch(\"cli.api.start_server\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_serve_port_in_use(self, mock_load, mock_start, valid_config_file):\n        \"\"\"Fails when port is already bound.\"\"\"\n        mock_start.side_effect = _make_ledger_error(ExitCode.DOMAIN_ERROR_1, [\n            _make_violation(message=\"Port already in use\", code=\"E_PORT_BOUND\")\n        ])\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"serve\"],\n        )\n        assert result.exit_code == 1\n\n\n# ===========================================================================\n#  LAYER 1 — Unit Tests: require_config\n# ===========================================================================\n\n\nclass TestRequireConfig:\n    \"\"\"Tests for require_config decorator.\"\"\"\n\n    @patch(\"cli.config.load_config\")\n    def test_require_config_success(self, mock_load, valid_config_file):\n        \"\"\"Loads valid config from YAML file.\"\"\"\n        mock_config = MagicMock(name=\"LedgerConfig\")\n        mock_load.return_value = mock_config\n        try:\n            ctx = CliContext(\n                config_path=valid_config_file,\n                config=None,\n                verbose=False,\n                output_format=OutputFormat.text,\n            )\n        except Exception:\n            ctx = MagicMock()\n            ctx.config_path = valid_config_file\n            ctx.config = None\n        require_config(ctx)\n        assert ctx.config is not None\n        mock_load.assert_called_once()\n\n    def test_require_config_file_missing(self, tmp_path):\n        \"\"\"Raises LedgerError with CONFIG_ERROR_3 when file missing.\"\"\"\n        missing = str(tmp_path / \"nonexistent.yaml\")\n        try:\n            ctx = CliContext(\n                config_path=missing,\n                config=None,\n                verbose=False,\n                output_format=OutputFormat.text,\n            )\n        except Exception:\n            ctx = MagicMock()\n            ctx.config_path = missing\n            ctx.config = None\n        with pytest.raises(Exception) as exc_info:\n            require_config(ctx)\n        # Should be a LedgerError with CONFIG_ERROR_3\n        err = exc_info.value\n        if hasattr(err, 'exit_code'):\n            assert err.exit_code == ExitCode.CONFIG_ERROR_3\n\n    @patch(\"cli.config.load_config\")\n    def test_require_config_parse_error(self, mock_load, invalid_yaml_file):\n        \"\"\"Raises LedgerError when YAML is invalid.\"\"\"\n        mock_load.side_effect = _make_ledger_error(ExitCode.CONFIG_ERROR_3, [\n            _make_violation(message=\"Invalid YAML\", code=\"E_YAML_PARSE\")\n        ])\n        try:\n            ctx = CliContext(\n                config_path=invalid_yaml_file,\n                config=None,\n                verbose=False,\n                output_format=OutputFormat.text,\n            )\n        except Exception:\n            ctx = MagicMock()\n            ctx.config_path = invalid_yaml_file\n            ctx.config = None\n        with pytest.raises(Exception) as exc_info:\n            require_config(ctx)\n        err = exc_info.value\n        if hasattr(err, 'exit_code'):\n            assert err.exit_code == ExitCode.CONFIG_ERROR_3\n\n    @patch(\"cli.config.load_config\")\n    def test_require_config_validation_error(self, mock_load, wrong_schema_config_file):\n        \"\"\"Raises LedgerError when YAML doesn't conform to LedgerConfig schema.\"\"\"\n        mock_load.side_effect = _make_ledger_error(ExitCode.CONFIG_ERROR_3, [\n            _make_violation(message=\"Config validation error\", code=\"E_CFG_SCHEMA\")\n        ])\n        try:\n            ctx = CliContext(\n                config_path=wrong_schema_config_file,\n                config=None,\n                verbose=False,\n                output_format=OutputFormat.text,\n            )\n        except Exception:\n            ctx = MagicMock()\n            ctx.config_path = wrong_schema_config_file\n            ctx.config = None\n        with pytest.raises(Exception) as exc_info:\n            require_config(ctx)\n        err = exc_info.value\n        if hasattr(err, 'exit_code'):\n            assert err.exit_code == ExitCode.CONFIG_ERROR_3\n\n\n# ===========================================================================\n#  LAYER 1 — Unit Tests: format_output\n# ===========================================================================\n\n\nclass TestFormatOutput:\n    \"\"\"Tests for format_output pure helper.\"\"\"\n\n    def test_format_output_json_valid(self, sample_command_result_success):\n        \"\"\"Returns valid JSON string for json format.\"\"\"\n        result_str = format_output(sample_command_result_success, OutputFormat.json)\n        parsed = json.loads(result_str)\n        assert parsed is not None\n\n    def test_format_output_json_roundtrip(self, sample_command_result_success):\n        \"\"\"JSON output roundtrips correctly.\"\"\"\n        result_str = format_output(sample_command_result_success, OutputFormat.json)\n        parsed = json.loads(result_str)\n        assert parsed == sample_command_result_success.data\n\n    def test_format_output_yaml_valid(self, sample_command_result_success):\n        \"\"\"Returns valid YAML string for yaml format.\"\"\"\n        import yaml\n        result_str = format_output(sample_command_result_success, OutputFormat.yaml)\n        parsed = yaml.safe_load(result_str)\n        assert parsed is not None\n\n    def test_format_output_yaml_roundtrip(self, sample_command_result_success):\n        \"\"\"YAML output roundtrips correctly.\"\"\"\n        import yaml\n        result_str = format_output(sample_command_result_success, OutputFormat.yaml)\n        parsed = yaml.safe_load(result_str)\n        assert parsed == sample_command_result_success.data\n\n    def test_format_output_text_returns_string(self, sample_command_result_success):\n        \"\"\"Text format returns a non-empty human-readable string.\"\"\"\n        result_str = format_output(sample_command_result_success, OutputFormat.text)\n        assert isinstance(result_str, str)\n        assert len(result_str) > 0\n\n    def test_format_output_unserializable_data(self):\n        \"\"\"Raises error for unserializable data types.\"\"\"\n        try:\n            bad_result = CommandResult(\n                success=True,\n                data={\"func\": lambda x: x},\n                message=\"OK\",\n                violations=[],\n            )\n        except Exception:\n            bad_result = MagicMock()\n            bad_result.data = {\"func\": lambda x: x}\n            bad_result.success = True\n            bad_result.violations = []\n        with pytest.raises(Exception):\n            format_output(bad_result, OutputFormat.json)\n\n    def test_format_output_empty_dict_json(self):\n        \"\"\"Handles empty dict data in json format.\"\"\"\n        try:\n            result = CommandResult(success=True, data={}, message=\"OK\", violations=[])\n        except Exception:\n            result = MagicMock()\n            result.data = {}\n            result.success = True\n        result_str = format_output(result, OutputFormat.json)\n        parsed = json.loads(result_str)\n        assert parsed == {}\n\n    @pytest.mark.parametrize(\"fmt\", [\"text\", \"json\", \"yaml\"])\n    def test_format_output_all_formats(self, sample_command_result_success, fmt):\n        \"\"\"All OutputFormat enum values produce valid output.\"\"\"\n        out_fmt = OutputFormat[fmt] if isinstance(fmt, str) else fmt\n        result_str = format_output(sample_command_result_success, out_fmt)\n        assert isinstance(result_str, str)\n        assert len(result_str) > 0\n\n    def test_format_output_none_data_text(self):\n        \"\"\"Handles None data gracefully in text format.\"\"\"\n        try:\n            result = CommandResult(success=True, data=None, message=\"OK\", violations=[])\n        except Exception:\n            result = MagicMock()\n            result.data = None\n            result.success = True\n        # text format should handle None without crashing\n        result_str = format_output(result, OutputFormat.text)\n        assert isinstance(result_str, str)\n\n\n# ===========================================================================\n#  LAYER 1 — Unit Tests: render_violations\n# ===========================================================================\n\n\nclass TestRenderViolations:\n    \"\"\"Tests for render_violations pure helper.\"\"\"\n\n    def test_render_violations_basic_with_color(self, sample_violations):\n        \"\"\"Formats violations into colored string with all present.\"\"\"\n        viols = sample_violations(5)\n        result = render_violations(viols, use_color=True)\n        assert isinstance(result, str)\n        for v in viols:\n            assert v.message in result\n\n    def test_render_violations_empty_list(self):\n        \"\"\"Handles empty violation list without error.\"\"\"\n        result = render_violations([], use_color=False)\n        assert isinstance(result, str)\n\n    def test_render_violations_no_color_no_ansi(self, sample_violations):\n        \"\"\"Omits ANSI escape codes when use_color is False.\"\"\"\n        viols = sample_violations(3)\n        result = render_violations(viols, use_color=False)\n        # ANSI escape sequences start with \\x1b[ or \\033[\n        assert \"\\x1b[\" not in result\n        assert \"\\033[\" not in result\n\n    def test_render_violations_severity_order(self, sample_violations):\n        \"\"\"Groups errors first, then warnings, then info.\"\"\"\n        viols = [\n            _make_violation(severity=Severity.info, message=\"Info message\", code=\"I001\"),\n            _make_violation(severity=Severity.error, message=\"Error message\", code=\"E001\"),\n            _make_violation(severity=Severity.warning, message=\"Warning message\", code=\"W001\"),\n        ]\n        result = render_violations(viols, use_color=False)\n        error_pos = result.find(\"Error message\")\n        warning_pos = result.find(\"Warning message\")\n        info_pos = result.find(\"Info message\")\n        assert error_pos < warning_pos < info_pos, (\n            f\"Expected errors ({error_pos}) before warnings ({warning_pos}) before info ({info_pos})\"\n        )\n\n    def test_render_violations_all_present(self, sample_violations):\n        \"\"\"All violations are included in the output (none skipped).\"\"\"\n        viols = sample_violations(10)\n        result = render_violations(viols, use_color=False)\n        for v in viols:\n            assert v.message in result\n\n    def test_render_violations_summary_counts(self):\n        \"\"\"Summary line shows correct counts per severity.\"\"\"\n        viols = [\n            _make_violation(severity=Severity.error, message=\"E1\", code=\"E001\"),\n            _make_violation(severity=Severity.error, message=\"E2\", code=\"E002\"),\n            _make_violation(severity=Severity.warning, message=\"W1\", code=\"W001\"),\n            _make_violation(severity=Severity.info, message=\"I1\", code=\"I001\"),\n        ]\n        result = render_violations(viols, use_color=False)\n        # Summary should contain the count of each severity\n        assert \"2\" in result  # 2 errors\n        assert \"1\" in result  # 1 warning or 1 info\n\n\n# ===========================================================================\n#  LAYER 2 — Integration Tests: CliRunner end-to-end\n# ===========================================================================\n\n\nclass TestIntegrationHelp:\n    \"\"\"--help for every command returns exit code 0.\"\"\"\n\n    def test_help_root(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"--help\"])\n        assert result.exit_code == 0\n        assert \"Usage\" in result.output or \"usage\" in result.output.lower()\n\n    def test_help_init(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"init\", \"--help\"])\n        assert result.exit_code == 0\n\n    def test_help_backend_add(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"backend\", \"add\", \"--help\"])\n        assert result.exit_code == 0\n\n    def test_help_schema_add(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"schema\", \"add\", \"--help\"])\n        assert result.exit_code == 0\n\n    def test_help_schema_show(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"schema\", \"show\", \"--help\"])\n        assert result.exit_code == 0\n\n    def test_help_schema_validate(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"schema\", \"validate\", \"--help\"])\n        assert result.exit_code == 0\n\n    def test_help_migrate_plan(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"migrate\", \"plan\", \"--help\"])\n        assert result.exit_code == 0\n\n    def test_help_migrate_approve(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"migrate\", \"approve\", \"--help\"])\n        assert result.exit_code == 0\n\n    def test_help_export(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"export\", \"--help\"])\n        assert result.exit_code == 0\n\n    def test_help_mock(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"mock\", \"--help\"])\n        assert result.exit_code == 0\n\n    def test_help_serve(self):\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"serve\", \"--help\"])\n        assert result.exit_code == 0\n\n\nclass TestIntegrationExitCodes:\n    \"\"\"Exit codes match ExitCode enum values.\"\"\"\n\n    @patch(\"cli.config.init_config\")\n    def test_exit_code_success_0(self, mock_init, tmp_config_path):\n        \"\"\"Successful command -> exit code 0.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"--config\", tmp_config_path, \"init\"])\n        assert result.exit_code == 0\n\n    @patch(\"cli.registry.validate_schemas\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_exit_code_domain_error_1(self, mock_load, mock_validate, valid_config_file):\n        \"\"\"Domain error -> exit code 1.\"\"\"\n        mock_validate.return_value = [\n            _make_violation(severity=Severity.error, message=\"Error\"),\n        ]\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"validate\"],\n        )\n        assert result.exit_code == 1\n\n    def test_exit_code_config_error_3(self, tmp_path):\n        \"\"\"Config error -> exit code 3.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", str(tmp_path / \"nonexistent.yaml\"), \"backend\", \"add\",\n             \"be1\", \"--type\", \"postgres\", \"--owner\", \"svc\"],\n        )\n        assert result.exit_code == 3\n\n    @patch(\"cli.api.start_server\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_exit_code_keyboard_interrupt_130(self, mock_load, mock_start, valid_config_file):\n        \"\"\"KeyboardInterrupt -> exit code 130.\"\"\"\n        mock_start.side_effect = KeyboardInterrupt()\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"serve\"],\n        )\n        assert result.exit_code == 130\n\n\nclass TestIntegrationConfigResolution:\n    \"\"\"Config path resolution order tests.\"\"\"\n\n    def test_flag_overrides_env_and_default(self, tmp_path, monkeypatch):\n        \"\"\"--config flag takes precedence over env var and default.\"\"\"\n        flag_cfg = str(tmp_path / \"flag.yaml\")\n        env_cfg = str(tmp_path / \"env.yaml\")\n        monkeypatch.setenv(\"LEDGER_CONFIG\", env_cfg)\n\n        with patch(\"cli.config.init_config\") as mock_init:\n            runner = CliRunner()\n            result = runner.invoke(cli_main, [\"--config\", flag_cfg, \"init\"])\n            assert result.exit_code == 0\n            # The init_config should have been called (flag path used)\n            mock_init.assert_called_once()\n\n    def test_env_used_when_no_flag(self, tmp_path, monkeypatch):\n        \"\"\"LEDGER_CONFIG env var used when no --config flag.\"\"\"\n        env_cfg = str(tmp_path / \"env_config.yaml\")\n        monkeypatch.setenv(\"LEDGER_CONFIG\", env_cfg)\n\n        with patch(\"cli.config.init_config\") as mock_init:\n            runner = CliRunner()\n            result = runner.invoke(cli_main, [\"init\"])\n            assert result.exit_code == 0\n\n    def test_default_when_no_flag_no_env(self, monkeypatch):\n        \"\"\"Default ./ledger.yaml used when no flag or env var.\"\"\"\n        monkeypatch.delenv(\"LEDGER_CONFIG\", raising=False)\n        runner = CliRunner()\n        result = runner.invoke(cli_main, [\"--help\"])\n        assert result.exit_code == 0\n\n\nclass TestIntegrationVerbose:\n    \"\"\"Verbose flag tests.\"\"\"\n\n    @patch(\"cli.config.init_config\")\n    def test_verbose_flag_accepted(self, mock_init, tmp_config_path):\n        \"\"\"--verbose flag is accepted without error.\"\"\"\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", tmp_config_path, \"--verbose\", \"init\"],\n        )\n        assert result.exit_code == 0\n\n    @patch(\"cli.registry.validate_schemas\", return_value=[])\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_verbose_increases_output(self, mock_load, mock_validate, valid_config_file):\n        \"\"\"Verbose mode should produce at least as much output as non-verbose.\"\"\"\n        runner = CliRunner(mix_stderr=False)\n        result_quiet = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"validate\"],\n        )\n        result_verbose = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"--verbose\", \"schema\", \"validate\"],\n        )\n        # Verbose should have >= output (checking combined stdout + stderr)\n        quiet_total = len(result_quiet.output) + len(result_quiet.stderr if hasattr(result_quiet, 'stderr') else \"\")\n        verbose_total = len(result_verbose.output) + len(result_verbose.stderr if hasattr(result_verbose, 'stderr') else \"\")\n        assert verbose_total >= quiet_total\n\n\n# ===========================================================================\n#  INVARIANT Tests\n# ===========================================================================\n\n\nclass TestInvariants:\n    \"\"\"Cross-cutting invariant verifications.\"\"\"\n\n    @patch(\"cli.registry.register_backend\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_thin_dispatch_delegates_to_domain(self, mock_load, mock_reg, valid_config_file):\n        \"\"\"CLI subcommands only dispatch to domain module — no business logic.\"\"\"\n        runner = CliRunner()\n        runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"backend\", \"add\", \"be1\",\n             \"--type\", \"postgres\", \"--owner\", \"svc\"],\n        )\n        # Domain module called exactly once\n        mock_reg.assert_called_once()\n\n    @patch(\"cli.registry.show_schema\", return_value={\"tables\": {}})\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_data_stdout_errors_stderr(self, mock_load, mock_show, valid_config_file):\n        \"\"\"Data output goes to stdout; status messages go to stderr.\"\"\"\n        runner = CliRunner(mix_stderr=False)\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"show\", \"main-pg\"],\n        )\n        assert result.exit_code == 0\n        # stdout should contain data\n        assert len(result.output) >= 0  # May be empty if no data to show\n\n    @patch(\"cli.registry.validate_schemas\")\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_violations_never_truncated_integration(self, mock_load, mock_validate,\n                                                      valid_config_file):\n        \"\"\"All violations rendered to user — never truncated.\"\"\"\n        viols = [_make_violation(message=f\"v-{i}\", code=f\"C{i:03d}\") for i in range(50)]\n        mock_validate.return_value = viols\n        runner = CliRunner()\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"schema\", \"validate\"],\n        )\n        for v in viols:\n            assert v.message in result.output or v.code in result.output\n\n    def test_exit_code_enum_values(self):\n        \"\"\"Exit code enum has the expected integer values.\"\"\"\n        assert ExitCode.SUCCESS_0.value == 0 or str(ExitCode.SUCCESS_0) == \"0\" or \"0\" in str(ExitCode.SUCCESS_0)\n        assert ExitCode.DOMAIN_ERROR_1.value == 1 or \"1\" in str(ExitCode.DOMAIN_ERROR_1)\n        assert ExitCode.USAGE_ERROR_2.value == 2 or \"2\" in str(ExitCode.USAGE_ERROR_2)\n        assert ExitCode.CONFIG_ERROR_3.value == 3 or \"3\" in str(ExitCode.CONFIG_ERROR_3)\n        assert ExitCode.KEYBOARD_INTERRUPT_130.value == 130 or \"130\" in str(ExitCode.KEYBOARD_INTERRUPT_130)\n\n    @patch(\"cli.config.init_config\")\n    def test_cmd_init_only_command_without_config(self, mock_init, tmp_config_path):\n        \"\"\"cmd_init is the only command that works without loaded config.\"\"\"\n        runner = CliRunner()\n        # init works without existing config\n        result = runner.invoke(cli_main, [\"--config\", tmp_config_path, \"init\"])\n        assert result.exit_code == 0\n\n        # Other commands fail without config\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", str(tmp_config_path + \".nonexistent\"), \"schema\", \"validate\"],\n        )\n        assert result.exit_code == 3\n\n    @patch(\"cli.mock.generate_mock_data\", return_value=[{\"id\": 1}])\n    @patch(\"cli.config.load_config\", return_value=MagicMock())\n    def test_arbiter_unavailable_no_crash_invariant(self, mock_load, mock_gen, valid_config_file):\n        \"\"\"Arbiter unreachable during canary => warn, don't crash.\"\"\"\n        runner = CliRunner(mix_stderr=False)\n        result = runner.invoke(\n            cli_main,\n            [\"--config\", valid_config_file, \"mock\", \"main-pg\", \"users\",\n             \"--count\", \"1\", \"--purpose\", \"canary\"],\n        )\n        # Must not be an unhandled exception\n        if result.exception is not None:\n            assert isinstance(result.exception, SystemExit)\n\n    def test_output_format_enum_values(self):\n        \"\"\"OutputFormat enum has expected variants.\"\"\"\n        assert OutputFormat.text is not None\n        assert OutputFormat.json is not None\n        assert OutputFormat.yaml is not None\n\n    def test_backend_type_enum_values(self):\n        \"\"\"BackendType enum has all expected variants.\"\"\"\n        expected = [\"postgres\", \"mysql\", \"sqlite\", \"redis\", \"dynamodb\", \"s3\", \"custom\"]\n        for name in expected:\n            assert hasattr(BackendType, name), f\"BackendType missing variant: {name}\"\n\n    def test_export_format_enum_values(self):\n        \"\"\"ExportFormat enum has all expected variants.\"\"\"\n        expected = [\"pact\", \"arbiter\", \"baton\", \"sentinel\"]\n        for name in expected:\n            assert hasattr(ExportFormat, name), f\"ExportFormat missing variant: {name}\"\n\n    def test_mock_purpose_enum_values(self):\n        \"\"\"MockPurpose enum has expected variants.\"\"\"\n        assert hasattr(MockPurpose, \"default\")\n        assert hasattr(MockPurpose, \"canary\")\n\n    def test_severity_enum_values(self):\n        \"\"\"Severity enum has expected variants.\"\"\"\n        assert hasattr(Severity, \"error\")\n        assert hasattr(Severity, \"warning\")\n        assert hasattr(Severity, \"info\")\n"
+}

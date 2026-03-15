@@ -1,0 +1,685 @@
+{
+  "component_id": "api",
+  "contract_version": 2,
+  "test_cases": [
+    {
+      "id": "goodhart_health_response_fields_correct_types",
+      "description": "Health response must contain all three fields (status, version, port) with correct types for any valid config, not just hardcoded values",
+      "function": "handle_health",
+      "category": "invariant",
+      "setup_description": "Create app with LedgerConfig using port=9999",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "GET /health with a non-default port (e.g. 9999)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 200",
+        "response body has 'status' key with string value 'ok'",
+        "response body has 'version' key with non-empty string",
+        "response body has 'port' key with integer value matching config port"
+      ]
+    },
+    {
+      "id": "goodhart_health_port_reflects_config",
+      "description": "Health endpoint must dynamically reflect the configured port, not return a hardcoded value",
+      "function": "handle_health",
+      "category": "invariant",
+      "setup_description": "Create two apps with ports 7542 and 3333 respectively, check each health endpoint",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Two separate app instances with different ports",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "port in health response equals 7542 for first app",
+        "port in health response equals 3333 for second app"
+      ]
+    },
+    {
+      "id": "goodhart_backend_conflict_different_description",
+      "description": "Backend conflict detection must check description field too, not just display_name",
+      "function": "handle_register_backend",
+      "category": "edge_case",
+      "setup_description": "Create app, register backend once",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend with description 'Original', then re-register same backend_id and display_name but description 'Changed'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "first registration returns 201",
+        "re-registration with same display_name but different description returns 409",
+        "409 response body contains violations list"
+      ]
+    },
+    {
+      "id": "goodhart_backend_identical_rereg_returns_created_false",
+      "description": "Identical backend re-registration must return 200 with created=false to distinguish from new creation",
+      "function": "handle_register_backend",
+      "category": "edge_case",
+      "setup_description": "Create app, register backend, register again identically",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register same backend twice with identical data",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 200",
+        "response body 'created' field is false"
+      ]
+    },
+    {
+      "id": "goodhart_backend_201_created_true",
+      "description": "New backend registration must return created=true in the response body",
+      "function": "handle_register_backend",
+      "category": "invariant",
+      "setup_description": "Create app",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register a fresh backend with unique ID",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 201",
+        "response body 'created' field is true",
+        "response body contains backend_id and display_name matching request"
+      ]
+    },
+    {
+      "id": "goodhart_schema_location_header_format",
+      "description": "Schema registration Location header must follow /schemas/{backend_id}/{table_name} format exactly",
+      "function": "handle_register_schema",
+      "category": "invariant",
+      "setup_description": "Create app, register backend 'my-backend' first",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register schema with backend_id='my-backend', table_name='users_table'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 201",
+        "Location header equals '/schemas/my-backend/users_table'"
+      ]
+    },
+    {
+      "id": "goodhart_schema_verbatim_preserves_trailing_whitespace",
+      "description": "Schema YAML storage must preserve trailing whitespace and unusual spacing exactly as submitted",
+      "function": "handle_register_schema",
+      "category": "invariant",
+      "setup_description": "Create app, register backend, register schema with whitespace-heavy YAML, then GET schema detail",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register schema with yaml_content containing trailing spaces, multiple blank lines, and tab characters",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "yaml_content in schema detail exactly matches the original input including trailing spaces and blank lines"
+      ]
+    },
+    {
+      "id": "goodhart_schema_verbatim_preserves_key_order",
+      "description": "Schema YAML storage must not reorder YAML keys - the order submitted must be the order returned",
+      "function": "handle_get_schema_detail",
+      "category": "invariant",
+      "setup_description": "Create app, register backend, register schema with deliberately reverse-ordered keys",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register schema with YAML keys in non-alphabetical order (z before a), retrieve and compare",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "yaml_content returned matches submitted content byte-for-byte including key ordering"
+      ]
+    },
+    {
+      "id": "goodhart_validate_schema_info_severity_still_valid",
+      "description": "Schema validation with only info-severity violations should return valid=true since only error-severity makes it invalid",
+      "function": "handle_validate_schema",
+      "category": "edge_case",
+      "setup_description": "Create app",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "YAML content that triggers only info-level violations",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response valid is true",
+        "violations list is non-empty",
+        "all violations have severity 'info'"
+      ]
+    },
+    {
+      "id": "goodhart_validate_mixed_severities_valid_false",
+      "description": "Schema validation with mixed severity violations including at least one error must return valid=false",
+      "function": "handle_validate_schema",
+      "category": "invariant",
+      "setup_description": "Create app",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "YAML content that triggers violations at error, warning, and info levels",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response valid is false",
+        "violations contains entries with severity 'error'",
+        "violations also contains entries with non-error severity"
+      ]
+    },
+    {
+      "id": "goodhart_migration_plan_unique_ids",
+      "description": "Each migration plan must receive a unique UUID4, not a reused or sequential ID",
+      "function": "handle_create_migration_plan",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schema, create two plans",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create two migration plans in sequence with same input",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "plan1_id != plan2_id",
+        "both are valid UUID4 strings",
+        "UUID version is 4 for both"
+      ]
+    },
+    {
+      "id": "goodhart_migration_plan_expires_at_future",
+      "description": "Migration plan expires_at must be set to a future timestamp based on config TTL, not a static value",
+      "function": "handle_create_migration_plan",
+      "category": "invariant",
+      "setup_description": "Create app with plan_ttl_seconds=600, register backend and schema",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create a migration plan and verify expires_at is approximately now + TTL",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "expires_at is a valid ISO 8601 datetime",
+        "expires_at is in the future relative to request time",
+        "expires_at is approximately now + plan_ttl_seconds"
+      ]
+    },
+    {
+      "id": "goodhart_migration_plan_stores_backend_and_table",
+      "description": "Migration plan response must echo back the correct backend_id and table_name from the request",
+      "function": "handle_create_migration_plan",
+      "category": "invariant",
+      "setup_description": "Create app, register backend 'alpha-db' and schema 'orders', create plan",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create migration plan with specific backend_id and table_name",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response backend_id matches request backend_id",
+        "response table_name matches request table_name"
+      ]
+    },
+    {
+      "id": "goodhart_approve_changes_status_to_approved",
+      "description": "After approval, the plan status must be 'approved' in the response, not just 'pending' or any other value",
+      "function": "handle_approve_migration_plan",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schema, create passing plan, approve it",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create and approve a passing migration plan",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status is 'approved'",
+        "response plan_id matches the approved plan"
+      ]
+    },
+    {
+      "id": "goodhart_approve_double_approve_rejected",
+      "description": "Approving an already-approved plan must fail with plan_not_pending error, not succeed silently",
+      "function": "handle_approve_migration_plan",
+      "category": "error_case",
+      "setup_description": "Create app, register backend and schema, create and approve plan, try approving again",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Approve same plan_id twice",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "first approve returns success",
+        "second approve returns error status (not 2xx)"
+      ]
+    },
+    {
+      "id": "goodhart_export_json_contains_registered_schemas",
+      "description": "JSON export must include data from schemas actually registered, not return empty or static content",
+      "function": "handle_export",
+      "category": "happy_path",
+      "setup_description": "Create app, register two backends with one schema each",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register 2 schemas under different backends, then export as JSON",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response contains schema data for registered schemas",
+        "schema_count matches number of registered schemas"
+      ]
+    },
+    {
+      "id": "goodhart_export_csv_contains_schema_data",
+      "description": "CSV export must contain actual schema information from the registry, not static placeholder text",
+      "function": "handle_export",
+      "category": "happy_path",
+      "setup_description": "Create app, register backend and schema",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register a schema and export as CSV",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "CSV content contains backend_id and table_name from registered schemas",
+        "content type is text/csv"
+      ]
+    },
+    {
+      "id": "goodhart_export_no_state_mutation",
+      "description": "Export endpoint must not mutate any state - schemas before and after export must be identical",
+      "function": "handle_export",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schema, capture state, export, verify state unchanged",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "GET /export/json, then verify registry unchanged",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "schema list before export equals schema list after export",
+        "no new schemas appear after export"
+      ]
+    },
+    {
+      "id": "goodhart_mock_row_count_exact_boundary_10000",
+      "description": "Mock generation must support exactly 10000 rows (the upper boundary), not just small counts",
+      "function": "handle_generate_mock",
+      "category": "edge_case",
+      "setup_description": "Create app, register backend and schema",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "POST /mock with row_count=10000",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 200",
+        "response row_count is 10000",
+        "len(rows) is 10000"
+      ]
+    },
+    {
+      "id": "goodhart_mock_row_count_10001_rejected",
+      "description": "Mock generation must reject row_count=10001 as it exceeds the maximum boundary of 10000",
+      "function": "handle_generate_mock",
+      "category": "edge_case",
+      "setup_description": "Create app, register backend and schema",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "POST /mock with row_count=10001",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 422",
+        "error response contains violations"
+      ]
+    },
+    {
+      "id": "goodhart_mock_negative_row_count_rejected",
+      "description": "Mock generation must reject negative row_count values",
+      "function": "handle_generate_mock",
+      "category": "error_case",
+      "setup_description": "Create app, register backend and schema",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "POST /mock with row_count=-1",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 422"
+      ]
+    },
+    {
+      "id": "goodhart_mock_different_seeds_different_output",
+      "description": "Different seed values must produce different mock data, proving seed is actually used",
+      "function": "handle_generate_mock",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schema with multiple columns",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Generate mock data twice with seed=1 and seed=2 for same schema",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "output with seed=1 differs from output with seed=2"
+      ]
+    },
+    {
+      "id": "goodhart_mock_columns_match_schema",
+      "description": "Mock generation response columns must match the registered schema's column definitions",
+      "function": "handle_generate_mock",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schema with known columns",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register schema with 3 columns, generate mock data, verify columns align",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response columns list matches schema column names",
+        "each row length matches column count"
+      ]
+    },
+    {
+      "id": "goodhart_mock_seed_echoed_in_response",
+      "description": "Mock generation response must echo back the seed value that was provided in the request",
+      "function": "handle_generate_mock",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schema",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "POST /mock with seed=42",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response seed equals 42"
+      ]
+    },
+    {
+      "id": "goodhart_annotations_empty_when_no_schemas",
+      "description": "Annotations endpoint must return empty list and total_count=0 when no schemas are registered",
+      "function": "handle_get_annotations",
+      "category": "edge_case",
+      "setup_description": "Create app with no schemas registered",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "GET /annotations with no schemas registered",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "annotations list is empty",
+        "total_count is 0"
+      ]
+    },
+    {
+      "id": "goodhart_annotations_propagated_flag_accurate",
+      "description": "Each annotation must accurately indicate whether it was directly declared or propagated",
+      "function": "handle_get_annotations",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schemas with annotations that trigger propagation",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "GET /annotations after registering schemas that trigger propagation",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "directly declared annotations have propagated=false",
+        "propagated annotations have propagated=true"
+      ]
+    },
+    {
+      "id": "goodhart_error_response_violations_is_list",
+      "description": "All error responses must include violations as a list, not a single object or string",
+      "function": "handle_register_backend",
+      "category": "invariant",
+      "setup_description": "Create app, attempt conflicting backend registration",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Trigger various error conditions and verify violations structure",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "error response body 'violations' is a list",
+        "each violation has field, message, severity, code keys"
+      ]
+    },
+    {
+      "id": "goodhart_conflict_409_has_error_response_model",
+      "description": "409 Conflict responses must use the ErrorResponse model with error, detail, and violations fields",
+      "function": "handle_register_schema",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schema, re-register schema with different content",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register schema, then re-register with same key but different yaml_content",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 409",
+        "response body has 'error' key",
+        "response body has 'detail' key",
+        "response body has 'violations' key as list"
+      ]
+    },
+    {
+      "id": "goodhart_schema_list_multiple_schemas",
+      "description": "Schema list endpoint must return all registered schemas for a backend, not just the first or last",
+      "function": "handle_get_schemas_for_backend",
+      "category": "happy_path",
+      "setup_description": "Create app, register backend, register 3 schemas with different table names",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register 3 different schemas under one backend, then list",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response schemas list has length 3",
+        "all three table names are present in response"
+      ]
+    },
+    {
+      "id": "goodhart_schema_list_summary_fields",
+      "description": "Schema list entries must include summary fields (table_name, version, column_count, annotation_count), not full YAML",
+      "function": "handle_get_schemas_for_backend",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schema",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register schema and list schemas for backend",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "each schema in list has table_name, version, column_count, annotation_count",
+        "no yaml_content field in list entries"
+      ]
+    },
+    {
+      "id": "goodhart_create_app_config_stored_in_state",
+      "description": "App state must contain the config reference so dependencies can access it",
+      "function": "create_app",
+      "category": "invariant",
+      "setup_description": "Create LedgerConfig with known values",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create app with specific config values and inspect app.state",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "app.state contains config reference",
+        "config values are accessible"
+      ]
+    },
+    {
+      "id": "goodhart_migration_gate_violations_all_returned",
+      "description": "Gate result in migration plan must contain all violations, not truncated or limited to first N",
+      "function": "handle_create_migration_plan",
+      "category": "invariant",
+      "setup_description": "Create app, register backend and schema, submit SQL that causes multiple gate checks to fail",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create migration plan with SQL that triggers multiple gate violations",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "gate_result violations list contains all expected violations",
+        "violation count matches expected total"
+      ]
+    },
+    {
+      "id": "goodhart_backend_location_header_format",
+      "description": "Backend registration Location header must follow /backends/{backend_id} format exactly",
+      "function": "handle_register_backend",
+      "category": "invariant",
+      "setup_description": "Create app",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend with backend_id='test-backend-xyz'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Location header equals '/backends/test-backend-xyz'"
+      ]
+    },
+    {
+      "id": "goodhart_schema_registration_created_field",
+      "description": "Schema registration response must have created=true for new and created=false for re-registration",
+      "function": "handle_register_schema",
+      "category": "invariant",
+      "setup_description": "Create app, register backend",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register schema, then re-register identically",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "first registration response has created=true",
+        "identical re-registration response has created=false"
+      ]
+    },
+    {
+      "id": "goodhart_expired_plan_not_approvable",
+      "description": "Expired plans must be treated as non-existent during approval, triggering lazy cleanup",
+      "function": "handle_approve_migration_plan",
+      "category": "edge_case",
+      "setup_description": "Create app with plan_ttl_seconds=1, register backend and schema, create plan, sleep 2s, approve",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create plan with very short TTL, wait for expiry, try to approve",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "approval of expired plan returns 404",
+        "error response follows ErrorResponse model"
+      ]
+    },
+    {
+      "id": "goodhart_schema_detail_backend_not_found",
+      "description": "Schema detail endpoint must return 404 for non-existent backend, distinct from non-existent table",
+      "function": "handle_get_schema_detail",
+      "category": "error_case",
+      "setup_description": "Create app with no backends registered",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "GET /schemas/nonexistent-backend/some-table",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 404",
+        "error response indicates backend not found"
+      ]
+    },
+    {
+      "id": "goodhart_schema_registration_triggers_propagation",
+      "description": "Registering a schema must trigger annotation propagation, visible in subsequent annotation queries",
+      "function": "handle_register_schema",
+      "category": "invariant",
+      "setup_description": "Create app, register backend, register schema with PII annotations",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register schema with columns that should trigger propagation, then query annotations",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "annotations endpoint returns propagated entries after schema registration"
+      ]
+    },
+    {
+      "id": "goodhart_validate_schema_does_not_affect_registry",
+      "description": "Validating a schema must not make it appear in any registry queries or exports",
+      "function": "handle_validate_schema",
+      "category": "invariant",
+      "setup_description": "Create app, register a backend, validate a schema YAML, query GET /schemas/{backend_id}",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Validate a schema, then query schemas list and export",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "schema list for backend is empty after validation",
+        "export returns zero schemas after validation"
+      ]
+    },
+    {
+      "id": "goodhart_export_schema_count_accurate",
+      "description": "Export response schema_count must accurately reflect the number of registered schemas, not be hardcoded",
+      "function": "handle_export",
+      "category": "invariant",
+      "setup_description": "Create app, export, register 2 backends with 1 schema each, export again",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Export with 0 schemas, register 2, export again",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "schema_count is 0 with no schemas",
+        "schema_count is 2 after registering 2 schemas"
+      ]
+    },
+    {
+      "id": "goodhart_multiple_plans_coexist",
+      "description": "Multiple migration plans must coexist independently in the in-memory store",
+      "function": "handle_create_migration_plan",
+      "category": "edge_case",
+      "setup_description": "Create app, register backend and schema, create two plans with different SQL",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create two separate migration plans",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "two plans have different plan_ids",
+        "both plans are independently accessible",
+        "approving one does not affect the other"
+      ]
+    },
+    {
+      "id": "goodhart_health_no_registry_field_access",
+      "description": "Health endpoint must work correctly even before any registry-dependent endpoint has been called",
+      "function": "handle_health",
+      "category": "invariant",
+      "setup_description": "Create app, do NOT call any other endpoint first",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create fresh app, immediately call GET /health without any prior requests",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "health returns 200 with status 'ok' as the very first request to a fresh app"
+      ]
+    },
+    {
+      "id": "goodhart_backend_409_response_has_violations",
+      "description": "Backend conflict (409) response must include a non-empty violations list per ErrorResponse contract",
+      "function": "handle_register_backend",
+      "category": "invariant",
+      "setup_description": "Create app, register backend",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend, then register with same ID but different display_name",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "response status_code is 409",
+        "violations list is non-empty",
+        "at least one violation has severity field"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nAdversarial hidden acceptance tests for the HTTP API Server component.\nThese tests catch implementations that pass visible tests through shortcuts\n(hardcoded returns, incomplete validation, etc.) rather than truly satisfying the contract.\n\"\"\"\n\nimport pytest\nimport time\nimport uuid\nimport json\nfrom datetime import datetime, timezone\nfrom unittest.mock import patch, MagicMock\nfrom fastapi.testclient import TestClient\n\nfrom src.api import *\n\n\n# ---------------------------------------------------------------------------\n# Helpers\n# ---------------------------------------------------------------------------\n\ndef make_config(**overrides):\n    \"\"\"Create a LedgerConfig with sensible defaults, overridable per-test.\"\"\"\n    import tempfile, os\n    defaults = {\n        \"port\": 8080,\n        \"schema_dir\": overrides.pop(\"schema_dir\", tempfile.mkdtemp()),\n        \"plan_ttl_seconds\": 3600,\n        \"arbiter_url\": \"\",\n    }\n    defaults.update(overrides)\n    return LedgerConfig(**defaults)\n\n\ndef make_app(**config_overrides):\n    \"\"\"Create a FastAPI app with a test client.\"\"\"\n    config = make_config(**config_overrides)\n    app = create_app(config)\n    client = TestClient(app)\n    return app, client, config\n\n\ndef register_backend(client, backend_id=\"test-be\", display_name=\"Test Backend\", description=\"A test backend\"):\n    resp = client.post(\"/backends\", json={\n        \"backend_id\": backend_id,\n        \"display_name\": display_name,\n        \"description\": description,\n    })\n    return resp\n\n\nSIMPLE_SCHEMA_YAML = \"\"\"\ntable:\n  name: users\n  columns:\n    - name: id\n      data_type: integer\n      nullable: false\n      primary_key: true\n    - name: email\n      data_type: varchar\n      nullable: false\n      primary_key: false\n\"\"\".strip()\n\nSIMPLE_SCHEMA_YAML_V2 = \"\"\"\ntable:\n  name: users\n  columns:\n    - name: id\n      data_type: integer\n      nullable: false\n      primary_key: true\n    - name: email\n      data_type: varchar\n      nullable: false\n      primary_key: false\n    - name: age\n      data_type: integer\n      nullable: true\n      primary_key: false\n\"\"\".strip()\n\n\ndef register_schema(client, backend_id=\"test-be\", table_name=\"users\", yaml_content=None, version=\"1.0.0\"):\n    if yaml_content is None:\n        yaml_content = SIMPLE_SCHEMA_YAML\n    resp = client.post(\"/schemas\", json={\n        \"backend_id\": backend_id,\n        \"table_name\": table_name,\n        \"yaml_content\": yaml_content,\n        \"version\": version,\n    })\n    return resp\n\n\n# ---------------------------------------------------------------------------\n# Tests\n# ---------------------------------------------------------------------------\n\n\nclass TestGoodhartHealth:\n    def test_goodhart_health_response_fields_correct_types(self):\n        \"\"\"Health response must contain all three fields (status, version, port) with correct types for any valid config.\"\"\"\n        _, client, _ = make_app(port=9999)\n        resp = client.get(\"/health\")\n        assert resp.status_code == 200\n        body = resp.json()\n        assert body[\"status\"] == \"ok\"\n        assert isinstance(body[\"version\"], str) and len(body[\"version\"]) > 0\n        assert isinstance(body[\"port\"], int)\n        assert body[\"port\"] == 9999\n\n    def test_goodhart_health_port_reflects_config(self):\n        \"\"\"Health endpoint must dynamically reflect the configured port, not return a hardcoded value.\"\"\"\n        _, client1, _ = make_app(port=7542)\n        _, client2, _ = make_app(port=3333)\n        resp1 = client1.get(\"/health\")\n        resp2 = client2.get(\"/health\")\n        assert resp1.json()[\"port\"] == 7542\n        assert resp2.json()[\"port\"] == 3333\n\n    def test_goodhart_health_no_registry_field_access(self):\n        \"\"\"Health endpoint must work correctly as the very first request to a fresh app.\"\"\"\n        _, client, _ = make_app()\n        # This is the absolute first request - no setup\n        resp = client.get(\"/health\")\n        assert resp.status_code == 200\n        assert resp.json()[\"status\"] == \"ok\"\n\n\nclass TestGoodhartBackendRegistration:\n    def test_goodhart_backend_conflict_different_description(self):\n        \"\"\"Backend conflict detection must check description field too, not just display_name.\"\"\"\n        _, client, _ = make_app()\n        r1 = register_backend(client, \"be-1\", \"Same Name\", \"Original desc\")\n        assert r1.status_code == 201\n\n        r2 = client.post(\"/backends\", json={\n            \"backend_id\": \"be-1\",\n            \"display_name\": \"Same Name\",\n            \"description\": \"Changed desc\",\n        })\n        assert r2.status_code == 409\n        body = r2.json()\n        assert \"violations\" in body\n        assert isinstance(body[\"violations\"], list)\n\n    def test_goodhart_backend_identical_rereg_returns_created_false(self):\n        \"\"\"Identical backend re-registration must return 200 with created=false.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"be-2\", \"My Backend\", \"Desc\")\n        r2 = register_backend(client, \"be-2\", \"My Backend\", \"Desc\")\n        assert r2.status_code == 200\n        assert r2.json()[\"created\"] is False\n\n    def test_goodhart_backend_201_created_true(self):\n        \"\"\"New backend registration must return created=true in the response body.\"\"\"\n        _, client, _ = make_app()\n        r = register_backend(client, \"fresh-be\", \"Fresh\", \"Desc\")\n        assert r.status_code == 201\n        body = r.json()\n        assert body[\"created\"] is True\n        assert body[\"backend_id\"] == \"fresh-be\"\n        assert body[\"display_name\"] == \"Fresh\"\n\n    def test_goodhart_backend_location_header_format(self):\n        \"\"\"Backend registration Location header must follow /backends/{backend_id} format exactly.\"\"\"\n        _, client, _ = make_app()\n        r = register_backend(client, \"test-backend-xyz\", \"Display\", \"Desc\")\n        assert r.status_code == 201\n        location = r.headers.get(\"location\", \"\")\n        assert location == \"/backends/test-backend-xyz\"\n\n    def test_goodhart_backend_409_response_has_violations(self):\n        \"\"\"Backend conflict (409) response must include a non-empty violations list.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"be-conflict\", \"Name1\", \"Desc1\")\n        r = register_backend(client, \"be-conflict\", \"Name2\", \"Desc1\")\n        assert r.status_code == 409\n        body = r.json()\n        assert \"violations\" in body\n        assert isinstance(body[\"violations\"], list)\n        assert len(body[\"violations\"]) > 0\n\n    def test_goodhart_error_response_violations_is_list(self):\n        \"\"\"All error responses must include violations as a list, not a single object or string.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"err-be\", \"Original\", \"Desc\")\n        r = register_backend(client, \"err-be\", \"Different\", \"Desc\")\n        assert r.status_code == 409\n        body = r.json()\n        assert isinstance(body.get(\"violations\"), list)\n        for v in body[\"violations\"]:\n            assert \"field\" in v or \"message\" in v or \"severity\" in v or \"code\" in v\n\n\nclass TestGoodhartSchemaRegistration:\n    def test_goodhart_schema_location_header_format(self):\n        \"\"\"Schema registration Location header must follow /schemas/{backend_id}/{table_name} format.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"my-backend\", \"My Backend\", \"Desc\")\n        r = register_schema(client, backend_id=\"my-backend\", table_name=\"users_table\")\n        assert r.status_code == 201\n        location = r.headers.get(\"location\", \"\")\n        assert location == \"/schemas/my-backend/users_table\"\n\n    def test_goodhart_schema_verbatim_preserves_trailing_whitespace(self):\n        \"\"\"Schema YAML storage must preserve trailing whitespace and unusual spacing.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"wb-be\", \"WB\", \"Desc\")\n\n        weird_yaml = \"table:  \\n  name: test_table  \\n  columns:  \\n    - name: id  \\n      data_type: integer  \\n      nullable: false  \\n      primary_key: true  \\n\"\n        r = register_schema(client, backend_id=\"wb-be\", table_name=\"test_table\", yaml_content=weird_yaml)\n        assert r.status_code == 201\n\n        detail = client.get(\"/schemas/wb-be/test_table\")\n        assert detail.status_code == 200\n        assert detail.json()[\"yaml_content\"] == weird_yaml\n\n    def test_goodhart_schema_verbatim_preserves_key_order(self):\n        \"\"\"Schema YAML storage must not reorder YAML keys.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"order-be\", \"Order\", \"Desc\")\n\n        ordered_yaml = \"table:\\n  name: ordered_tbl\\n  columns:\\n    - name: z_col\\n      data_type: varchar\\n      nullable: true\\n      primary_key: false\\n    - name: a_col\\n      data_type: integer\\n      nullable: false\\n      primary_key: true\\n\"\n        r = register_schema(client, backend_id=\"order-be\", table_name=\"ordered_tbl\", yaml_content=ordered_yaml)\n        assert r.status_code == 201\n\n        detail = client.get(\"/schemas/order-be/ordered_tbl\")\n        assert detail.status_code == 200\n        assert detail.json()[\"yaml_content\"] == ordered_yaml\n\n    def test_goodhart_schema_registration_created_field(self):\n        \"\"\"Schema registration response must have created=true for new and created=false for re-registration.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"cr-be\", \"CR\", \"Desc\")\n\n        r1 = register_schema(client, backend_id=\"cr-be\", table_name=\"users\", version=\"1.0.0\")\n        assert r1.status_code == 201\n        assert r1.json()[\"created\"] is True\n\n        r2 = register_schema(client, backend_id=\"cr-be\", table_name=\"users\", version=\"1.0.0\")\n        assert r2.status_code == 200\n        assert r2.json()[\"created\"] is False\n\n    def test_goodhart_conflict_409_has_error_response_model(self):\n        \"\"\"409 Conflict responses must use the ErrorResponse model.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"cf-be\", \"CF\", \"Desc\")\n        register_schema(client, backend_id=\"cf-be\", table_name=\"users\", yaml_content=SIMPLE_SCHEMA_YAML, version=\"1.0.0\")\n\n        r = register_schema(client, backend_id=\"cf-be\", table_name=\"users\", yaml_content=SIMPLE_SCHEMA_YAML_V2, version=\"1.0.0\")\n        assert r.status_code == 409\n        body = r.json()\n        assert \"error\" in body\n        assert \"detail\" in body\n        assert \"violations\" in body\n        assert isinstance(body[\"violations\"], list)\n\n\nclass TestGoodhartSchemaRetrieval:\n    def test_goodhart_schema_list_multiple_schemas(self):\n        \"\"\"Schema list endpoint must return all registered schemas, not just one.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"multi-be\", \"Multi\", \"Desc\")\n\n        tables = [\"alpha\", \"beta\", \"gamma\"]\n        for t in tables:\n            yaml_c = f\"table:\\n  name: {t}\\n  columns:\\n    - name: id\\n      data_type: integer\\n      nullable: false\\n      primary_key: true\\n\"\n            register_schema(client, backend_id=\"multi-be\", table_name=t, yaml_content=yaml_c)\n\n        resp = client.get(\"/schemas/multi-be\")\n        assert resp.status_code == 200\n        body = resp.json()\n        assert len(body[\"schemas\"]) == 3\n        returned_names = {s[\"table_name\"] for s in body[\"schemas\"]}\n        assert returned_names == set(tables)\n\n    def test_goodhart_schema_list_summary_fields(self):\n        \"\"\"Schema list entries must include summary fields, not full YAML.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"summ-be\", \"Summ\", \"Desc\")\n        register_schema(client, backend_id=\"summ-be\")\n\n        resp = client.get(\"/schemas/summ-be\")\n        assert resp.status_code == 200\n        for s in resp.json()[\"schemas\"]:\n            assert \"table_name\" in s\n            assert \"version\" in s\n            assert \"column_count\" in s\n            assert \"annotation_count\" in s\n\n    def test_goodhart_schema_detail_backend_not_found(self):\n        \"\"\"Schema detail endpoint must return 404 for non-existent backend.\"\"\"\n        _, client, _ = make_app()\n        resp = client.get(\"/schemas/nonexistent-backend/some-table\")\n        assert resp.status_code == 404\n\n\nclass TestGoodhartSchemaValidation:\n    def test_goodhart_validate_schema_info_severity_still_valid(self):\n        \"\"\"Schema validation with only info-severity violations should return valid=true.\"\"\"\n        _, client, _ = make_app()\n        # This depends on the implementation producing info-level violations.\n        # We test the contract: valid=true iff no error-severity violations.\n        # Use a schema that is structurally valid but may have info notes.\n        resp = client.post(\"/schemas/validate\", json={\"yaml_content\": SIMPLE_SCHEMA_YAML})\n        assert resp.status_code == 200\n        body = resp.json()\n        # If there are violations, none should be 'error' if valid is true\n        if body[\"valid\"]:\n            for v in body.get(\"violations\", []):\n                assert v.get(\"severity\") != \"error\"\n\n    def test_goodhart_validate_schema_does_not_affect_registry(self):\n        \"\"\"Validating a schema must not make it appear in registry queries or exports.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"val-be\", \"Val\", \"Desc\")\n\n        # Validate without registering\n        client.post(\"/schemas/validate\", json={\"yaml_content\": SIMPLE_SCHEMA_YAML})\n\n        # Schemas list should be empty\n        resp = client.get(\"/schemas/val-be\")\n        assert resp.status_code == 200\n        assert len(resp.json()[\"schemas\"]) == 0\n\n\nclass TestGoodhartMigrationPlan:\n    def test_goodhart_migration_plan_unique_ids(self):\n        \"\"\"Each migration plan must receive a unique UUID4.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"mig-be\", \"Mig\", \"Desc\")\n        register_schema(client, backend_id=\"mig-be\")\n\n        r1 = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"mig-be\",\n            \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN age INTEGER;\",\n        })\n        r2 = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"mig-be\",\n            \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN name VARCHAR;\",\n        })\n        assert r1.status_code == 201\n        assert r2.status_code == 201\n\n        id1 = r1.json()[\"plan_id\"]\n        id2 = r2.json()[\"plan_id\"]\n        assert id1 != id2\n\n        # Both must be valid UUID4\n        u1 = uuid.UUID(id1, version=4)\n        u2 = uuid.UUID(id2, version=4)\n        assert str(u1) == id1\n        assert str(u2) == id2\n\n    def test_goodhart_migration_plan_expires_at_future(self):\n        \"\"\"Migration plan expires_at must be a future timestamp based on config TTL.\"\"\"\n        _, client, _ = make_app(plan_ttl_seconds=600)\n        register_backend(client, \"ttl-be\", \"TTL\", \"Desc\")\n        register_schema(client, backend_id=\"ttl-be\")\n\n        before = datetime.now(timezone.utc)\n        r = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"ttl-be\",\n            \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN age INTEGER;\",\n        })\n        assert r.status_code == 201\n        body = r.json()\n        expires_at = datetime.fromisoformat(body[\"expires_at\"].replace(\"Z\", \"+00:00\"))\n        # expires_at should be at least ~590 seconds in the future\n        assert expires_at > before\n        diff = (expires_at - before).total_seconds()\n        assert 550 < diff < 700  # roughly 600 seconds ± tolerance\n\n    def test_goodhart_migration_plan_stores_backend_and_table(self):\n        \"\"\"Migration plan response must echo back correct backend_id and table_name.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"alpha-db\", \"Alpha DB\", \"Desc\")\n        yaml_c = \"table:\\n  name: orders\\n  columns:\\n    - name: id\\n      data_type: integer\\n      nullable: false\\n      primary_key: true\\n\"\n        register_schema(client, backend_id=\"alpha-db\", table_name=\"orders\", yaml_content=yaml_c)\n\n        r = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"alpha-db\",\n            \"table_name\": \"orders\",\n            \"sql_content\": \"ALTER TABLE orders ADD COLUMN status VARCHAR;\",\n        })\n        assert r.status_code == 201\n        body = r.json()\n        assert body[\"backend_id\"] == \"alpha-db\"\n        assert body[\"table_name\"] == \"orders\"\n\n    def test_goodhart_migration_plan_pending_status_value(self):\n        \"\"\"New migration plan status must be literally 'pending'.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"ps-be\", \"PS\", \"Desc\")\n        register_schema(client, backend_id=\"ps-be\")\n\n        r = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"ps-be\",\n            \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN age INTEGER;\",\n        })\n        assert r.status_code == 201\n        assert r.json()[\"status\"] == \"pending\"\n\n    def test_goodhart_multiple_plans_coexist(self):\n        \"\"\"Multiple migration plans must coexist independently in memory.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"co-be\", \"Co\", \"Desc\")\n        register_schema(client, backend_id=\"co-be\")\n\n        r1 = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"co-be\", \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN a INTEGER;\",\n        })\n        r2 = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"co-be\", \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN b VARCHAR;\",\n        })\n        assert r1.status_code == 201\n        assert r2.status_code == 201\n        assert r1.json()[\"plan_id\"] != r2.json()[\"plan_id\"]\n\n\nclass TestGoodhartApproval:\n    def test_goodhart_approve_changes_status_to_approved(self):\n        \"\"\"After approval, the plan status must be 'approved'.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"appr-be\", \"Appr\", \"Desc\")\n        register_schema(client, backend_id=\"appr-be\")\n\n        plan = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"appr-be\", \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN age INTEGER;\",\n        })\n        assert plan.status_code == 201\n        plan_body = plan.json()\n        plan_id = plan_body[\"plan_id\"]\n\n        if plan_body[\"gate_result\"][\"passed\"]:\n            r = client.post(f\"/migrations/{plan_id}/approve\")\n            assert r.status_code == 200\n            body = r.json()\n            assert body[\"status\"] == \"approved\"\n            assert body[\"plan_id\"] == plan_id\n\n    def test_goodhart_approve_double_approve_rejected(self):\n        \"\"\"Approving an already-approved plan must fail.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"dbl-be\", \"Dbl\", \"Desc\")\n        register_schema(client, backend_id=\"dbl-be\")\n\n        plan = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"dbl-be\", \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN age INTEGER;\",\n        })\n        plan_body = plan.json()\n        plan_id = plan_body[\"plan_id\"]\n\n        if plan_body[\"gate_result\"][\"passed\"]:\n            r1 = client.post(f\"/migrations/{plan_id}/approve\")\n            assert r1.status_code == 200\n\n            r2 = client.post(f\"/migrations/{plan_id}/approve\")\n            assert r2.status_code not in (200, 201)\n\n    def test_goodhart_expired_plan_not_approvable(self):\n        \"\"\"Expired plans must be treated as non-existent during approval.\"\"\"\n        _, client, _ = make_app(plan_ttl_seconds=1)\n        register_backend(client, \"exp-be\", \"Exp\", \"Desc\")\n        register_schema(client, backend_id=\"exp-be\")\n\n        plan = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"exp-be\", \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN age INTEGER;\",\n        })\n        plan_id = plan.json()[\"plan_id\"]\n\n        time.sleep(2)\n\n        r = client.post(f\"/migrations/{plan_id}/approve\")\n        assert r.status_code == 404\n\n\nclass TestGoodhartExport:\n    def test_goodhart_export_json_contains_registered_schemas(self):\n        \"\"\"JSON export must include data from actually registered schemas.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"exp-be1\", \"Exp1\", \"Desc1\")\n        register_backend(client, \"exp-be2\", \"Exp2\", \"Desc2\")\n        register_schema(client, backend_id=\"exp-be1\", table_name=\"tbl1\")\n\n        yaml2 = \"table:\\n  name: tbl2\\n  columns:\\n    - name: id\\n      data_type: integer\\n      nullable: false\\n      primary_key: true\\n\"\n        register_schema(client, backend_id=\"exp-be2\", table_name=\"tbl2\", yaml_content=yaml2)\n\n        resp = client.get(\"/export/json\")\n        assert resp.status_code == 200\n        # The content should reference the registered schemas\n        content = resp.text\n        assert \"exp-be1\" in content or \"tbl1\" in content\n        assert \"exp-be2\" in content or \"tbl2\" in content\n\n    def test_goodhart_export_csv_contains_schema_data(self):\n        \"\"\"CSV export must contain actual schema information.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"csv-be\", \"CSV\", \"Desc\")\n        register_schema(client, backend_id=\"csv-be\", table_name=\"users\")\n\n        resp = client.get(\"/export/csv\")\n        assert resp.status_code == 200\n        assert \"text/csv\" in resp.headers.get(\"content-type\", \"\")\n        assert \"csv-be\" in resp.text or \"users\" in resp.text\n\n    def test_goodhart_export_no_state_mutation(self):\n        \"\"\"Export endpoint must not mutate any state.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"mut-be\", \"Mut\", \"Desc\")\n        register_schema(client, backend_id=\"mut-be\")\n\n        before = client.get(\"/schemas/mut-be\").json()\n        client.get(\"/export/json\")\n        client.get(\"/export/csv\")\n        client.get(\"/export/yaml\")\n        after = client.get(\"/schemas/mut-be\").json()\n\n        assert len(before[\"schemas\"]) == len(after[\"schemas\"])\n\n    def test_goodhart_export_schema_count_accurate(self):\n        \"\"\"Export response schema_count must reflect actual registered schemas count.\"\"\"\n        _, client, _ = make_app()\n\n        # With no schemas, export JSON and check\n        resp0 = client.get(\"/export/json\")\n        assert resp0.status_code == 200\n        # schema_count should be 0 (either in JSON body or in wrapper)\n        body0 = resp0.json()\n        if \"schema_count\" in body0:\n            assert body0[\"schema_count\"] == 0\n\n        register_backend(client, \"sc-be1\", \"SC1\", \"Desc\")\n        register_backend(client, \"sc-be2\", \"SC2\", \"Desc\")\n        register_schema(client, backend_id=\"sc-be1\", table_name=\"t1\")\n        yaml2 = \"table:\\n  name: t2\\n  columns:\\n    - name: id\\n      data_type: integer\\n      nullable: false\\n      primary_key: true\\n\"\n        register_schema(client, backend_id=\"sc-be2\", table_name=\"t2\", yaml_content=yaml2)\n\n        resp2 = client.get(\"/export/json\")\n        body2 = resp2.json()\n        if \"schema_count\" in body2:\n            assert body2[\"schema_count\"] == 2\n\n\nclass TestGoodhartMock:\n    def test_goodhart_mock_row_count_exact_boundary_10000(self):\n        \"\"\"Mock generation must support exactly 10000 rows (upper boundary).\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"bnd-be\", \"Bnd\", \"Desc\")\n        register_schema(client, backend_id=\"bnd-be\")\n\n        resp = client.post(\"/mock/bnd-be/users\", json={\"row_count\": 10000, \"seed\": 1})\n        assert resp.status_code == 200\n        body = resp.json()\n        assert body[\"row_count\"] == 10000\n        assert len(body[\"rows\"]) == 10000\n\n    def test_goodhart_mock_row_count_10001_rejected(self):\n        \"\"\"Mock generation must reject row_count=10001.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"rej-be\", \"Rej\", \"Desc\")\n        register_schema(client, backend_id=\"rej-be\")\n\n        resp = client.post(\"/mock/rej-be/users\", json={\"row_count\": 10001, \"seed\": 1})\n        assert resp.status_code == 422\n\n    def test_goodhart_mock_negative_row_count_rejected(self):\n        \"\"\"Mock generation must reject negative row_count values.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"neg-be\", \"Neg\", \"Desc\")\n        register_schema(client, backend_id=\"neg-be\")\n\n        resp = client.post(\"/mock/neg-be/users\", json={\"row_count\": -1, \"seed\": 1})\n        assert resp.status_code == 422\n\n    def test_goodhart_mock_different_seeds_different_output(self):\n        \"\"\"Different seed values must produce different mock data.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"seed-be\", \"Seed\", \"Desc\")\n        register_schema(client, backend_id=\"seed-be\")\n\n        r1 = client.post(\"/mock/seed-be/users\", json={\"row_count\": 5, \"seed\": 1})\n        r2 = client.post(\"/mock/seed-be/users\", json={\"row_count\": 5, \"seed\": 2})\n        assert r1.status_code == 200\n        assert r2.status_code == 200\n        assert r1.json()[\"rows\"] != r2.json()[\"rows\"]\n\n    def test_goodhart_mock_columns_match_schema(self):\n        \"\"\"Mock generation response columns must match the registered schema's column definitions.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"col-be\", \"Col\", \"Desc\")\n        register_schema(client, backend_id=\"col-be\")\n\n        resp = client.post(\"/mock/col-be/users\", json={\"row_count\": 3, \"seed\": 42})\n        assert resp.status_code == 200\n        body = resp.json()\n        columns = body[\"columns\"]\n        assert len(columns) >= 2  # at least id and email from our schema\n        for row in body[\"rows\"]:\n            assert len(row) == len(columns)\n\n    def test_goodhart_mock_seed_echoed_in_response(self):\n        \"\"\"Mock generation response must echo back the seed value from the request.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"echo-be\", \"Echo\", \"Desc\")\n        register_schema(client, backend_id=\"echo-be\")\n\n        resp = client.post(\"/mock/echo-be/users\", json={\"row_count\": 1, \"seed\": 42})\n        assert resp.status_code == 200\n        assert resp.json()[\"seed\"] == 42\n\n\nclass TestGoodhartAnnotations:\n    def test_goodhart_annotations_empty_when_no_schemas(self):\n        \"\"\"Annotations endpoint must return empty list and total_count=0 when no schemas registered.\"\"\"\n        _, client, _ = make_app()\n        resp = client.get(\"/annotations\")\n        assert resp.status_code == 200\n        body = resp.json()\n        assert body[\"annotations\"] == []\n        assert body[\"total_count\"] == 0\n\n\nclass TestGoodhartCreateApp:\n    def test_goodhart_create_app_config_stored_in_state(self):\n        \"\"\"App state must contain the config reference so dependencies can access it.\"\"\"\n        config = make_config(port=4444)\n        app = create_app(config)\n        # Config should be accessible from app state\n        assert hasattr(app.state, \"config\") or hasattr(app, \"state\")\n        # Verify via health endpoint that config is used\n        client = TestClient(app)\n        resp = client.get(\"/health\")\n        assert resp.json()[\"port\"] == 4444\n\n    def test_goodhart_create_app_all_routes_exist(self):\n        \"\"\"App must have routes for all 7 router groups with expected path patterns.\"\"\"\n        _, client, _ = make_app()\n        # Check that key routes exist by making requests and getting non-404/405 or expected responses\n        # Health\n        assert client.get(\"/health\").status_code == 200\n        # Backends - POST should work (or 422 for empty body, but not 404)\n        r = client.post(\"/backends\", json={})\n        assert r.status_code != 404\n        # Schemas validate\n        r = client.post(\"/schemas/validate\", json={})\n        assert r.status_code != 404\n        # Export\n        r = client.get(\"/export/json\")\n        assert r.status_code != 404\n        # Annotations\n        r = client.get(\"/annotations\")\n        assert r.status_code != 404\n        # Migrations plan\n        r = client.post(\"/migrations/plan\", json={})\n        assert r.status_code != 404\n\n\nclass TestGoodhartMigrationGateViolations:\n    def test_goodhart_migration_gate_result_structure(self):\n        \"\"\"Gate result must have 'passed' boolean and 'violations' list structure.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"gate-be\", \"Gate\", \"Desc\")\n        register_schema(client, backend_id=\"gate-be\")\n\n        r = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"gate-be\",\n            \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN age INTEGER;\",\n        })\n        assert r.status_code == 201\n        body = r.json()\n        gate = body[\"gate_result\"]\n        assert isinstance(gate[\"passed\"], bool)\n        assert isinstance(gate[\"violations\"], list)\n\n    def test_goodhart_migration_plan_diffs_is_list(self):\n        \"\"\"Migration plan diffs must be a list of diff entries.\"\"\"\n        _, client, _ = make_app()\n        register_backend(client, \"diff-be\", \"Diff\", \"Desc\")\n        register_schema(client, backend_id=\"diff-be\")\n\n        r = client.post(\"/migrations/plan\", json={\n            \"backend_id\": \"diff-be\",\n            \"table_name\": \"users\",\n            \"sql_content\": \"ALTER TABLE users ADD COLUMN age INTEGER;\",\n        })\n        assert r.status_code == 201\n        assert isinstance(r.json()[\"diffs\"], list)\n"
+}

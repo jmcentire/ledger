@@ -1,0 +1,37 @@
+[
+  {
+    "ambiguity": "",
+    "decision": "",
+    "rationale": "The spec requires 'same seed + schema = identical output' and the rabbit holes doc flagged Faker version brittleness. Per-field seeding isolates each field's RNG state."
+  },
+  {
+    "ambiguity": "",
+    "decision": "",
+    "rationale": "The rabbit holes doc flagged deep FK chains as a risk. Single hop covers the common case (direct referential integrity) without building a full graph engine."
+  },
+  {
+    "ambiguity": "",
+    "decision": "",
+    "rationale": "Rabbit holes doc identified eager loading as a risk to the 3-second startup budget. Lazy loading trades per-request latency (minimal for flat file reads) for guaranteed fast startup."
+  },
+  {
+    "ambiguity": "",
+    "decision": "",
+    "rationale": "Resolves the tension flagged in rabbit holes between 'no code changes for custom annotations' and 'each exporter has different output shape'. The shape is code; the content is data."
+  },
+  {
+    "ambiguity": "",
+    "decision": "",
+    "rationale": "The interview clarified REQUIRES violations are warnings, and the OR case refers to table-level checks for related fields (soft_delete_marker) or field-level checks for the annotation itself (erasure_method_declared)."
+  },
+  {
+    "ambiguity": "",
+    "decision": "",
+    "rationale": "The rabbit holes doc flagged unbounded growth, but since the changelog is append-only by spec and never bulk-read during normal operations, it's acceptable for v1."
+  },
+  {
+    "ambiguity": "",
+    "decision": "",
+    "rationale": "The rabbit holes doc flagged undefined Arbiter API. We define a minimal assumed contract and make the entire integration optional and failure-tolerant."
+  }
+]

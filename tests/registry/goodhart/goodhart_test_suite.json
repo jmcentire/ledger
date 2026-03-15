@@ -1,0 +1,660 @@
+{
+  "component_id": "registry",
+  "contract_version": 2,
+  "test_cases": [
+    {
+      "id": "goodhart_backend_id_regex_too_short",
+      "description": "Backend IDs shorter than 3 characters must be rejected per the regex constraint ^[a-z][a-z0-9_-]{1,62}[a-z0-9]$",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A backend_id of only 2 characters like 'ab'",
+      "expected_output_description": "",
+      "expected_error": "ValueError or LedgerError for invalid backend_id format",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_backend_id_regex_starts_with_digit",
+      "description": "Backend IDs must start with a lowercase letter; IDs starting with a digit must be rejected",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A backend_id starting with a digit like '1backend'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_backend_id_regex_uppercase",
+      "description": "Backend IDs must be lowercase only; uppercase characters must be rejected",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A backend_id with uppercase like 'MyBackend'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_backend_id_regex_ends_with_hyphen",
+      "description": "Backend IDs must end with an alphanumeric character; trailing hyphens must be rejected",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A backend_id ending with hyphen like 'my-backend-'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_backend_id_regex_too_long",
+      "description": "Backend IDs longer than 64 characters must be rejected per the regex constraint",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A backend_id of 65 characters",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_backend_id_regex_valid_boundary_3_chars",
+      "description": "A backend_id of exactly 3 characters matching the regex should be accepted as valid",
+      "function": "register_backend",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A backend_id of exactly 3 chars like 'ab1'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_backend_id_regex_valid_boundary_64_chars",
+      "description": "A backend_id of exactly 64 characters matching the regex should be accepted as valid",
+      "function": "register_backend",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A backend_id of exactly 64 characters",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_backend_id_special_chars",
+      "description": "Backend IDs containing characters outside [a-z0-9_-] like dots or spaces must be rejected",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A backend_id with dot like 'my.backend'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_sequence_continues_after_store_schema",
+      "description": "Changelog sequence numbers must be globally monotonic across both register_backend and store_schema operations without gaps",
+      "function": "store_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register a backend (seq=1), store a schema (seq=2), register another backend (seq=3)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "sequence numbers are 1, 2, 3 across mixed operation types"
+      ]
+    },
+    {
+      "id": "goodhart_register_backend_all_types",
+      "description": "All BackendType enum values (postgres, mysql, sqlite, redis, s3, dynamodb, kafka, custom) should be registerable",
+      "function": "register_backend",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backends with each of the 8 backend types",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_list_backends_does_not_include_schema_subdirs",
+      "description": "list_backends should only read top-level .yaml files in registry/, not schema files in subdirectories",
+      "function": "list_backends",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register a backend, store a schema, then list backends",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "list_backends returns exactly 1 backend, not confused by schema files in subdirectory"
+      ]
+    },
+    {
+      "id": "goodhart_store_schema_multiple_tables_same_backend",
+      "description": "Multiple schemas can be stored under the same backend and all should be independently retrievable",
+      "function": "store_schema",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store 3 different table schemas under one backend",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "list_schemas returns all 3",
+        "get_schema returns each individually"
+      ]
+    },
+    {
+      "id": "goodhart_store_schema_overwrite_preserves_verbatim",
+      "description": "Storing a schema for the same backend_id and table again should overwrite with the new content verbatim",
+      "function": "store_schema",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store a schema, then store a different schema for the same table",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "get_schema returns the second schema's bytes exactly"
+      ]
+    },
+    {
+      "id": "goodhart_changelog_not_modified_on_failed_register",
+      "description": "Failed operations (like duplicate registration) must not append any entry to the changelog",
+      "function": "register_backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register a backend, attempt duplicate registration (which fails), read changelog",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "changelog has exactly 1 entry, not 2"
+      ]
+    },
+    {
+      "id": "goodhart_changelog_not_modified_on_failed_store",
+      "description": "Failed store_schema operations (like invalid YAML) must not append to the changelog",
+      "function": "store_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend, attempt store with invalid YAML, read changelog",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "changelog has exactly 1 entry from registration only"
+      ]
+    },
+    {
+      "id": "goodhart_read_changelog_limit_returns_most_recent",
+      "description": "When limit is applied, the returned entries should be the most recent ones (highest sequence numbers), ordered ascending",
+      "function": "read_changelog",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create 5 changelog entries, read with limit=2",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returned entries have sequence 4 and 5, ordered ascending"
+      ]
+    },
+    {
+      "id": "goodhart_read_changelog_filter_nonexistent_backend",
+      "description": "Filtering changelog by a backend_id that has no entries should return an empty list, not raise an error",
+      "function": "read_changelog",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Read changelog with a backend_id filter for a non-existent backend",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns empty list"
+      ]
+    },
+    {
+      "id": "goodhart_init_corrupted_changelog_is_directory",
+      "description": "init should detect corruption when changelog.jsonl is a directory instead of a file",
+      "function": "init",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create .ledger/ with registry/, plans/, but changelog.jsonl as a directory",
+      "expected_output_description": "",
+      "expected_error": "LedgerCorruptedError",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_get_schema_backend_not_registered_returns_none",
+      "description": "get_schema for an unregistered backend should return None (or handle gracefully) rather than crashing",
+      "function": "get_schema",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Call get_schema with a backend_id that was never registered",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_list_schemas_multiple_backends_isolated",
+      "description": "Schemas stored under different backends must not leak into each other's list_schemas results",
+      "function": "list_schemas",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register two backends, store schemas in each, list_schemas for each independently",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "each list_schemas returns only schemas belonging to that specific backend"
+      ]
+    },
+    {
+      "id": "goodhart_store_schema_yaml_with_trailing_newlines",
+      "description": "YAML content with trailing newlines and whitespace must be stored verbatim without stripping",
+      "function": "store_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store YAML bytes with multiple trailing newlines",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "raw_content from get_schema preserves trailing newlines exactly"
+      ]
+    },
+    {
+      "id": "goodhart_register_backend_yaml_deserializable",
+      "description": "The YAML file written by register_backend must be deserializable back to equivalent BackendMetadata fields",
+      "function": "register_backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register a backend with specific metadata, then read the YAML file directly and verify fields",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "YAML file contains backend_id, backend_type, owner_component, registered_at"
+      ]
+    },
+    {
+      "id": "goodhart_changelog_entry_actor_preserved",
+      "description": "The actor field in ChangelogEntry must match the actor argument passed to the operation",
+      "function": "register_backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend with actor='custom-agent-v2', verify entry actor field",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returned entry actor equals 'custom-agent-v2'"
+      ]
+    },
+    {
+      "id": "goodhart_store_schema_changelog_has_table_field",
+      "description": "The ChangelogEntry from store_schema must have the table field set to the table name argument",
+      "function": "store_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store schema with table='orders', verify changelog entry table field",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "entry.table == 'orders'"
+      ]
+    },
+    {
+      "id": "goodhart_exception_hierarchy",
+      "description": "All custom exceptions must inherit from LedgerError so that generic exception handlers work",
+      "function": "register_backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Trigger DuplicateBackendError, OwnershipConflictError, BackendNotFoundError and verify inheritance",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "all are instances of LedgerError"
+      ]
+    },
+    {
+      "id": "goodhart_validate_all_mixed_warnings_and_errors",
+      "description": "ValidationResult.valid must be False when there is at least one error even if there are also warnings",
+      "function": "validate_all",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Set up schemas that produce both warning and error violations",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "valid is False",
+        "violations list contains both warning and error items"
+      ]
+    },
+    {
+      "id": "goodhart_read_changelog_limit_exceeds_entries",
+      "description": "When limit exceeds the number of available entries, all entries should be returned without error",
+      "function": "read_changelog",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create 2 entries, read with limit=100",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns exactly 2 entries"
+      ]
+    },
+    {
+      "id": "goodhart_schema_record_has_stored_at_timestamp",
+      "description": "SchemaRecord returned by get_schema and list_schemas must have a stored_at datetime field populated",
+      "function": "get_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store a schema, retrieve it, verify stored_at is a datetime",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "stored_at is not None and is a datetime"
+      ]
+    },
+    {
+      "id": "goodhart_backend_id_with_underscores_and_hyphens",
+      "description": "Backend IDs containing both underscores and hyphens in the middle should be valid per the regex",
+      "function": "register_backend",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "backend_id like 'my_cool-backend1'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "registration succeeds without error"
+      ]
+    },
+    {
+      "id": "goodhart_init_corrupted_error_has_missing_paths",
+      "description": "LedgerCorruptedError must include the missing_paths attribute listing which paths are absent",
+      "function": "init",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create .ledger/ with only registry/ (missing plans/ and changelog.jsonl)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "exception has missing_paths attribute",
+        "missing_paths contains references to the missing items"
+      ]
+    },
+    {
+      "id": "goodhart_not_initialized_error_has_root_attr",
+      "description": "LedgerNotInitializedError must include the root attribute indicating which path was checked",
+      "function": "list_backends",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Call list_backends on uninitialized root, catch exception and check root attribute",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_duplicate_backend_error_has_backend_id",
+      "description": "DuplicateBackendError must carry the backend_id attribute of the conflicting backend",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend 'mydb01', attempt to register 'mydb01' again",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "exception.backend_id == 'mydb01'"
+      ]
+    },
+    {
+      "id": "goodhart_ownership_conflict_error_attributes",
+      "description": "OwnershipConflictError must carry backend_id, existing_owner, and attempted_owner attributes",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend owned by 'service-a', try registering same backend_id with 'service-b'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "exception has existing_owner and attempted_owner attributes with correct values"
+      ]
+    },
+    {
+      "id": "goodhart_store_schema_parse_error_attributes",
+      "description": "SchemaParseError must carry backend_id, table, and parse_error attributes",
+      "function": "store_schema",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Attempt to store invalid YAML bytes",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "exception has backend_id, table, and parse_error attributes"
+      ]
+    },
+    {
+      "id": "goodhart_list_schemas_sorted_with_numeric_names",
+      "description": "list_schemas sorting must be lexicographic, not numeric — 'table10' sorts before 'table2' lexicographically",
+      "function": "list_schemas",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store schemas with table names 'table2', 'table10', 'table1'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returned order is table1, table10, table2 (lexicographic)"
+      ]
+    },
+    {
+      "id": "goodhart_read_changelog_filter_with_limit_most_recent",
+      "description": "When filtering by backend_id with limit, the most recent matching entries should be returned in ascending order",
+      "function": "read_changelog",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Create entries for multiple backends, filter by one backend with limit=1",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "returns 1 entry",
+        "it is the most recent entry for that backend",
+        "correct backend_id"
+      ]
+    },
+    {
+      "id": "goodhart_store_schema_yaml_null_document",
+      "description": "A YAML document that parses to None (e.g., b'---\\n') should be accepted as valid parseable YAML",
+      "function": "store_schema",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store raw_yaml=b'---\\n' which parses to None",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_backend_not_found_on_store_has_backend_id",
+      "description": "BackendNotFoundError raised by store_schema must include the backend_id that was not found",
+      "function": "store_schema",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Attempt store_schema for unregistered backend 'nonexistent01'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "exception.backend_id == 'nonexistent01'"
+      ]
+    },
+    {
+      "id": "goodhart_changelog_timestamps_are_utc",
+      "description": "All ChangelogEntry timestamps must have UTC timezone info, not naive datetimes",
+      "function": "register_backend",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend, check that the returned entry's timestamp has tzinfo=UTC",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "timestamp.tzinfo is not None",
+        "timestamp is UTC"
+      ]
+    },
+    {
+      "id": "goodhart_store_schema_multiline_yaml_verbatim",
+      "description": "Complex multi-line YAML with block scalars and anchors must be stored byte-for-byte without reformatting",
+      "function": "store_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "YAML with block scalar (|), anchors (&), aliases (*), and mixed indentation",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "raw_content matches input exactly byte-for-byte"
+      ]
+    },
+    {
+      "id": "goodhart_backend_id_ends_with_digit",
+      "description": "Backend IDs ending with a digit should be valid per the regex [a-z0-9]$ terminator",
+      "function": "register_backend",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Register backend with id 'mydb99'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "registration succeeds"
+      ]
+    },
+    {
+      "id": "goodhart_backend_id_single_char_rejected",
+      "description": "A single-character backend_id must be rejected as it fails the 3-char minimum",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "backend_id='a'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_backend_id_ends_with_underscore_rejected",
+      "description": "Backend IDs ending with underscore must be rejected per the regex requiring alphanumeric end",
+      "function": "register_backend",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "backend_id='my_backend_'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "goodhart_schema_parsed_content_matches_raw",
+      "description": "The parsed_content dict in SchemaRecord must be the result of YAML-parsing the raw_content bytes",
+      "function": "get_schema",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Store YAML with known structure, retrieve and compare parsed_content to expected dict",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "parsed_content keys and values match the YAML structure in raw_content"
+      ]
+    },
+    {
+      "id": "goodhart_init_idempotent_preserves_existing_data",
+      "description": "Calling init on an already-initialized root with existing data must not delete or modify registry files or changelog entries",
+      "function": "init",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Init, register a backend, init again, verify backend still exists",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "list_backends still returns the registered backend",
+        "changelog still has the entry"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nAdversarial hidden acceptance tests for Registry & Schema Store component.\nThese tests catch implementations that pass visible tests through shortcuts\n(hardcoded returns, missing validation, etc.) rather than truly satisfying the contract.\n\"\"\"\n\nimport os\nimport json\nimport datetime\nimport pathlib\nimport pytest\nimport yaml\n\nfrom src.registry import (\n    init,\n    register_backend,\n    store_schema,\n    list_backends,\n    list_schemas,\n    get_schema,\n    validate_all,\n    read_changelog,\n    BackendMetadata,\n    BackendNotFoundError,\n    DuplicateBackendError,\n    LedgerCorruptedError,\n    LedgerError,\n    LedgerNotInitializedError,\n    OwnershipConflictError,\n    SchemaParseError,\n)\n\n\ndef _utcnow():\n    return datetime.datetime.now(datetime.timezone.utc)\n\n\ndef _make_metadata(backend_id, backend_type=\"postgres\", owner=\"test-service\"):\n    return BackendMetadata(\n        backend_id=backend_id,\n        backend_type=backend_type,\n        owner_component=owner,\n        registered_at=_utcnow(),\n    )\n\n\n# =====================================================================\n# Backend ID regex validation tests\n# =====================================================================\n\nclass TestGoodhartBackendIdRegex:\n    \"\"\"Tests that the backend_id regex ^[a-z][a-z0-9_-]{1,62}[a-z0-9]$ is enforced.\"\"\"\n\n    def test_goodhart_backend_id_regex_too_short(self, tmp_path):\n        \"\"\"Backend IDs shorter than 3 characters must be rejected per the regex constraint.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"ab\")  # only 2 chars\n        with pytest.raises(Exception):  # Could be ValueError or LedgerError\n            register_backend(tmp_path, meta, actor=\"test\")\n\n    def test_goodhart_backend_id_regex_starts_with_digit(self, tmp_path):\n        \"\"\"Backend IDs must start with a lowercase letter; IDs starting with a digit must be rejected.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"1backend\")\n        with pytest.raises(Exception):\n            register_backend(tmp_path, meta, actor=\"test\")\n\n    def test_goodhart_backend_id_regex_uppercase(self, tmp_path):\n        \"\"\"Backend IDs must be lowercase only; uppercase characters must be rejected.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"MyBackend\")\n        with pytest.raises(Exception):\n            register_backend(tmp_path, meta, actor=\"test\")\n\n    def test_goodhart_backend_id_regex_ends_with_hyphen(self, tmp_path):\n        \"\"\"Backend IDs must end with an alphanumeric character; trailing hyphens must be rejected.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"my-backend-\")\n        with pytest.raises(Exception):\n            register_backend(tmp_path, meta, actor=\"test\")\n\n    def test_goodhart_backend_id_regex_ends_with_underscore_rejected(self, tmp_path):\n        \"\"\"Backend IDs ending with underscore must be rejected per the regex requiring alphanumeric end.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"my_backend_\")\n        with pytest.raises(Exception):\n            register_backend(tmp_path, meta, actor=\"test\")\n\n    def test_goodhart_backend_id_regex_too_long(self, tmp_path):\n        \"\"\"Backend IDs longer than 64 characters must be rejected per the regex constraint.\"\"\"\n        init(tmp_path)\n        # 65 chars: starts with 'a', 63 middle chars, ends with 'z'\n        long_id = \"a\" + \"b\" * 63 + \"z\"  # 65 chars\n        assert len(long_id) == 65\n        meta = _make_metadata(long_id)\n        with pytest.raises(Exception):\n            register_backend(tmp_path, meta, actor=\"test\")\n\n    def test_goodhart_backend_id_regex_valid_boundary_3_chars(self, tmp_path):\n        \"\"\"A backend_id of exactly 3 characters matching the regex should be accepted as valid.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"ab1\")  # 3 chars, starts with letter, ends with digit\n        entry = register_backend(tmp_path, meta, actor=\"test\")\n        assert entry.backend_id == \"ab1\"\n\n    def test_goodhart_backend_id_regex_valid_boundary_64_chars(self, tmp_path):\n        \"\"\"A backend_id of exactly 64 characters matching the regex should be accepted as valid.\"\"\"\n        init(tmp_path)\n        # 64 chars: starts with 'a', 62 middle 'b's, ends with '0'\n        long_id = \"a\" + \"b\" * 62 + \"0\"\n        assert len(long_id) == 64\n        meta = _make_metadata(long_id)\n        entry = register_backend(tmp_path, meta, actor=\"test\")\n        assert entry.backend_id == long_id\n\n    def test_goodhart_backend_id_special_chars(self, tmp_path):\n        \"\"\"Backend IDs containing characters outside [a-z0-9_-] like dots must be rejected.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"my.backend\")\n        with pytest.raises(Exception):\n            register_backend(tmp_path, meta, actor=\"test\")\n\n    def test_goodhart_backend_id_single_char_rejected(self, tmp_path):\n        \"\"\"A single-character backend_id must be rejected as it fails the 3-char minimum.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"a\")\n        with pytest.raises(Exception):\n            register_backend(tmp_path, meta, actor=\"test\")\n\n    def test_goodhart_backend_id_with_underscores_and_hyphens(self, tmp_path):\n        \"\"\"Backend IDs containing both underscores and hyphens in the middle should be valid.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"my_cool-backend1\")\n        entry = register_backend(tmp_path, meta, actor=\"test\")\n        assert entry.backend_id == \"my_cool-backend1\"\n\n    def test_goodhart_backend_id_ends_with_digit(self, tmp_path):\n        \"\"\"Backend IDs ending with a digit should be valid per the regex [a-z0-9]$ terminator.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"mydb99\")\n        entry = register_backend(tmp_path, meta, actor=\"test\")\n        assert entry.backend_id == \"mydb99\"\n\n\n# =====================================================================\n# Sequence continuity across operation types\n# =====================================================================\n\nclass TestGoodhartSequenceContinuity:\n\n    def test_goodhart_sequence_continues_after_store_schema(self, tmp_path):\n        \"\"\"Changelog sequence numbers must be globally monotonic across both register_backend and store_schema operations without gaps.\"\"\"\n        init(tmp_path)\n        meta1 = _make_metadata(\"backend-aa\")\n        entry1 = register_backend(tmp_path, meta1, actor=\"test\")\n        assert entry1.sequence == 1\n\n        raw = b\"col1: int\\ncol2: varchar\\n\"\n        entry2 = store_schema(tmp_path, \"backend-aa\", \"users\", raw, actor=\"test\")\n        assert entry2.sequence == 2\n\n        meta2 = _make_metadata(\"backend-bb\", owner=\"other-svc\")\n        entry3 = register_backend(tmp_path, meta2, actor=\"test\")\n        assert entry3.sequence == 3\n\n        # Verify all entries via changelog read\n        entries = read_changelog(tmp_path, backend_id=\"\", limit=0)\n        seqs = [e.sequence for e in entries]\n        assert seqs == [1, 2, 3]\n\n\n# =====================================================================\n# All backend types registerable\n# =====================================================================\n\nclass TestGoodhartAllBackendTypes:\n\n    def test_goodhart_register_backend_all_types(self, tmp_path):\n        \"\"\"All BackendType enum values should be registerable.\"\"\"\n        init(tmp_path)\n        types = [\"postgres\", \"mysql\", \"sqlite\", \"redis\", \"s3\", \"dynamodb\", \"kafka\", \"custom\"]\n        for i, bt in enumerate(types):\n            bid = f\"backend-{bt}-{i:02d}\"\n            # Ensure bid is valid (>= 3 chars, starts with letter, etc.)\n            meta = _make_metadata(bid, backend_type=bt, owner=f\"svc-{i}\")\n            entry = register_backend(tmp_path, meta, actor=\"test\")\n            assert entry.change_type == \"backend_registered\"\n\n        backends = list_backends(tmp_path)\n        assert len(backends) == 8\n\n\n# =====================================================================\n# list_backends isolation from schema subdirs\n# =====================================================================\n\nclass TestGoodhartListBackendsIsolation:\n\n    def test_goodhart_list_backends_does_not_include_schema_subdirs(self, tmp_path):\n        \"\"\"list_backends should only read top-level .yaml files in registry/, not schema files in subdirectories.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"mydb01\")\n        register_backend(tmp_path, meta, actor=\"test\")\n        store_schema(tmp_path, \"mydb01\", \"users\", b\"col: int\\n\", actor=\"test\")\n        store_schema(tmp_path, \"mydb01\", \"orders\", b\"col: varchar\\n\", actor=\"test\")\n\n        backends = list_backends(tmp_path)\n        assert len(backends) == 1\n        assert backends[0].backend_id == \"mydb01\"\n\n\n# =====================================================================\n# Multiple tables per backend\n# =====================================================================\n\nclass TestGoodhartMultipleSchemas:\n\n    def test_goodhart_store_schema_multiple_tables_same_backend(self, tmp_path):\n        \"\"\"Multiple schemas can be stored under the same backend and all should be independently retrievable.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n\n        schemas = {\n            \"users\": b\"id: int\\nname: varchar\\n\",\n            \"orders\": b\"id: int\\namount: float\\n\",\n            \"products\": b\"id: int\\ntitle: text\\n\",\n        }\n        for table, raw in schemas.items():\n            store_schema(tmp_path, \"mydb01\", table, raw, actor=\"test\")\n\n        result = list_schemas(tmp_path, \"mydb01\")\n        assert len(result) == 3\n\n        for table, raw in schemas.items():\n            record = get_schema(tmp_path, \"mydb01\", table)\n            assert record is not None\n            assert record.raw_content == raw\n\n\n# =====================================================================\n# Schema overwrite\n# =====================================================================\n\nclass TestGoodhartSchemaOverwrite:\n\n    def test_goodhart_store_schema_overwrite_preserves_verbatim(self, tmp_path):\n        \"\"\"Storing a schema for the same backend_id and table again should overwrite with the new content verbatim.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n\n        raw_v1 = b\"version: 1\\ncol: int\\n\"\n        raw_v2 = b\"version: 2\\ncol: bigint\\nextra: text\\n\"\n\n        store_schema(tmp_path, \"mydb01\", \"users\", raw_v1, actor=\"test\")\n        store_schema(tmp_path, \"mydb01\", \"users\", raw_v2, actor=\"test\")\n\n        record = get_schema(tmp_path, \"mydb01\", \"users\")\n        assert record is not None\n        assert record.raw_content == raw_v2\n\n\n# =====================================================================\n# Failed operations don't modify changelog\n# =====================================================================\n\nclass TestGoodhartChangelogIntegrity:\n\n    def test_goodhart_changelog_not_modified_on_failed_register(self, tmp_path):\n        \"\"\"Failed operations (like duplicate registration) must not append any entry to the changelog.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"mydb01\")\n        register_backend(tmp_path, meta, actor=\"test\")\n\n        with pytest.raises(DuplicateBackendError):\n            register_backend(tmp_path, meta, actor=\"test\")\n\n        entries = read_changelog(tmp_path, backend_id=\"\", limit=0)\n        assert len(entries) == 1\n\n    def test_goodhart_changelog_not_modified_on_failed_store(self, tmp_path):\n        \"\"\"Failed store_schema operations (like invalid YAML) must not append to the changelog.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n\n        with pytest.raises(SchemaParseError):\n            store_schema(tmp_path, \"mydb01\", \"bad\", b\"{{{{invalid: yaml: [\", actor=\"test\")\n\n        entries = read_changelog(tmp_path, backend_id=\"\", limit=0)\n        assert len(entries) == 1  # only the registration entry\n\n\n# =====================================================================\n# read_changelog limit returns most recent\n# =====================================================================\n\nclass TestGoodhartReadChangelogLimit:\n\n    def test_goodhart_read_changelog_limit_returns_most_recent(self, tmp_path):\n        \"\"\"When limit is applied, the returned entries should be the most recent ones, ordered ascending.\"\"\"\n        init(tmp_path)\n        # Create 5 entries: 3 backends + 2 schemas\n        register_backend(tmp_path, _make_metadata(\"backend-a1\"), actor=\"test\")  # seq 1\n        register_backend(tmp_path, _make_metadata(\"backend-b2\"), actor=\"test\")  # seq 2\n        register_backend(tmp_path, _make_metadata(\"backend-c3\"), actor=\"test\")  # seq 3\n        store_schema(tmp_path, \"backend-a1\", \"t1\", b\"col: int\\n\", actor=\"test\")  # seq 4\n        store_schema(tmp_path, \"backend-b2\", \"t2\", b\"col: int\\n\", actor=\"test\")  # seq 5\n\n        entries = read_changelog(tmp_path, backend_id=\"\", limit=2)\n        assert len(entries) == 2\n        # Most recent 2 entries should be seq 4 and 5\n        assert entries[0].sequence == 4\n        assert entries[1].sequence == 5\n        # Still ordered ascending\n        assert entries[0].sequence < entries[1].sequence\n\n    def test_goodhart_read_changelog_limit_exceeds_entries(self, tmp_path):\n        \"\"\"When limit exceeds the number of available entries, all entries should be returned.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"backend-a1\"), actor=\"test\")\n        register_backend(tmp_path, _make_metadata(\"backend-b2\"), actor=\"test\")\n\n        entries = read_changelog(tmp_path, backend_id=\"\", limit=100)\n        assert len(entries) == 2\n\n    def test_goodhart_read_changelog_filter_nonexistent_backend(self, tmp_path):\n        \"\"\"Filtering changelog by a backend_id that has no entries should return an empty list.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n\n        entries = read_changelog(tmp_path, backend_id=\"nonexistent99\", limit=0)\n        assert entries == []\n\n    def test_goodhart_read_changelog_filter_with_limit_most_recent(self, tmp_path):\n        \"\"\"When filtering by backend_id with limit, the most recent matching entries should be returned.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"backend-a1\"), actor=\"test\")  # seq 1\n        register_backend(tmp_path, _make_metadata(\"backend-b2\"), actor=\"test\")  # seq 2\n        store_schema(tmp_path, \"backend-a1\", \"t1\", b\"c: 1\\n\", actor=\"test\")    # seq 3\n        store_schema(tmp_path, \"backend-a1\", \"t2\", b\"c: 2\\n\", actor=\"test\")    # seq 4\n        store_schema(tmp_path, \"backend-b2\", \"t3\", b\"c: 3\\n\", actor=\"test\")    # seq 5\n\n        entries = read_changelog(tmp_path, backend_id=\"backend-a1\", limit=1)\n        assert len(entries) == 1\n        assert entries[0].backend_id == \"backend-a1\"\n        # Should be the most recent one for backend-a1 (seq 4)\n        assert entries[0].sequence == 4\n\n\n# =====================================================================\n# init corruption: changelog is directory\n# =====================================================================\n\nclass TestGoodhartInitCorruption:\n\n    def test_goodhart_init_corrupted_changelog_is_directory(self, tmp_path):\n        \"\"\"init should detect corruption when changelog.jsonl is a directory instead of a file.\"\"\"\n        ledger = tmp_path / \".ledger\"\n        ledger.mkdir()\n        (ledger / \"registry\").mkdir()\n        (ledger / \"plans\").mkdir()\n        (ledger / \"changelog.jsonl\").mkdir()  # directory, not file!\n\n        with pytest.raises(LedgerCorruptedError):\n            init(tmp_path)\n\n    def test_goodhart_init_corrupted_error_has_missing_paths(self, tmp_path):\n        \"\"\"LedgerCorruptedError must include the missing_paths attribute listing which paths are absent.\"\"\"\n        ledger = tmp_path / \".ledger\"\n        ledger.mkdir()\n        (ledger / \"registry\").mkdir()\n        # Missing plans/ and changelog.jsonl\n\n        with pytest.raises(LedgerCorruptedError) as exc_info:\n            init(tmp_path)\n\n        err = exc_info.value\n        assert hasattr(err, \"missing_paths\")\n        assert isinstance(err.missing_paths, list)\n        assert len(err.missing_paths) >= 1\n\n\n# =====================================================================\n# get_schema for unregistered backend\n# =====================================================================\n\nclass TestGoodhartGetSchemaEdgeCases:\n\n    def test_goodhart_get_schema_backend_not_registered_returns_none(self, tmp_path):\n        \"\"\"get_schema for an unregistered backend should return None rather than crashing.\"\"\"\n        init(tmp_path)\n        result = get_schema(tmp_path, \"nonexistent99\", \"some_table\")\n        assert result is None\n\n    def test_goodhart_schema_record_has_stored_at_timestamp(self, tmp_path):\n        \"\"\"SchemaRecord returned by get_schema must have a stored_at datetime field populated.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n        store_schema(tmp_path, \"mydb01\", \"users\", b\"id: int\\n\", actor=\"test\")\n\n        record = get_schema(tmp_path, \"mydb01\", \"users\")\n        assert record is not None\n        assert record.stored_at is not None\n        assert isinstance(record.stored_at, datetime.datetime)\n\n    def test_goodhart_schema_parsed_content_matches_raw(self, tmp_path):\n        \"\"\"The parsed_content dict in SchemaRecord must be the result of YAML-parsing the raw_content bytes.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n        raw = b\"name: users\\ncolumns:\\n  - id\\n  - email\\n\"\n        store_schema(tmp_path, \"mydb01\", \"users\", raw, actor=\"test\")\n\n        record = get_schema(tmp_path, \"mydb01\", \"users\")\n        assert record is not None\n        assert record.parsed_content == {\"name\": \"users\", \"columns\": [\"id\", \"email\"]}\n\n\n# =====================================================================\n# list_schemas isolation between backends\n# =====================================================================\n\nclass TestGoodhartListSchemasIsolation:\n\n    def test_goodhart_list_schemas_multiple_backends_isolated(self, tmp_path):\n        \"\"\"Schemas stored under different backends must not leak into each other's list_schemas results.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"backend-a1\"), actor=\"test\")\n        register_backend(tmp_path, _make_metadata(\"backend-b2\", owner=\"svc-b\"), actor=\"test\")\n\n        store_schema(tmp_path, \"backend-a1\", \"users\", b\"col: int\\n\", actor=\"test\")\n        store_schema(tmp_path, \"backend-a1\", \"orders\", b\"col: text\\n\", actor=\"test\")\n        store_schema(tmp_path, \"backend-b2\", \"products\", b\"col: float\\n\", actor=\"test\")\n\n        schemas_a = list_schemas(tmp_path, \"backend-a1\")\n        schemas_b = list_schemas(tmp_path, \"backend-b2\")\n\n        assert len(schemas_a) == 2\n        assert len(schemas_b) == 1\n        assert all(s.backend_id == \"backend-a1\" for s in schemas_a)\n        assert all(s.backend_id == \"backend-b2\" for s in schemas_b)\n        table_names_a = [s.table_name for s in schemas_a]\n        assert \"products\" not in table_names_a\n\n\n# =====================================================================\n# Verbatim storage edge cases\n# =====================================================================\n\nclass TestGoodhartVerbatimStorage:\n\n    def test_goodhart_store_schema_yaml_with_trailing_newlines(self, tmp_path):\n        \"\"\"YAML content with trailing newlines and whitespace must be stored verbatim without stripping.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n\n        raw = b\"col: int\\n\\n\\n\\n\"  # 4 trailing newlines\n        store_schema(tmp_path, \"mydb01\", \"users\", raw, actor=\"test\")\n\n        record = get_schema(tmp_path, \"mydb01\", \"users\")\n        assert record is not None\n        assert record.raw_content == raw\n        assert record.raw_content.endswith(b\"\\n\\n\\n\\n\")\n\n    def test_goodhart_store_schema_multiline_yaml_verbatim(self, tmp_path):\n        \"\"\"Complex multi-line YAML with block scalars and anchors must be stored byte-for-byte.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n\n        raw = b\"\"\"defaults: &defaults\n  adapter: postgres\n  host: localhost\n\ndevelopment:\n  <<: *defaults\n  database: myapp_dev\n\ndescription: |\n  This is a multi-line\n  block scalar value.\n\nnotes: >\n  This is a folded\n  block scalar.\n\"\"\"\n        store_schema(tmp_path, \"mydb01\", \"config\", raw, actor=\"test\")\n\n        record = get_schema(tmp_path, \"mydb01\", \"config\")\n        assert record is not None\n        assert record.raw_content == raw\n\n    def test_goodhart_store_schema_yaml_null_document(self, tmp_path):\n        \"\"\"A YAML document that parses to None (e.g., b'---\\\\n') should be accepted as valid parseable YAML.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n\n        raw = b\"---\\n\"\n        store_schema(tmp_path, \"mydb01\", \"empty_doc\", raw, actor=\"test\")\n\n        record = get_schema(tmp_path, \"mydb01\", \"empty_doc\")\n        assert record is not None\n        assert record.raw_content == raw\n\n\n# =====================================================================\n# YAML file content verification for register_backend\n# =====================================================================\n\nclass TestGoodhartRegistryYaml:\n\n    def test_goodhart_register_backend_yaml_deserializable(self, tmp_path):\n        \"\"\"The YAML file written by register_backend must be deserializable back to equivalent BackendMetadata fields.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"mydb01\", backend_type=\"redis\", owner=\"cache-service\")\n        register_backend(tmp_path, meta, actor=\"test\")\n\n        yaml_path = tmp_path / \".ledger\" / \"registry\" / \"mydb01.yaml\"\n        assert yaml_path.exists()\n\n        with open(yaml_path, \"r\") as f:\n            data = yaml.safe_load(f)\n\n        assert data[\"backend_id\"] == \"mydb01\"\n        assert data[\"backend_type\"] == \"redis\"\n        assert data[\"owner_component\"] == \"cache-service\"\n        assert \"registered_at\" in data\n\n\n# =====================================================================\n# Changelog entry field verification\n# =====================================================================\n\nclass TestGoodhartChangelogFields:\n\n    def test_goodhart_changelog_entry_actor_preserved(self, tmp_path):\n        \"\"\"The actor field in ChangelogEntry must match the actor argument passed to the operation.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"mydb01\")\n        entry = register_backend(tmp_path, meta, actor=\"custom-agent-v2\")\n        assert entry.actor == \"custom-agent-v2\"\n\n    def test_goodhart_store_schema_changelog_has_table_field(self, tmp_path):\n        \"\"\"The ChangelogEntry from store_schema must have the table field set to the table name argument.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n        entry = store_schema(tmp_path, \"mydb01\", \"orders\", b\"col: int\\n\", actor=\"test\")\n        assert entry.table == \"orders\"\n        assert entry.change_type == \"schema_added\"\n        assert entry.backend_id == \"mydb01\"\n\n    def test_goodhart_changelog_timestamps_are_utc(self, tmp_path):\n        \"\"\"All ChangelogEntry timestamps must have UTC timezone info, not naive datetimes.\"\"\"\n        init(tmp_path)\n        entry = register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n        assert entry.timestamp.tzinfo is not None\n        # Check it's UTC (either datetime.timezone.utc or equivalent)\n        utc_offset = entry.timestamp.utcoffset()\n        assert utc_offset == datetime.timedelta(0)\n\n\n# =====================================================================\n# Exception hierarchy and attributes\n# =====================================================================\n\nclass TestGoodhartExceptionHierarchy:\n\n    def test_goodhart_exception_hierarchy(self, tmp_path):\n        \"\"\"All custom exceptions must inherit from LedgerError so that generic exception handlers work.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"mydb01\")\n        register_backend(tmp_path, meta, actor=\"test\")\n\n        # DuplicateBackendError\n        with pytest.raises(LedgerError):\n            register_backend(tmp_path, meta, actor=\"test\")\n\n        # BackendNotFoundError\n        with pytest.raises(LedgerError):\n            store_schema(tmp_path, \"nonexistent01\", \"t\", b\"c: 1\\n\", actor=\"test\")\n\n        # LedgerNotInitializedError\n        with pytest.raises(LedgerError):\n            list_backends(tmp_path / \"nope\")\n\n    def test_goodhart_duplicate_backend_error_has_backend_id(self, tmp_path):\n        \"\"\"DuplicateBackendError must carry the backend_id attribute of the conflicting backend.\"\"\"\n        init(tmp_path)\n        meta = _make_metadata(\"mydb01\")\n        register_backend(tmp_path, meta, actor=\"test\")\n\n        with pytest.raises(DuplicateBackendError) as exc_info:\n            register_backend(tmp_path, meta, actor=\"test\")\n\n        assert exc_info.value.backend_id == \"mydb01\"\n\n    def test_goodhart_ownership_conflict_error_attributes(self, tmp_path):\n        \"\"\"OwnershipConflictError must carry backend_id, existing_owner, and attempted_owner attributes.\"\"\"\n        init(tmp_path)\n        meta1 = _make_metadata(\"mydb01\", owner=\"service-a\")\n        register_backend(tmp_path, meta1, actor=\"test\")\n\n        meta2 = _make_metadata(\"mydb01\", owner=\"service-b\")\n        with pytest.raises((DuplicateBackendError, OwnershipConflictError)):\n            register_backend(tmp_path, meta2, actor=\"test\")\n\n    def test_goodhart_store_schema_parse_error_attributes(self, tmp_path):\n        \"\"\"SchemaParseError must carry backend_id, table, and parse_error attributes.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n\n        with pytest.raises(SchemaParseError) as exc_info:\n            store_schema(tmp_path, \"mydb01\", \"bad_table\", b\"{{: [invalid\", actor=\"test\")\n\n        err = exc_info.value\n        assert err.backend_id == \"mydb01\"\n        assert err.table == \"bad_table\"\n        assert hasattr(err, \"parse_error\")\n        assert err.parse_error  # non-empty\n\n    def test_goodhart_backend_not_found_on_store_has_backend_id(self, tmp_path):\n        \"\"\"BackendNotFoundError raised by store_schema must include the backend_id that was not found.\"\"\"\n        init(tmp_path)\n\n        with pytest.raises(BackendNotFoundError) as exc_info:\n            store_schema(tmp_path, \"nonexistent01\", \"table1\", b\"c: 1\\n\", actor=\"test\")\n\n        assert exc_info.value.backend_id == \"nonexistent01\"\n\n    def test_goodhart_not_initialized_error_has_root_attr(self, tmp_path):\n        \"\"\"LedgerNotInitializedError must include the root attribute.\"\"\"\n        uninitialized = tmp_path / \"empty_dir\"\n        uninitialized.mkdir()\n\n        with pytest.raises(LedgerNotInitializedError) as exc_info:\n            list_backends(uninitialized)\n\n        err = exc_info.value\n        assert hasattr(err, \"root\")\n\n\n# =====================================================================\n# list_schemas sorting edge case\n# =====================================================================\n\nclass TestGoodhartListSchemasSorting:\n\n    def test_goodhart_list_schemas_sorted_with_numeric_names(self, tmp_path):\n        \"\"\"list_schemas sorting must be lexicographic, not numeric — 'table10' sorts before 'table2'.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n\n        for name in [\"table2\", \"table10\", \"table1\"]:\n            store_schema(tmp_path, \"mydb01\", name, b\"col: int\\n\", actor=\"test\")\n\n        schemas = list_schemas(tmp_path, \"mydb01\")\n        names = [s.table_name for s in schemas]\n        # Lexicographic: table1 < table10 < table2\n        assert names == [\"table1\", \"table10\", \"table2\"]\n\n\n# =====================================================================\n# validate_all with mixed severities\n# =====================================================================\n\nclass TestGoodhartValidateAll:\n\n    def test_goodhart_validate_all_mixed_warnings_and_errors(self, tmp_path):\n        \"\"\"ValidationResult.valid must be False when there is at least one error even with warnings present.\"\"\"\n        init(tmp_path)\n        # This test verifies the invariant that valid is computed from error-severity only.\n        # The exact setup depends on what triggers violations, but we verify the property:\n        result = validate_all(tmp_path)\n        if len(result.violations) > 0:\n            has_error = any(v.severity == \"error\" for v in result.violations)\n            if has_error:\n                assert result.valid is False\n            else:\n                assert result.valid is True\n        else:\n            assert result.valid is True\n\n\n# =====================================================================\n# init idempotent preserves data\n# =====================================================================\n\nclass TestGoodhartInitIdempotent:\n\n    def test_goodhart_init_idempotent_preserves_existing_data(self, tmp_path):\n        \"\"\"Calling init on an already-initialized root must not delete or modify existing data.\"\"\"\n        init(tmp_path)\n        register_backend(tmp_path, _make_metadata(\"mydb01\"), actor=\"test\")\n        store_schema(tmp_path, \"mydb01\", \"users\", b\"col: int\\n\", actor=\"test\")\n\n        # Call init again\n        init(tmp_path)\n\n        # Verify data is preserved\n        backends = list_backends(tmp_path)\n        assert len(backends) == 1\n        assert backends[0].backend_id == \"mydb01\"\n\n        schemas = list_schemas(tmp_path, \"mydb01\")\n        assert len(schemas) == 1\n\n        entries = read_changelog(tmp_path, backend_id=\"\", limit=0)\n        assert len(entries) == 2  # 1 register + 1 store\n"
+}

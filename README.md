@@ -1,0 +1,227 @@
+# Ledger
+
+Schema registry and data obligation manager. Ledger is the authoritative answer to
+"what does the data look like and what are its rules?" for distributed systems built
+with [Pact](https://github.com/jmcentire/pact),
+[Arbiter](https://github.com/jmcentire/arbiter),
+[Baton](https://github.com/jmcentire/baton), and
+[Sentinel](https://github.com/jmcentire/sentinel).
+
+Ledger tracks every storage backend and external data surface in your system through
+a unified abstraction. Engineers annotate fields with classification tiers and
+obligations. Those annotations automatically propagate into contract assertions,
+access control rules, egress masking, severity mappings, and infrastructure retention
+requirements — without touching any downstream tool directly.
+
+## What Ledger Does
+
+**Registers schemas** across 12 backend types — relational databases, document stores,
+key-value caches, message streams, object storage, and external APIs — using a single
+`unit`/`unit_type` abstraction.
+
+**Validates obligations** by catching contradictory annotations at schema time
+(immutable + erasable, audit + deletable) before they reach production.
+
+**Gates migrations** by parsing schema changes and returning BLOCKED, HUMAN_GATE, or
+AUTO_PROCEED based on what annotations are affected. Dropping an audit column is
+unconditionally blocked. Removing encryption requires human approval with rationale.
+
+**Exports rules** to peer tools:
+- **Pact**: contract test assertions derived from field annotations
+- **Arbiter**: classification rules with taint detection flags
+- **Baton**: egress node configs with field masking
+- **Sentinel**: severity mappings for annotated fields
+- **Retention**: infrastructure config hints (Kafka retention, S3 lifecycle rules)
+
+**Generates mock data** that respects classification tiers — encrypted fields get
+token-shaped values, PII fields get realistic fakes, canary fields get fingerprinted
+values that Arbiter can track through the system.
+
+## Supported Backends
+
+| Type | Storage Unit | Migration Support |
+|---|---|---|
+| PostgreSQL / MySQL / SQLite | table | SQL, Alembic, Flyway, Liquibase |
+| MongoDB | collection | JSON patch, custom scripts |
+| Redis | key pattern | Manual schema update |
+| Cassandra | table | CQL migrations |
+| Kafka | topic | Schema Registry evolution |
+| RabbitMQ / SQS | queue | Config changes |
+| S3 / Cloudflare R2 | object pattern | Bucket policy/lifecycle |
+| Stripe | API resource | N/A (external, read-only) |
+| Generic HTTP | API endpoint | N/A (external, read-only) |
+
+## Quick Start
+
+```bash
+pip install ledger
+
+# Initialize registry
+ledger init
+
+# Register a storage backend
+ledger backend add users_db --type postgres --owner user_service
+
+# Add a schema
+ledger schema add schemas/users.yaml
+
+# Validate annotations
+ledger schema validate
+
+# Analyze a migration
+ledger migrate plan user_service migrations/002_add_email.sql
+
+# Export rules to peer tools
+ledger export --format pact --component user_service
+ledger export --format arbiter
+ledger export --format baton
+
+# Generate mock data
+ledger mock users_db users --count 10
+
+# Start the API server
+ledger serve
+```
+
+## Schema Format
+
+```yaml
+schemas:
+  - backend_id: users_db
+    unit: users
+    unit_type: table
+    fields:
+      - name: id
+        type: uuid
+        classification: PUBLIC
+        nullable: false
+        annotations: [primary_key, immutable]
+
+      - name: email
+        type: varchar(255)
+        classification: PII
+        nullable: false
+        annotations: [indexed, unique, gdpr_erasable]
+
+      - name: payment_token
+        type: varchar(512)
+        classification: FINANCIAL
+        nullable: true
+        annotations: [encrypted_at_rest, tokenized]
+
+      - name: created_at
+        type: timestamptz
+        classification: PUBLIC
+        nullable: false
+        annotations: [audit_field, immutable]
+
+      - name: deleted_at
+        type: timestamptz
+        classification: PUBLIC
+        nullable: true
+        annotations: [soft_delete_marker]
+```
+
+## Classification Tiers
+
+| Tier | Severity | Examples |
+|---|---|---|
+| PUBLIC | Lowest | Timestamps, IDs, URLs |
+| PII | Medium | Email, name, phone, address |
+| FINANCIAL | High | Payment tokens, amounts, account numbers |
+| AUTH | Higher | Password hashes, API keys, session tokens |
+| COMPLIANCE | Highest | Audit trails, regulatory records |
+
+## Annotations
+
+| Annotation | Meaning | Propagation |
+|---|---|---|
+| `primary_key` | Row identifier | Operational only |
+| `immutable` | Cannot change after creation | Pact: no update path. Migration: BLOCKED on modify |
+| `gdpr_erasable` | Must be erasable on request | Pact: erasure handler required. Requires soft_delete_marker |
+| `audit_field` | Compliance evidence trail | Migration: BLOCKED on drop. Never deleted |
+| `encrypted_at_rest` | Raw value never stored plaintext | Baton: masked in spans. Mock: token-shaped only |
+| `tokenized` | Stored value is a reference token | Arbiter: raw value = taint escape |
+| `soft_delete_marker` | Logical deletion indicator | Pact: queries must filter on this field |
+| `foreign_key:<ref>` | References another field | Migration: blast radius includes referenced table |
+| `indexed` | Has a database index | Operational only |
+| `unique` | Uniqueness constraint | Operational only |
+
+Custom annotations can be defined in `ledger.yaml` with propagation rules.
+
+## Migration Gating
+
+```
+BLOCKED        — Redesign required. Cannot proceed under any circumstances.
+                 (e.g., dropping an audit_field column)
+
+HUMAN_GATE     — Requires explicit human approval with documented rationale.
+                 (e.g., removing encryption from a field)
+
+AUTO_PROCEED   — Safe to deploy automatically.
+                 (e.g., adding a PUBLIC field to a declared component)
+```
+
+## Configuration
+
+```yaml
+# ledger.yaml
+version: "2.0"
+
+registry:
+  path: ".ledger/registry/"
+  append_only: true
+
+api:
+  port: 7701
+
+integrations:
+  arbiter_api: null          # http://localhost:7700 when configured
+  pact_project_dir: null
+  stigmergy_endpoint: null
+
+mock:
+  seed: 42
+  canary_prefix: "ledger-canary"
+
+custom_annotations:
+  - name: hipaa_phi
+    propagation:
+      arbiter_tier_override: COMPLIANCE
+      sentinel_severity: HIGH
+      pact_contract_assertion: "phi_handling_verified"
+```
+
+## Architecture
+
+Ledger is part of a distributed system stack:
+
+```
+Constrain ──> defines boundaries
+Pact ──────> contract-first build system
+Arbiter ───> trust enforcement ("who can access what?")
+Ledger ────> schema registry ("what does data look like?")
+Baton ─────> circuit orchestration
+Sentinel ──> production attribution
+```
+
+Ledger and Arbiter are peers — Ledger tells Arbiter what the data looks like,
+Arbiter tells Ledger what components are authorized to access it.
+
+## Development
+
+```bash
+# Install dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/
+
+# Run specific component tests
+pytest tests/registry/
+pytest tests/migration/
+```
+
+## License
+
+[MIT](LICENSE)

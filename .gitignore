@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Pact ephemeral state
+.pact/
+
+# Constrain sessions
+.constrain/
+
+# Ledger local registry (gitignored by default; teams may override)
+# .ledger/
+
+# OS
+.DS_Store
+Thumbs.db

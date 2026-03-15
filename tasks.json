@@ -1,0 +1,769 @@
+{
+  "project_id": "ledger",
+  "tasks": [
+    {
+      "id": "T001",
+      "phase": "setup",
+      "component_id": "",
+      "description": "Initialize project directory structure",
+      "file_path": "",
+      "status": "pending",
+      "parallel": false,
+      "depends_on": [],
+      "category": "scaffold"
+    },
+    {
+      "id": "T002",
+      "phase": "setup",
+      "component_id": "",
+      "description": "Verify environment and dependencies",
+      "file_path": "",
+      "status": "pending",
+      "parallel": false,
+      "depends_on": [
+        "T001"
+      ],
+      "category": "scaffold"
+    },
+    {
+      "id": "T003",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: ApiProtocol",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T004",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: BackendType",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T005",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: ChangelogEntry",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T006",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: ClassificationTier",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T007",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: ExportFormat",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T008",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: ExportProtocol",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T009",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: LedgerConfig",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T010",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: LedgerError",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T011",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: MigrationPlan",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T012",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: MigrationProtocol",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T013",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: MockGenerationRequest",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T014",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: MockProtocol",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T015",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: MockPurpose",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T016",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: PlanStatus",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T017",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: RegistryProtocol",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T018",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: Severity",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T019",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: Violation",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T020",
+      "phase": "foundational",
+      "component_id": "",
+      "description": "Define shared type: ViolationSeverity",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "type_definition"
+    },
+    {
+      "id": "T021",
+      "phase": "component",
+      "component_id": "config",
+      "description": "Review contract for Configuration & Data Models",
+      "file_path": "contracts/config/interface.json",
+      "status": "completed",
+      "parallel": true,
+      "depends_on": [],
+      "category": "contract_review"
+    },
+    {
+      "id": "T022",
+      "phase": "component",
+      "component_id": "config",
+      "description": "Set up test harness for Configuration & Data Models",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T021"
+      ],
+      "category": "test_setup"
+    },
+    {
+      "id": "T023",
+      "phase": "component",
+      "component_id": "config",
+      "description": "Write contract tests for Configuration & Data Models",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T022"
+      ],
+      "category": "test_write"
+    },
+    {
+      "id": "T024",
+      "phase": "component",
+      "component_id": "config",
+      "description": "Implement Configuration & Data Models",
+      "file_path": "implementations/config/src/",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T023"
+      ],
+      "category": "implement"
+    },
+    {
+      "id": "T025",
+      "phase": "component",
+      "component_id": "config",
+      "description": "Run tests and verify Configuration & Data Models",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T024"
+      ],
+      "category": "verify"
+    },
+    {
+      "id": "T026",
+      "phase": "component",
+      "component_id": "registry",
+      "description": "Review contract for Registry & Schema Store",
+      "file_path": "contracts/registry/interface.json",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [],
+      "category": "contract_review"
+    },
+    {
+      "id": "T027",
+      "phase": "component",
+      "component_id": "registry",
+      "description": "Set up test harness for Registry & Schema Store",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T026"
+      ],
+      "category": "test_setup"
+    },
+    {
+      "id": "T028",
+      "phase": "component",
+      "component_id": "registry",
+      "description": "Write contract tests for Registry & Schema Store",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T027"
+      ],
+      "category": "test_write"
+    },
+    {
+      "id": "T029",
+      "phase": "component",
+      "component_id": "registry",
+      "description": "Implement Registry & Schema Store",
+      "file_path": "implementations/registry/src/",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T028"
+      ],
+      "category": "implement"
+    },
+    {
+      "id": "T030",
+      "phase": "component",
+      "component_id": "registry",
+      "description": "Run tests and verify Registry & Schema Store",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T029"
+      ],
+      "category": "verify"
+    },
+    {
+      "id": "T031",
+      "phase": "component",
+      "component_id": "migration",
+      "description": "Review contract for Migration Parser & Planner",
+      "file_path": "contracts/migration/interface.json",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [],
+      "category": "contract_review"
+    },
+    {
+      "id": "T032",
+      "phase": "component",
+      "component_id": "migration",
+      "description": "Set up test harness for Migration Parser & Planner",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T031"
+      ],
+      "category": "test_setup"
+    },
+    {
+      "id": "T033",
+      "phase": "component",
+      "component_id": "migration",
+      "description": "Write contract tests for Migration Parser & Planner",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T032"
+      ],
+      "category": "test_write"
+    },
+    {
+      "id": "T034",
+      "phase": "component",
+      "component_id": "migration",
+      "description": "Implement Migration Parser & Planner",
+      "file_path": "implementations/migration/src/",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T033"
+      ],
+      "category": "implement"
+    },
+    {
+      "id": "T035",
+      "phase": "component",
+      "component_id": "migration",
+      "description": "Run tests and verify Migration Parser & Planner",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T034"
+      ],
+      "category": "verify"
+    },
+    {
+      "id": "T036",
+      "phase": "component",
+      "component_id": "export",
+      "description": "Review contract for Export Generators",
+      "file_path": "contracts/export/interface.json",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [],
+      "category": "contract_review"
+    },
+    {
+      "id": "T037",
+      "phase": "component",
+      "component_id": "export",
+      "description": "Set up test harness for Export Generators",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T036"
+      ],
+      "category": "test_setup"
+    },
+    {
+      "id": "T038",
+      "phase": "component",
+      "component_id": "export",
+      "description": "Write contract tests for Export Generators",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T037"
+      ],
+      "category": "test_write"
+    },
+    {
+      "id": "T039",
+      "phase": "component",
+      "component_id": "export",
+      "description": "Implement Export Generators",
+      "file_path": "implementations/export/src/",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T038"
+      ],
+      "category": "implement"
+    },
+    {
+      "id": "T040",
+      "phase": "component",
+      "component_id": "export",
+      "description": "Run tests and verify Export Generators",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T039"
+      ],
+      "category": "verify"
+    },
+    {
+      "id": "T041",
+      "phase": "component",
+      "component_id": "mock",
+      "description": "Review contract for Mock Data Generator",
+      "file_path": "contracts/mock/interface.json",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [],
+      "category": "contract_review"
+    },
+    {
+      "id": "T042",
+      "phase": "component",
+      "component_id": "mock",
+      "description": "Set up test harness for Mock Data Generator",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T041"
+      ],
+      "category": "test_setup"
+    },
+    {
+      "id": "T043",
+      "phase": "component",
+      "component_id": "mock",
+      "description": "Write contract tests for Mock Data Generator",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T042"
+      ],
+      "category": "test_write"
+    },
+    {
+      "id": "T044",
+      "phase": "component",
+      "component_id": "mock",
+      "description": "Implement Mock Data Generator",
+      "file_path": "implementations/mock/src/",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T043"
+      ],
+      "category": "implement"
+    },
+    {
+      "id": "T045",
+      "phase": "component",
+      "component_id": "mock",
+      "description": "Run tests and verify Mock Data Generator",
+      "file_path": "",
+      "status": "failed",
+      "parallel": false,
+      "depends_on": [
+        "T044"
+      ],
+      "category": "verify"
+    },
+    {
+      "id": "T046",
+      "phase": "component",
+      "component_id": "cli",
+      "description": "Review contract for CLI Entry Point",
+      "file_path": "contracts/cli/interface.json",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [],
+      "category": "contract_review"
+    },
+    {
+      "id": "T047",
+      "phase": "component",
+      "component_id": "cli",
+      "description": "Set up test harness for CLI Entry Point",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T046"
+      ],
+      "category": "test_setup"
+    },
+    {
+      "id": "T048",
+      "phase": "component",
+      "component_id": "cli",
+      "description": "Write contract tests for CLI Entry Point",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T047"
+      ],
+      "category": "test_write"
+    },
+    {
+      "id": "T049",
+      "phase": "component",
+      "component_id": "cli",
+      "description": "Implement CLI Entry Point",
+      "file_path": "implementations/cli/src/",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T048"
+      ],
+      "category": "implement"
+    },
+    {
+      "id": "T050",
+      "phase": "component",
+      "component_id": "cli",
+      "description": "Run tests and verify CLI Entry Point",
+      "file_path": "",
+      "status": "failed",
+      "parallel": false,
+      "depends_on": [
+        "T049"
+      ],
+      "category": "verify"
+    },
+    {
+      "id": "T051",
+      "phase": "component",
+      "component_id": "api",
+      "description": "Review contract for HTTP API Server",
+      "file_path": "contracts/api/interface.json",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [],
+      "category": "contract_review"
+    },
+    {
+      "id": "T052",
+      "phase": "component",
+      "component_id": "api",
+      "description": "Set up test harness for HTTP API Server",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T051"
+      ],
+      "category": "test_setup"
+    },
+    {
+      "id": "T053",
+      "phase": "component",
+      "component_id": "api",
+      "description": "Write contract tests for HTTP API Server",
+      "file_path": "",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T052"
+      ],
+      "category": "test_write"
+    },
+    {
+      "id": "T054",
+      "phase": "component",
+      "component_id": "api",
+      "description": "Implement HTTP API Server",
+      "file_path": "implementations/api/src/",
+      "status": "completed",
+      "parallel": false,
+      "depends_on": [
+        "T053"
+      ],
+      "category": "implement"
+    },
+    {
+      "id": "T055",
+      "phase": "component",
+      "component_id": "api",
+      "description": "Run tests and verify HTTP API Server",
+      "file_path": "",
+      "status": "failed",
+      "parallel": false,
+      "depends_on": [
+        "T054"
+      ],
+      "category": "verify"
+    },
+    {
+      "id": "T056",
+      "phase": "integration",
+      "component_id": "root",
+      "description": "Review integration contract for Root",
+      "file_path": "",
+      "status": "pending",
+      "parallel": false,
+      "depends_on": [],
+      "category": "contract_review"
+    },
+    {
+      "id": "T057",
+      "phase": "integration",
+      "component_id": "root",
+      "description": "Write integration tests for Root",
+      "file_path": "",
+      "status": "pending",
+      "parallel": true,
+      "depends_on": [],
+      "category": "test_write"
+    },
+    {
+      "id": "T058",
+      "phase": "integration",
+      "component_id": "root",
+      "description": "Wire children for Root",
+      "file_path": "",
+      "status": "pending",
+      "parallel": false,
+      "depends_on": [
+        "T055",
+        "T050",
+        "T025",
+        "T040",
+        "T035",
+        "T045",
+        "T030"
+      ],
+      "category": "integrate"
+    },
+    {
+      "id": "T059",
+      "phase": "integration",
+      "component_id": "root",
+      "description": "Run integration tests for Root",
+      "file_path": "",
+      "status": "pending",
+      "parallel": false,
+      "depends_on": [
+        "T058"
+      ],
+      "category": "verify"
+    },
+    {
+      "id": "T060",
+      "phase": "polish",
+      "component_id": "",
+      "description": "Run full contract validation gate",
+      "file_path": "",
+      "status": "pending",
+      "parallel": false,
+      "depends_on": [],
+      "category": "validate"
+    },
+    {
+      "id": "T061",
+      "phase": "polish",
+      "component_id": "",
+      "description": "Cross-artifact analysis",
+      "file_path": "",
+      "status": "pending",
+      "parallel": false,
+      "depends_on": [],
+      "category": "validate"
+    },
+    {
+      "id": "T062",
+      "phase": "polish",
+      "component_id": "",
+      "description": "Update design document",
+      "file_path": "",
+      "status": "pending",
+      "parallel": false,
+      "depends_on": [],
+      "category": "document"
+    }
+  ],
+  "checkpoints": [
+    {
+      "after_phase": "component",
+      "description": "All leaf components verified",
+      "validation": "All leaf contract tests pass"
+    },
+    {
+      "after_phase": "integration",
+      "description": "All integrations verified",
+      "validation": "All integration tests pass"
+    }
+  ],
+  "generated_at": "2026-03-15T15:31:36.506169",
+  "version": 1
+}

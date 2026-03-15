@@ -1,0 +1,210 @@
+{
+  "risks": [
+    "**SQL parser scope creep / brittleness**: Building a SQL migration parser from scratch that handles real-world SQL (multi-statement files, dialect-specific syntax like PostgreSQL vs MySQL, quoted identifiers, comments, conditional DDL, ALTER TABLE with multiple operations in one statement) is a substantial engineering effort. The spec says 'raw SQL only' but doesn't constrain which SQL dialect. This alone could consume half the implementation budget and still be fragile.",
+    "**Schema YAML format is completely undefined**: The spec says 'accepts valid schema YAML' and 'stored verbatim' but never defines what valid schema YAML looks like — field definitions, annotation attachment syntax, classification tier declaration, backend references, component ownership declaration, data_access declarations. Every engineer will invent a different format, making all downstream features (propagation, export, mock, migration diff) incompatible.",
+    "**Annotation propagation 'table-defined' design is underspecified**: The requirement that adding a custom annotation 'must not require code changes' and propagation rules are 'data-driven (table-defined)' implies a mini-DSL or template system for generating export output. But the export formats (Pact YAML, Arbiter YAML, Baton YAML, Sentinel YAML) are themselves undefined. How does a data-driven rule produce arbitrary YAML structures for four different consumers without code?",
+    "**Migration diff computation requires a full schema state model**: `ledger migrate plan` must compute a diff between the current registered schema and the proposed migration. This means Ledger must maintain a computed/materialized view of current schema state from the append-only log, despite storing YAML verbatim. The spec doesn't describe how schema state is reconstructed or how multiple schema YAML files compose into a single backend's effective schema.",
+    "**Deterministic mock with seed but no seed parameter specified in CLI**: The spec says 'same seed + schema = identical output' but the CLI signature is `ledger mock <backend_id> <table> --count N` with no --seed flag. Is the seed auto-derived from schema hash? Stored in config? This will cause non-deterministic behavior in CI if not clarified.",
+    "**Canary fingerprint 'shaped to field type' is vague**: `ledger-canary-{tier}-{hex8}` must be 'shaped to field type' — does this mean an email field gets `ledger-canary-PII-a1b2c3d4@canary.example.com`? An integer field gets... what? The format spec is contradictory: a fixed string prefix cannot simultaneously satisfy arbitrary field type constraints (integers, booleans, dates, UUIDs).",
+    "**Append-only change log storage mechanism undefined**: The spec mandates an append-only schema change log but doesn't specify storage format. File-based JSON lines? SQLite? A single YAML file that grows forever? This affects concurrency, performance, and the 3-second startup constraint.",
+    "**No authentication/authorization model for HTTP API**: The API exposes mutation endpoints (backend registration, migration approval) but the spec has zero mention of auth. In a compliance-focused tool managing PII classifications and audit fields, this is a glaring gap.",
+    "**The 3-second startup constraint may conflict with schema validation**: If the registry grows large, loading and validating all schemas on startup to serve the API could exceed 3 seconds. The spec doesn't say whether validation is eager (on startup) or lazy (on request).",
+    "**Race conditions in file-based storage**: Multiple `ledger` CLI invocations or API requests hitting `.ledger/` directory simultaneously with no database and no specified locking mechanism will corrupt state. The spec says 'single package, no microservices' but the HTTP API enables concurrent access."
+  ],
+  "ambiguities": [
+    "**Schema YAML format**: No schema definition is provided anywhere. What are the top-level keys? How are fields declared? How are annotations attached to fields? How are classification tiers assigned? How does a schema YAML reference its backend? Is there one YAML per table, per backend, or per component?",
+    "**Classification tiers**: Referenced repeatedly (field-level classification tiers, tier not in component data_access → HUMAN_GATE, canary fingerprint includes tier) but never enumerated. What are the valid tiers? PII/FINANCIAL/PUBLIC/INTERNAL? Who defines them — are they built-in or configurable?",
+    "**Component data_access declaration**: Gate logic says 'Classification tier not in component data_access → HUMAN_GATE' but there's no description of how components declare their data_access levels. Is this in ledger.yaml? In a separate component registration command? In the schema YAML?",
+    "**Export format structures**: Four export formats (Pact, Arbiter, Baton, Sentinel) are required but none of their output schemas are defined. What does a Pact contract assertion YAML look like? What does an Arbiter classification rule look like? Without target format definitions, export is unimplementable.",
+    "**ledger.yaml config file**: Referenced as the config file and the place for custom annotation definitions, but its schema is never specified. What sections does it have? Where does it live relative to .ledger/?",
+    "**'REQUIRES satisfaction' in schema validate**: What is REQUIRES? It appears once with no prior definition. Is this a field-level annotation? A dependency declaration between annotations? A backend capability requirement?",
+    "**Migration plan persistence**: `ledger migrate approve <plan_id>` implies plans are persisted and retrievable by ID. Where? How are plan IDs generated? What's their lifecycle? Can a plan expire?",
+    "**Backend 'type' values**: `ledger backend add <id> --type <type>` — what are valid types? postgres, mysql, s3, redis? Are they validated or freeform? Does type affect SQL dialect parsing?",
+    "**Foreign key blast radius**: 'Foreign key annotations include referenced table in blast radius' — blast radius of what? Migration analysis? Does this mean if I drop a column with a foreign_key annotation, the migration gate also considers the referenced table's annotations?",
+    "**Encrypted_at_rest vs tokenized mock data**: The spec says encrypted_at_rest fields get 'token-shaped values, never raw' and tokenized fields also get 'token-shaped values.' What is 'token-shaped'? Are they the same shape? The Requirements section says encrypted_at_rest gets token-shaped but the Mock Data section originally says 'never contain raw plaintext values' — is a random-looking base64 blob acceptable, or must it literally look like a vault token?",
+    "**--review <id> on migrate approve**: What is a review reference? A pull request number? A Jira ticket? An arbitrary string? Is it validated against an external system?",
+    "**Ownership model**: 'No two components may own the same storage backend' but `ledger backend add` registers a backend 'with owner component.' How is the owner component specified — is it a flag? Is there a component registration command not shown? What is a component?"
+  ],
+  "questions": [
+    "What is the exact schema YAML format? Provide a sample annotated schema YAML file with at least 3 tables, showing field definitions, annotations, classification tiers, and backend association.",
+    "What are the valid classification tiers and are they fixed or configurable? Provide the enumeration (e.g., PUBLIC, INTERNAL, CONFIDENTIAL, PII, FINANCIAL).",
+    "What are the exact output formats for each of the four export targets (Pact, Arbiter, Baton, Sentinel)? Provide sample output files.",
+    "What does 'REQUIRES satisfaction' mean in the context of schema validation?",
+    "How are components registered and how do they declare their data_access levels?",
+    "What is the structure of ledger.yaml? Provide a sample configuration file.",
+    "What storage backend is used for the .ledger/ directory — flat files, SQLite, or something else? How is concurrent access handled?",
+    "What does 'token-shaped' mean concretely? Provide an example for encrypted_at_rest and tokenized fields.",
+    "How is the mock data seed specified or derived? Is there a --seed CLI flag, or is it deterministic based on schema content hash?",
+    "Where are the FA-L-001 through FA-L-025 functional assertions? The spec references constraints.yaml and prompt.md but neither is provided. These are described as 'the acceptance criteria' — without them we're building blind.",
+    "For canary fingerprints 'shaped to field type' — how does a fixed-prefix string format satisfy integer, boolean, date, or UUID field types? Provide examples for each.",
+    "Is there a component registration command? The backend add command says 'with owner component' but no --owner flag or component management CLI is shown.",
+    "What SQL dialects must the migration parser support? PostgreSQL only? MySQL? ANSI SQL?"
+  ],
+  "assumptions": [
+    "The schema YAML format will need to be designed as part of this task since it's not provided. We'll design it and seek approval before building downstream features.",
+    "Classification tiers are a configurable enumeration defined in ledger.yaml, with sensible defaults (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED).",
+    "The .ledger/ directory uses flat files (YAML/JSON) for storage since no database is allowed. A file-level lock (fcntl/lockfile) will be used for concurrent access safety.",
+    "Export formats will need to be designed since no target schemas are provided. We'll produce reasonable YAML structures and iterate.",
+    "The --seed flag is missing from the spec but required; we'll add `--seed <int>` to the mock CLI with a default derived from schema content hash.",
+    "Component registration is done via `ledger backend add <id> --type <type> --owner <component_id>` with the --owner flag implied but not shown.",
+    "Components declare data_access tiers in ledger.yaml under a components section.",
+    "'REQUIRES satisfaction' refers to fields that have a `requires` annotation declaring dependencies on other annotations or backend capabilities (e.g., encrypted_at_rest requires the backend to support encryption).",
+    "'Token-shaped' means a string matching a pattern like `tok_[a-zA-Z0-9]{24}` — a prefix plus random alphanumeric characters.",
+    "The SQL parser targets PostgreSQL dialect first, with ANSI SQL as baseline. Dialect is inferred from backend type.",
+    "FA-L-001 through FA-L-025 are not available and we must derive acceptance criteria from the spec text directly.",
+    "The 3-second startup means the API process binds to the port and responds to health checks within 3 seconds, not that all schemas are validated on boot.",
+    "Migration plans are persisted as files in `.ledger/plans/` with UUID-based plan IDs and no automatic expiry.",
+    "The --review flag on migrate approve accepts an arbitrary string (ticket ID, PR number) that is stored for audit trail purposes — no external validation."
+  ],
+  "acceptance_criteria": [
+    "`ledger init` creates a `.ledger/` directory structure with an empty registry; running it twice in the same directory fails or is idempotent (clarify which).",
+    "`ledger backend add foo --type postgres --owner mycomponent` succeeds on first call; second call with same ID returns an error. Adding a different backend with the same owner-component that already owns a backend at a different ID succeeds (ownership is backend→component, not component→one-backend... or is it?).",
+    "`ledger schema add path/to/schema.yaml` stores the file verbatim — byte-for-byte identical content retrievable. Invalid YAML returns a parse error with file path.",
+    "`ledger schema validate` returns ALL annotation conflict violations (immutable+gdpr_erasable, audit_field+gdpr_erasable, soft_delete_marker+immutable) across all schemas in a single invocation, not failing on first.",
+    "`ledger schema validate` detects and reports when two components own the same storage backend.",
+    "`ledger migrate plan <component> <file.sql>` correctly parses ADD COLUMN, DROP COLUMN, and ALTER COLUMN from a SQL migration file and returns the correct MigrationGate: BLOCKED for audit_field drop, BLOCKED for immutable field modify, HUMAN_GATE for encryption removal, HUMAN_GATE for tier mismatch, AUTO_PROCEED for PUBLIC-only changes to declared-PUBLIC component.",
+    "`ledger migrate approve <plan_id> --review REF` fails without --review flag. Succeeds with it and records the rationale in the append-only change log.",
+    "Annotation conflict pairs are hard errors: a schema containing a field annotated both `immutable` and `gdpr_erasable` fails validation with a clear error message.",
+    "Custom annotation defined in ledger.yaml with propagation rules can be exported without any code changes — only config changes.",
+    "`ledger export --format pact --component X` produces valid YAML containing contract assertions derived from annotations on X's schemas.",
+    "`ledger export --format arbiter` produces valid YAML containing classification rules for all registered schemas.",
+    "`ledger export --format baton` produces valid YAML containing egress masking configuration.",
+    "`ledger export --format sentinel` produces valid YAML containing severity mappings.",
+    "`ledger mock <backend> <table> --count 5` produces exactly 5 records with correct field types. PII fields contain realistic fake data (not random strings). encrypted_at_rest fields contain token-shaped values, never plaintext. tokenized fields contain token-shaped values.",
+    "`ledger mock <backend> <table> --count 5 --seed 42` and a second invocation with identical arguments produce byte-identical output.",
+    "`ledger mock <backend> <table> --count 1 --purpose canary` generates records with fingerprints matching `ledger-canary-{tier}-{hex8}` pattern. If Arbiter is configured, registration is attempted. If Arbiter is not configured, a warning is logged and the command succeeds.",
+    "`ledger serve` starts an HTTP API on port 7701 (or configured port) and responds to a health check within 3 seconds of process start.",
+    "All HTTP API endpoints (backend registration, schema registration, schema query, migration plan, migration approval, export, mock generation, annotation listing, schema validation) return appropriate status codes and JSON/YAML responses.",
+    "The append-only change log records every schema addition and migration approval and cannot be overwritten or truncated through the API or CLI.",
+    "All tests pass without network access, database connections, or external service dependencies.",
+    "Foreign key annotation on a field causes `ledger migrate plan` to include the referenced table in its blast radius analysis.",
+    "Missing Arbiter configuration never causes a crash — all code paths that touch Arbiter degrade gracefully with a logged warning.",
+    "Annotation propagation rules are stored as data (table/dict in config), and the propagation engine consults this table generically — no annotation-specific if/else branches in propagation code.",
+    "Files in src/ledger/ are each under 300 lines.",
+    "All public functions have type annotations and at least one test.",
+    "Schema change log entries include timestamp, actor, change type, and affected backend/table/field."
+  ],
+  "user_answers": {
+    "What is the exact schema YAML format? Provide a sample annotated schema YAML file with at least 3 tables, showing field definitions, annotations, classification tiers, and backend association.": "The format is defined in the brief. One YAML per backend, multiple tables per file. Top-level key is `schemas` containing a list. Each entry has: backend_id, table, version, fields[]. Each field has: name, type (SQL-style: uuid, varchar(N), boolean, timestamptz, etc.), classification (PUBLIC|PII|FINANCIAL|AUTH|COMPLIANCE), nullable, annotations[]. Example:\n\nschemas:\n  - backend_id: users_db\n    table: users\n    version: '1.0'\n    fields:\n      - name: id\n        type: uuid\n        classification: PUBLIC\n        nullable: false\n        annotations: [primary_key, immutable]\n      - name: email\n        type: varchar(255)\n        classification: PII\n        nullable: false\n        annotations: [indexed, unique, gdpr_erasable]\n      - name: payment_token\n        type: varchar(512)\n        classification: FINANCIAL\n        nullable: true\n        annotations: [encrypted_at_rest, tokenized]\n      - name: created_at\n        type: timestamptz\n        classification: PUBLIC\n        nullable: false\n        annotations: [audit_field, immutable]\n      - name: deleted_at\n        type: timestamptz\n        classification: PUBLIC\n        nullable: true\n        annotations: [soft_delete_marker]\n  - backend_id: users_db\n    table: sessions\n    version: '1.0'\n    fields:\n      - name: id\n        type: uuid\n        classification: PUBLIC\n        nullable: false\n        annotations: [primary_key, immutable]\n      - name: user_id\n        type: uuid\n        classification: PUBLIC\n        nullable: false\n        annotations: ['foreign_key:users_db.users.id']\n      - name: token_hash\n        type: varchar(128)\n        classification: AUTH\n        nullable: false\n        annotations: [encrypted_at_rest]\n  - backend_id: analytics_db\n    table: page_views\n    version: '1.0'\n    fields:\n      - name: id\n        type: bigint\n        classification: PUBLIC\n        nullable: false\n        annotations: [primary_key]\n      - name: url\n        type: text\n        classification: PUBLIC\n        nullable: false\n        annotations: [indexed]\n      - name: viewed_at\n        type: timestamptz\n        classification: PUBLIC\n        nullable: false\n        annotations: [audit_field, immutable]",
+    "What are the valid classification tiers and are they fixed or configurable? Provide the enumeration (e.g., PUBLIC, INTERNAL, CONFIDENTIAL, PII, FINANCIAL).": "Fixed enumeration matching Arbiter's tier model: PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE. These are built-in and not configurable. Severity ordering (lowest to highest): PUBLIC < PII < FINANCIAL < AUTH < COMPLIANCE. This ordering is used in migration gate logic to compute the highest affected tier.",
+    "What are the exact output formats for each of the four export targets (Pact, Arbiter, Baton, Sentinel)? Provide sample output files.": "All four export formats are defined in the brief with complete examples.\n\nPact export: component-scoped assertion list with id, description, test_type, field, filter/shape/method.\nArbiter export: field-level classification rules with pattern, backend, tier, annotations, taint_on_raw_value, mask_in_spans.\nBaton export: egress_nodes list with id, owner, mock_generator, masked_fields, canary_eligible_fields.\nSentinel export: severity mappings derived from annotation propagation rules.\n\nSee the brief sections 'Pact Export', 'Arbiter Export', 'Baton Export' for complete YAML examples.",
+    "What does 'REQUIRES satisfaction' mean in the context of schema validation?": "REQUIRES is a validation rule table defined in the brief:\n\nREQUIRES = [\n    ('gdpr_erasable', 'soft_delete_marker', 'OR', 'erasure_method_declared'),\n    ('tokenized', 'encrypted_at_rest'),\n]\n\nMeaning: if a field has gdpr_erasable, the same table must also have a soft_delete_marker field OR the field must have erasure_method_declared annotation. If a field has tokenized, it should also have encrypted_at_rest. REQUIRES violations are warnings, not hard errors (unlike CONFLICTS which are hard errors).",
+    "How are components registered and how do they declare their data_access levels?": "Components are not registered through Ledger directly. Component identity and data_access declarations come from Arbiter's authority model (access_graph.json) or from component_map.yaml generated by Constrain. Ledger receives component data_access declarations when checking migration gate logic. The backend registration command takes --owner <component_id> to associate a backend with its owning component. Component data_access (reads/writes per tier) is consumed from the component_map.yaml or passed in via the migration plan API request.",
+    "What is the structure of ledger.yaml? Provide a sample configuration file.": "Defined in the brief:\n\nversion: '1.0'\nregistry:\n  path: '.ledger/registry/'\n  append_only: true\napi:\n  port: 7701\nintegrations:\n  arbiter_api: null\n  pact_project_dir: null\n  stigmergy_endpoint: null\nmock:\n  seed: 42\n  canary_prefix: 'ledger-canary'\nmigration:\n  parsers: [sql, alembic, flyway, liquibase]\n  gate_on_classification_change: true\n  gate_on_audit_field_mutation: true\n  gate_on_immutable_field_change: true\ncustom_annotations:\n  - name: hipaa_phi\n    propagation:\n      arbiter_tier_override: COMPLIANCE\n      sentinel_severity: HIGH\n      pact_contract_assertion: 'phi_handling_verified'\n\nLives at project root alongside .ledger/ directory.",
+    "What storage backend is used for the .ledger/ directory — flat files, SQLite, or something else? How is concurrent access handled?": "Flat YAML files. The registry stores schema YAML verbatim as individual files. The change log is a JSONL (JSON Lines) append-only file at .ledger/changelog.jsonl. Migration plans stored as individual JSON files in .ledger/plans/. Concurrent access: file-level locking using fcntl for the changelog and plans directory. The API server is single-process (uvicorn single worker) so most concurrency is serialized. CLI commands acquire a lock file before writing.",
+    "What does 'token-shaped' mean concretely? Provide an example for encrypted_at_rest and tokenized fields.": "Token-shaped means a string that looks like an opaque reference token, not a human-readable value. Format: tok_{base64url_24chars}. Examples:\n\n- encrypted_at_rest field (payment_token): 'tok_dGhpcyBpcyBhbiBlbmNyeXB0ZWQ'\n- tokenized field (payment_token): 'tok_cGF5bWVudF90b2tlbl9yZWY5OA'\n\nBoth use the same shape. The distinction is semantic (encrypted_at_rest means the raw value is encrypted in storage; tokenized means the stored value is a reference to the real value in an external tokenization system). In mock data, both produce the same tok_ prefixed format.",
+    "How is the mock data seed specified or derived? Is there a --seed CLI flag, or is it deterministic based on schema content hash?": "The seed comes from ledger.yaml mock.seed (default: 42). The CLI also accepts --seed to override. When not specified on CLI, config value is used. This makes output deterministic for test reproducibility. The seed is passed to both Python's random module and faker's seed for consistent output.",
+    "Where are the FA-L-001 through FA-L-025 functional assertions? The spec references constraints.yaml and prompt.md but neither is provided. These are described as 'the acceptance criteria' — without them we're building blind.": "FA-L-001 through FA-L-025 are defined in the brief itself (the 'Functional Assertions' section). They are also encoded as the 25 constraints (C001-C025) in constraints.yaml and the 'Done When' checklist in prompt.md. Both files exist in ~/Code/ledger/. Key FAs:\n- FA-L-001: ledger init creates .ledger/ with empty registry\n- FA-L-004: schema validate rejects immutable + gdpr_erasable\n- FA-L-007: migrate plan returns BLOCKED for audit_field column drop\n- FA-L-010: migrate plan returns BLOCKED for immutable field modification\n- FA-L-015: mock generates records matching field types\n- FA-L-018: encrypted_at_rest fields never raw in mock\n- FA-L-022: serve starts API in under 3 seconds\n- FA-L-023: SQL parser extracts ADD/DROP/ALTER correctly",
+    "For canary fingerprints 'shaped to field type' — how does a fixed-prefix string format satisfy integer, boolean, date, or UUID field types? Provide examples for each.": "Canary fingerprints only apply to string-typed fields (varchar, text) that are canary-eligible (PII and FINANCIAL tiers with string types). Non-string field types (integer, boolean, date, UUID) are NOT canary-eligible. The canary_eligible_fields in Baton export only lists string-typed fields.\n\nExamples for string fields:\n- email (varchar): 'ledger-canary-pii-3f9a2c1d@canary.invalid'\n- name (varchar): 'Canary ledger-canary-pii-a7b2e4f1'\n- payment_token (varchar): 'tok_ledger-canary-financial-9c3d1f2a'\n\nFor UUID fields specifically: canary can use a UUID with the fingerprint embedded in the hex: '00000000-0000-0000-3f9a-2c1d00000000' with the canary prefix stored as metadata rather than embedded in the value. But the primary canary mechanism targets string fields.",
+    "Is there a component registration command? The backend add command says 'with owner component' but no --owner flag or component management CLI is shown.": "No separate component registration command. Components are identified by string ID. The --owner flag on backend add is how a component enters Ledger's awareness: `ledger backend add users_db --type postgres --owner user_service`. Component data_access declarations are consumed from component_map.yaml (generated by Constrain) or passed in API requests. Ledger does not manage component lifecycle — it only tracks which component owns which backend.",
+    "What SQL dialects must the migration parser support? PostgreSQL only? MySQL? ANSI SQL?": "Start with PostgreSQL dialect as the primary target. ANSI SQL as the baseline — the parser should handle standard DDL (CREATE TABLE, ALTER TABLE ADD/DROP/ALTER COLUMN). PostgreSQL-specific syntax (e.g., IF EXISTS, type casts, serial/bigserial) should be handled. MySQL support can come later. The parser does NOT execute SQL — it only extracts structural changes (what columns are added, dropped, or modified with their types and constraints). Regex-based extraction is acceptable for v1; a proper SQL AST parser (sqlglot) can replace it later."
+  },
+  "approved": true,
+  "audited_answers": [
+    {
+      "question_id": "q_000",
+      "answer": "The format is defined in the brief. One YAML per backend, multiple tables per file. Top-level key is `schemas` containing a list. Each entry has: backend_id, table, version, fields[]. Each field has: name, type (SQL-style: uuid, varchar(N), boolean, timestamptz, etc.), classification (PUBLIC|PII|FINANCIAL|AUTH|COMPLIANCE), nullable, annotations[]. Example:\n\nschemas:\n  - backend_id: users_db\n    table: users\n    version: '1.0'\n    fields:\n      - name: id\n        type: uuid\n        classification: PUBLIC\n        nullable: false\n        annotations: [primary_key, immutable]\n      - name: email\n        type: varchar(255)\n        classification: PII\n        nullable: false\n        annotations: [indexed, unique, gdpr_erasable]\n      - name: payment_token\n        type: varchar(512)\n        classification: FINANCIAL\n        nullable: true\n        annotations: [encrypted_at_rest, tokenized]\n      - name: created_at\n        type: timestamptz\n        classification: PUBLIC\n        nullable: false\n        annotations: [audit_field, immutable]\n      - name: deleted_at\n        type: timestamptz\n        classification: PUBLIC\n        nullable: true\n        annotations: [soft_delete_marker]\n  - backend_id: users_db\n    table: sessions\n    version: '1.0'\n    fields:\n      - name: id\n        type: uuid\n        classification: PUBLIC\n        nullable: false\n        annotations: [primary_key, immutable]\n      - name: user_id\n        type: uuid\n        classification: PUBLIC\n        nullable: false\n        annotations: ['foreign_key:users_db.users.id']\n      - name: token_hash\n        type: varchar(128)\n        classification: AUTH\n        nullable: false\n        annotations: [encrypted_at_rest]\n  - backend_id: analytics_db\n    table: page_views\n    version: '1.0'\n    fields:\n      - name: id\n        type: bigint\n        classification: PUBLIC\n        nullable: false\n        annotations: [primary_key]\n      - name: url\n        type: text\n        classification: PUBLIC\n        nullable: false\n        annotations: [indexed]\n      - name: viewed_at\n        type: timestamptz\n        classification: PUBLIC\n        nullable: false\n        annotations: [audit_field, immutable]",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.099783+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_001",
+      "answer": "Fixed enumeration matching Arbiter's tier model: PUBLIC, PII, FINANCIAL, AUTH, COMPLIANCE. These are built-in and not configurable. Severity ordering (lowest to highest): PUBLIC < PII < FINANCIAL < AUTH < COMPLIANCE. This ordering is used in migration gate logic to compute the highest affected tier.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100046+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_002",
+      "answer": "All four export formats are defined in the brief with complete examples.\n\nPact export: component-scoped assertion list with id, description, test_type, field, filter/shape/method.\nArbiter export: field-level classification rules with pattern, backend, tier, annotations, taint_on_raw_value, mask_in_spans.\nBaton export: egress_nodes list with id, owner, mock_generator, masked_fields, canary_eligible_fields.\nSentinel export: severity mappings derived from annotation propagation rules.\n\nSee the brief sections 'Pact Export', 'Arbiter Export', 'Baton Export' for complete YAML examples.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100051+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_003",
+      "answer": "REQUIRES is a validation rule table defined in the brief:\n\nREQUIRES = [\n    ('gdpr_erasable', 'soft_delete_marker', 'OR', 'erasure_method_declared'),\n    ('tokenized', 'encrypted_at_rest'),\n]\n\nMeaning: if a field has gdpr_erasable, the same table must also have a soft_delete_marker field OR the field must have erasure_method_declared annotation. If a field has tokenized, it should also have encrypted_at_rest. REQUIRES violations are warnings, not hard errors (unlike CONFLICTS which are hard errors).",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100054+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_004",
+      "answer": "Components are not registered through Ledger directly. Component identity and data_access declarations come from Arbiter's authority model (access_graph.json) or from component_map.yaml generated by Constrain. Ledger receives component data_access declarations when checking migration gate logic. The backend registration command takes --owner <component_id> to associate a backend with its owning component. Component data_access (reads/writes per tier) is consumed from the component_map.yaml or passed in via the migration plan API request.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100056+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_005",
+      "answer": "Defined in the brief:\n\nversion: '1.0'\nregistry:\n  path: '.ledger/registry/'\n  append_only: true\napi:\n  port: 7701\nintegrations:\n  arbiter_api: null\n  pact_project_dir: null\n  stigmergy_endpoint: null\nmock:\n  seed: 42\n  canary_prefix: 'ledger-canary'\nmigration:\n  parsers: [sql, alembic, flyway, liquibase]\n  gate_on_classification_change: true\n  gate_on_audit_field_mutation: true\n  gate_on_immutable_field_change: true\ncustom_annotations:\n  - name: hipaa_phi\n    propagation:\n      arbiter_tier_override: COMPLIANCE\n      sentinel_severity: HIGH\n      pact_contract_assertion: 'phi_handling_verified'\n\nLives at project root alongside .ledger/ directory.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100059+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_006",
+      "answer": "Flat YAML files. The registry stores schema YAML verbatim as individual files. The change log is a JSONL (JSON Lines) append-only file at .ledger/changelog.jsonl. Migration plans stored as individual JSON files in .ledger/plans/. Concurrent access: file-level locking using fcntl for the changelog and plans directory. The API server is single-process (uvicorn single worker) so most concurrency is serialized. CLI commands acquire a lock file before writing.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100062+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_007",
+      "answer": "Token-shaped means a string that looks like an opaque reference token, not a human-readable value. Format: tok_{base64url_24chars}. Examples:\n\n- encrypted_at_rest field (payment_token): 'tok_dGhpcyBpcyBhbiBlbmNyeXB0ZWQ'\n- tokenized field (payment_token): 'tok_cGF5bWVudF90b2tlbl9yZWY5OA'\n\nBoth use the same shape. The distinction is semantic (encrypted_at_rest means the raw value is encrypted in storage; tokenized means the stored value is a reference to the real value in an external tokenization system). In mock data, both produce the same tok_ prefixed format.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100064+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_008",
+      "answer": "The seed comes from ledger.yaml mock.seed (default: 42). The CLI also accepts --seed to override. When not specified on CLI, config value is used. This makes output deterministic for test reproducibility. The seed is passed to both Python's random module and faker's seed for consistent output.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100067+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_009",
+      "answer": "FA-L-001 through FA-L-025 are defined in the brief itself (the 'Functional Assertions' section). They are also encoded as the 25 constraints (C001-C025) in constraints.yaml and the 'Done When' checklist in prompt.md. Both files exist in ~/Code/ledger/. Key FAs:\n- FA-L-001: ledger init creates .ledger/ with empty registry\n- FA-L-004: schema validate rejects immutable + gdpr_erasable\n- FA-L-007: migrate plan returns BLOCKED for audit_field column drop\n- FA-L-010: migrate plan returns BLOCKED for immutable field modification\n- FA-L-015: mock generates records matching field types\n- FA-L-018: encrypted_at_rest fields never raw in mock\n- FA-L-022: serve starts API in under 3 seconds\n- FA-L-023: SQL parser extracts ADD/DROP/ALTER correctly",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100069+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_010",
+      "answer": "Canary fingerprints only apply to string-typed fields (varchar, text) that are canary-eligible (PII and FINANCIAL tiers with string types). Non-string field types (integer, boolean, date, UUID) are NOT canary-eligible. The canary_eligible_fields in Baton export only lists string-typed fields.\n\nExamples for string fields:\n- email (varchar): 'ledger-canary-pii-3f9a2c1d@canary.invalid'\n- name (varchar): 'Canary ledger-canary-pii-a7b2e4f1'\n- payment_token (varchar): 'tok_ledger-canary-financial-9c3d1f2a'\n\nFor UUID fields specifically: canary can use a UUID with the fingerprint embedded in the hex: '00000000-0000-0000-3f9a-2c1d00000000' with the canary prefix stored as metadata rather than embedded in the value. But the primary canary mechanism targets string fields.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100071+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_011",
+      "answer": "No separate component registration command. Components are identified by string ID. The --owner flag on backend add is how a component enters Ledger's awareness: `ledger backend add users_db --type postgres --owner user_service`. Component data_access declarations are consumed from component_map.yaml (generated by Constrain) or passed in API requests. Ledger does not manage component lifecycle — it only tracks which component owns which backend.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100074+00:00",
+      "matched_assumption": null
+    },
+    {
+      "question_id": "q_012",
+      "answer": "Start with PostgreSQL dialect as the primary target. ANSI SQL as the baseline — the parser should handle standard DDL (CREATE TABLE, ALTER TABLE ADD/DROP/ALTER COLUMN). PostgreSQL-specific syntax (e.g., IF EXISTS, type casts, serial/bigserial) should be handled. MySQL support can come later. The parser does NOT execute SQL — it only extracts structural changes (what columns are added, dropped, or modified with their types and constraints). Regex-based extraction is acceptable for v1; a proper SQL AST parser (sqlglot) can replace it later.",
+      "source": "user_interactive",
+      "confidence": 1.0,
+      "timestamp": "2026-03-15T18:23:54.100076+00:00",
+      "matched_assumption": null
+    }
+  ],
+  "processing_register": "rigorous-analytical"
+}
