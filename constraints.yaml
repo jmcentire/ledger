@@ -1,3 +1,5 @@
+version: "1"
+project: ledger
 constraints:
   - id: C001
     boundary: schema_append_only
