@@ -41,7 +41,7 @@ dev = [
 ]
 
 [project.scripts]
-ledger = "cli.main:main"
+ledger = "cli.cli:cli_main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/config", "src/registry", "src/migration", "src/export", "src/mock", "src/cli", "src/api", "src/inference"]
