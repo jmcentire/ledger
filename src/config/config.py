@@ -616,3 +616,33 @@ def load_config(path: str) -> LedgerConfig:
         custom_annotations=custom_annotations,
         propagation_table=dict(prop_table),
     )
+
+
+def init_config(config_path: str) -> None:
+    """Write a minimal ledger.yaml scaffold to config_path.
+
+    Creates the schemas/, plans/ directories and an empty changelog.yaml
+    alongside the config file if they don't already exist.
+    """
+    base = os.path.dirname(os.path.abspath(config_path))
+    schemas_dir = os.path.join(base, "schemas")
+    plans_dir = os.path.join(base, "plans")
+    changelog_path = os.path.join(base, "changelog.yaml")
+
+    os.makedirs(schemas_dir, exist_ok=True)
+    os.makedirs(plans_dir, exist_ok=True)
+    if not os.path.exists(changelog_path):
+        with open(changelog_path, "w") as f:
+            f.write("")
+
+    project_name = os.path.basename(base) or "my-project"
+    scaffold = (
+        f"project_name: {project_name}\n"
+        f"schemas_dir: {schemas_dir}\n"
+        f"changelog_path: {changelog_path}\n"
+        f"plans_dir: {plans_dir}\n"
+        "backends: []\n"
+        "custom_annotations: []\n"
+    )
+    with open(config_path, "w") as f:
+        f.write(scaffold)

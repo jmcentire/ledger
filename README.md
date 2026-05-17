@@ -97,41 +97,52 @@ ledger serve
 ## Schema Format
 
 ```yaml
-schemas:
-  - backend_id: users_db
-    unit: users
-    unit_type: table
-    fields:
-      - name: id
-        type: uuid
-        classification: PUBLIC
-        nullable: false
-        annotations: [primary_key, immutable]
+name: users
+version: 1
 
-      - name: email
-        type: varchar(255)
-        classification: PII
-        nullable: false
-        annotations: [indexed, unique, gdpr_erasable]
+fields:
+  - name: id
+    field_type: uuid
+    classification: PUBLIC
+    nullable: false
+    annotations:
+      - name: primary_key
+      - name: immutable
 
-      - name: payment_token
-        type: varchar(512)
-        classification: FINANCIAL
-        nullable: true
-        annotations: [encrypted_at_rest, tokenized]
+  - name: email
+    field_type: varchar(255)
+    classification: PII
+    nullable: false
+    annotations:
+      - name: indexed
+      - name: unique
+      - name: gdpr_erasable
 
-      - name: created_at
-        type: timestamptz
-        classification: PUBLIC
-        nullable: false
-        annotations: [audit_field, immutable]
+  - name: payment_token
+    field_type: varchar(512)
+    classification: FINANCIAL
+    nullable: true
+    annotations:
+      - name: encrypted_at_rest
+      - name: tokenized
 
-      - name: deleted_at
-        type: timestamptz
-        classification: PUBLIC
-        nullable: true
-        annotations: [soft_delete_marker]
+  - name: created_at
+    field_type: timestamptz
+    classification: PUBLIC
+    nullable: false
+    annotations:
+      - name: audit_field
+      - name: immutable
+
+  - name: deleted_at
+    field_type: timestamptz
+    classification: PUBLIC
+    nullable: true
+    annotations:
+      - name: soft_delete_marker
 ```
+
+> The top-level keys `name` and `version` are required. Use `field_type` (not `type`). Annotations must be a list of mappings with a `name` key — bare strings are not accepted by the validator.
 
 ## Classification Tiers
 

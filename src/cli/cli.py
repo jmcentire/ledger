@@ -6,6 +6,7 @@ import json
 import os
 import sys
 from dataclasses import dataclass, field as dataclass_field
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
@@ -253,6 +254,7 @@ def cmd_init(ctx):
     cli_ctx = ctx.obj["cli_ctx"]
     try:
         config.init_config(cli_ctx.config_path)
+        registry.init(Path(cli_ctx.config_path).parent)
         if cli_ctx.verbose:
             click.echo("Config initialized.", err=True)
     except LedgerError as e:
@@ -283,9 +285,19 @@ def cmd_backend_add(ctx, backend_id, backend_type, owner):
     cli_ctx = ctx.obj["cli_ctx"]
     try:
         require_config(cli_ctx)
-        registry.register_backend(cli_ctx.config, backend_id, backend_type, owner)
+        metadata = registry.BackendMetadata(
+            backend_id=backend_id,
+            backend_type=registry.BackendType(backend_type),
+            owner_component=owner,
+            registered_at=datetime.now(timezone.utc),
+        )
+        root = Path(cli_ctx.config_path).parent
+        registry.register_backend(root, metadata, owner)
         if cli_ctx.verbose:
             click.echo(f"Backend '{backend_id}' registered.", err=True)
+    except registry.DuplicateBackendError:
+        if cli_ctx.verbose:
+            click.echo(f"Backend '{backend_id}' already registered (skipping).", err=True)
     except LedgerError as e:
         rendered = render_violations(e.violations, use_color=True)
         click.echo(rendered)
