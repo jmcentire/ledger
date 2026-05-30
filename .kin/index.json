@@ -1,0 +1,3037 @@
+{
+  "domains": [
+    "code",
+    "python"
+  ],
+  "node_count": 275,
+  "nodes": [
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-10f771373e57",
+      "title": "src/registry/registry.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-19ee2cdf2372",
+      "title": "src/export/export.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-1e6a12c4c34c",
+      "title": "contracts/migration/interface.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-245faaff05b0",
+      "title": "src/cli/cli.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-3c742d80eead",
+      "title": "contracts/root/interface.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-44c9347e8669",
+      "title": "src/inference/inference.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-4b813104e64f",
+      "title": "contracts/registry/interface.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-608d096921cb",
+      "title": "src/api/api.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-7d38d29c91f1",
+      "title": "src/migration/migration.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-9317194d5063",
+      "title": "src/mock/mock.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-93d76434aa24",
+      "title": "contracts/export/interface.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-95fd957223a7",
+      "title": "contracts/mock/interface.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-a4005d34e48f",
+      "title": "contracts/cli/interface.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-a64f3b8b302b",
+      "title": "contracts/config/interface.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-d26fa9f367a0",
+      "title": "contracts/api/interface.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-d79bc1bd3376",
+      "title": "src/config/config.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-mod-ledger-ed12acda8812",
+      "title": "src/cli/__init__.py",
+      "type": "artifact",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-008c64980457",
+      "title": "CustomAnnotationDef",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-014c54058baf",
+      "title": "HttpMethod",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-0350d19f33bc",
+      "title": "ApprovalRecord",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-035283244731",
+      "title": "PropagationEntryTuple",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-03eb6a8e1056",
+      "title": "PropagationRule",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-06f7db42c19c",
+      "title": "CanaryRegistrationResult",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-0807ba0d22da",
+      "title": "ArbiterRule",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-0b74d6149dfb",
+      "title": "ExitCode",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-0c0ad5b35228",
+      "title": "DiffEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-0d8c57073fb9",
+      "title": "Backend",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-0e39b1b191b6",
+      "title": "MockProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-0e5364d7e4e0",
+      "title": "FileLockHandle",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-0ee005af7c73",
+      "title": "PlanStatus",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-100ffb5fcea0",
+      "title": "GateRuleEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-10ab2b0964d4",
+      "title": "Violation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-11578ed0020f",
+      "title": "VersionInfo",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-124195524c64",
+      "title": "MigrationPlanRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-12a644107900",
+      "title": "ExportViolationSeverity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-13f0a208b8d2",
+      "title": "InferenceError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-14905716348e",
+      "title": "BatonEgressNode",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-14a5933a4564",
+      "title": "SchemaDiff",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-14e1f1fda5ce",
+      "title": "BackendMetadata",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-161734b220c1",
+      "title": "PropagationRule",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-185fb45af68c",
+      "title": "ExportViolation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1a615cb30c6c",
+      "title": "ExportResultBaton",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1b059df4d38b",
+      "title": "ConstraintViolation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1b3f2c0204a6",
+      "title": "FileLockHandle",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1b6ac5599f7d",
+      "title": "RegisterSchemaRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1bb547d7bad0",
+      "title": "InferredTable",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1bbf188061fe",
+      "title": "MigrationParseError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1cc61dae7e4e",
+      "title": "Severity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1cf7109457ef",
+      "title": "PropagationRuleDict",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1e285c5c5971",
+      "title": "FieldClassification",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1ef77092e874",
+      "title": "LedgerConfig",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-1f72693b6bf7",
+      "title": "PlanNotFoundError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-222f48a82c08",
+      "title": "SchemaValidationRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-23a2b415c68f",
+      "title": "ExportViolationSeverity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-2447a26e0bc9",
+      "title": "LedgerError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-24e9f5cb031d",
+      "title": "BackendNotFoundError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-25144954ff99",
+      "title": "MockGenerationResult",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-254fceca757b",
+      "title": "MockGenerationRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-256e19180b2d",
+      "title": "PropagationRuleDict",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-257df7fa0f2b",
+      "title": "MockViolation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-25e0b077b016",
+      "title": "PlanPersistenceError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-27d1494398df",
+      "title": "MockPurpose",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-2896767a1d2f",
+      "title": "ExportResultPact",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-290bb1d2e823",
+      "title": "PropagationEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-2b3f7b3ead52",
+      "title": "GateDecision",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-2d5d055b30c2",
+      "title": "ApprovalRecord",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-2e20bf9a806f",
+      "title": "ChangelogEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-2e24cef46f5c",
+      "title": "LedgerError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-2f8c81ef62ae",
+      "title": "Ledger",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-2fa00096b244",
+      "title": "CommandResult",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-32d86f6435ff",
+      "title": "MigrationPlanResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3357ea54c1be",
+      "title": "ExportResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-335b265a8b3c",
+      "title": "MigrationParseError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-33c16c3145b4",
+      "title": "ViolationSeverity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-33f8d3a2882a",
+      "title": "InvalidPlanTransitionError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-34035a80411b",
+      "title": "ErrorResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-35b93cfa88a7",
+      "title": "CanaryValue",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-35d7ac9f64f6",
+      "title": "MigrationGate",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-363944f883f5",
+      "title": "ExportFormat",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-369720d427b1",
+      "title": "ColumnConstraint",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-36a1b8529a23",
+      "title": "Severity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-36a2907bd103",
+      "title": "MigrationApproveResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3740d3eb45e2",
+      "title": "PublicExports",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-38824a0f4110",
+      "title": "BackendType",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-39c68f9bdcc7",
+      "title": "ApiProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3a60fbdec657",
+      "title": "ViolationSeverity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3bb0b165b5f6",
+      "title": "ExportProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3c02692b01bb",
+      "title": "CliContext",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3c159cd49211",
+      "title": "ParsedMigration",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3c1d5715ef53",
+      "title": "ValidationError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3dc0c6eb295a",
+      "title": "OwnershipConflictError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3dd9194e0f06",
+      "title": "MigrationProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3e13d16cf998",
+      "title": "ArbiterRule",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-3ea0867a6ea9",
+      "title": "MissingDependencyError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-415ea179835b",
+      "title": "InMemoryPlanStore",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-437992fadffa",
+      "title": "PlanStatus",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-4580473a9a8f",
+      "title": "PactExport",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-466cc151d0ee",
+      "title": "DuplicateBackendError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-49a3cd31ceed",
+      "title": "DiffEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-4abb261baeaf",
+      "title": "ChangeType",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-4b5b3074c935",
+      "title": "FieldSpec",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-4c9104803262",
+      "title": "CanaryValue",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-4ca72eed2e08",
+      "title": "OwnershipConflictError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-51f1b808a6ad",
+      "title": "ClassificationTier",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-5297d34cade9",
+      "title": "LedgerConfig",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-530d82550674",
+      "title": "LedgerConfig",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-53119f0a2270",
+      "title": "InferredField",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-549607524245",
+      "title": "ClassificationGeneratorEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-55a799401c8d",
+      "title": "MockPurpose",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-55adea9164b5",
+      "title": "ExportFormat",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-56ff6caf6423",
+      "title": "PactAssertion",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-581d54290877",
+      "title": "InvalidPlanTransitionError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-58cc206ae718",
+      "title": "SentinelExport",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-5a1207b7b991",
+      "title": "Field",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-5a8d3ba89cff",
+      "title": "PactExport",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-5afb8f85cded",
+      "title": "CanaryRegistrationResult",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-5aff14c69197",
+      "title": "SchemaRegistrationResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-5c5889472105",
+      "title": "InferredSchema",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-5c8eef529309",
+      "title": "ViolationSeverity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-5d0b88b571fd",
+      "title": "DuplicateBackendError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-601a45a06f24",
+      "title": "ExportResultPact",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-60d62a6fc427",
+      "title": "SchemaListResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-61b9a8311420",
+      "title": "RetentionExport",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-623ae3960e13",
+      "title": "BackendRegistrationResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-656f3653b96c",
+      "title": "MockProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-67bf15222ff3",
+      "title": "BackendNotFoundError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-6b334c23bc42",
+      "title": "Backend",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-6b4ed9bb63c9",
+      "title": "GateViolation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-6b96b215b789",
+      "title": "Violation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-6ca475471684",
+      "title": "MigrationProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-721abf216788",
+      "title": "PlatformError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-7232d8a61483",
+      "title": "ColumnOperation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-72952a603f6e",
+      "title": "SentinelExport",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-73e5ea2af022",
+      "title": "MockPurpose",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-749490b578d2",
+      "title": "InvalidTransitionError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-74cccdd28dc9",
+      "title": "ViolationSeverity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-75624f1fa041",
+      "title": "ExportViolation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-75a2d135dd7e",
+      "title": "TypeGeneratorEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-7659c2419013",
+      "title": "CliContext",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-778c944fad8d",
+      "title": "Severity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-78f4686510f4",
+      "title": "SentinelSeverityMapping",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-79ab60b7c314",
+      "title": "SeedInfo",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-79ee88678ea2",
+      "title": "OperationType",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-7a65979b1e1e",
+      "title": "ClassificationTier",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-7b8808504ae6",
+      "title": "ArbiterExport",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-7b9a575d4f9d",
+      "title": "ParsedMigration",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-7be30ac38ec6",
+      "title": "MigrationPlan",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-7d0a6975e83c",
+      "title": "PlanStatus",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-7db67e200b00",
+      "title": "ComponentContext",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-7f57169f1a5f",
+      "title": "ChangelogEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-801ac6097f57",
+      "title": "BackendType",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-807ae620b8ff",
+      "title": "InMemoryRegistry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-80cc0d246a23",
+      "title": "ExportFormat",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-816245257cdd",
+      "title": "SchemaFile",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-82c1457a4d56",
+      "title": "HealthResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-83c5edcf09b6",
+      "title": "Violation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-83d99f9136a2",
+      "title": "SchemaParseError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-882773835454",
+      "title": "ColumnInfo",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-8bc4c8824dfc",
+      "title": "BackendNotFoundError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-8c8f1bbbabde",
+      "title": "ExportResultSentinel",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-8cfa0d1d69ac",
+      "title": "ConfigProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-8dc11285de6e",
+      "title": "ExportResultBaton",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-8de0b3ccf63c",
+      "title": "SchemaNotFoundError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-8ed1dbaf5f74",
+      "title": "LedgerError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-8efd812a60cf",
+      "title": "LedgerNotInitializedError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-936ee08a5bfd",
+      "title": "GateResult",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-93ea546ae6a5",
+      "title": "MockViolation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-94224faba446",
+      "title": "TypeGeneratorEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-9618530d2c51",
+      "title": "ConflictError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-9838c378c388",
+      "title": "MockGenerationRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-98ea45ec97e1",
+      "title": "LedgerError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-9a297388acce",
+      "title": "OutputFormat",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-9b0f0ccf26f7",
+      "title": "GateDecision",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-9d0b40aa3d89",
+      "title": "PlanNotFoundError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-9eaa866c634f",
+      "title": "LedgerNotInitializedError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a01d49805f92",
+      "title": "ValidationError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a05d52f4ffbc",
+      "title": "MockPurpose",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a471bad05b63",
+      "title": "BackendRegistrationRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a5ec82b2c514",
+      "title": "ParseWarning",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a64f9da8e86c",
+      "title": "PlanPersistenceError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a6b102f500f7",
+      "title": "CustomAnnotationDef",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a6de53be80a6",
+      "title": "BootstrapError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a70136be950e",
+      "title": "SchemaSummary",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a726519ba83a",
+      "title": "BackendType",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-a9ae7dcc17cf",
+      "title": "LedgerCorruptedError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ac2f7ed87817",
+      "title": "FieldAnnotation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-acec62b9ac1f",
+      "title": "GateViolation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ae81154e7890",
+      "title": "ParseWarning",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ae9c7ae8b728",
+      "title": "ExportFormat",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-af32bec14b36",
+      "title": "FieldSpec",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-b01a9267aee9",
+      "title": "SchemaDiff",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-b0b984650478",
+      "title": "PactAssertion",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-b20c3b3d0760",
+      "title": "MockGenerationResult",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-b2c8745c8068",
+      "title": "LedgerConfig",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-b668f819f0de",
+      "title": "ConflictsPairs",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-b686cc202ab7",
+      "title": "ValidationResult",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-b766828d3548",
+      "title": "LedgerValidationError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-b777f2316aac",
+      "title": "SchemaRegistrationRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-b7a3cd21016f",
+      "title": "ExportResultArbiter",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-bc86e10157b8",
+      "title": "Severity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-bd18995e9a48",
+      "title": "MockGenerationError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-be73fed7146e",
+      "title": "ErrorResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-be88c1cbead3",
+      "title": "ConstraintViolation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-bec552f4c612",
+      "title": "LedgerCorruptedError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-bf14b599996f",
+      "title": "SchemaRecord",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c05203352015",
+      "title": "ValidateSchemaRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c0a6c09557e9",
+      "title": "PropagationEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c340d6c9ec52",
+      "title": "PlanStatus",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c3c1abfc2bc3",
+      "title": "PlanNotFoundError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c6a05f1e1676",
+      "title": "FieldAnnotation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c6d458e5ee24",
+      "title": "CommandResult",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c7cae0aff92c",
+      "title": "Violation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c8b09969b6f3",
+      "title": "SchemaValidationResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c8d262936de8",
+      "title": "MockGenerationRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c8d33cd412b9",
+      "title": "LedgerValidationError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-c8dabddd422b",
+      "title": "SchemaRecord",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ca998012ef7d",
+      "title": "MigrationPlan",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-cb549ba8cc24",
+      "title": "BackendMetadata",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ccdf31a42a8d",
+      "title": "Severity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-cecfdf6f427e",
+      "title": "BatonEgressNode",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-cf2752f356d2",
+      "title": "BackendType",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-cf559b0c3dec",
+      "title": "SentinelSeverityMapping",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d01d1cac5d2d",
+      "title": "SchemaDetail",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d0541aac41e1",
+      "title": "SchemaParseError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d0b371e012a2",
+      "title": "ExitCode",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d24fc6724da8",
+      "title": "GateRuleEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d3236f1c11a2",
+      "title": "ViolationSeverity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d3a2a2ea2659",
+      "title": "MockGenerationRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d3c0150e69c2",
+      "title": "PropagationEntryTuple",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d3e13adf962c",
+      "title": "OperationType",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d4d9bc031400",
+      "title": "HttpMethod",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d5daca026f99",
+      "title": "BackendType",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d638d4419cd1",
+      "title": "MigrationPlan",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d7b8a0767138",
+      "title": "Violation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d8048829bcc1",
+      "title": "RegisterBackendRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d849d2ebf553",
+      "title": "LedgerError",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d87d058efeb4",
+      "title": "ValidationResult",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-d9866e28d822",
+      "title": "BatonExport",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-dbaa2ad7dfd8",
+      "title": "MigrationGate",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-dbd136125013",
+      "title": "RetentionTableRule",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-dc768c64db6f",
+      "title": "ChangelogEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-de2f5e68a060",
+      "title": "FieldClassification",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-dee65dedd37e",
+      "title": "BatonExport",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-e27437f26147",
+      "title": "ConflictsPairs",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-e3ac238f4b18",
+      "title": "ExportFormat",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-e4e7f1209010",
+      "title": "Annotation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-e6e2c24c7afb",
+      "title": "SeedInfo",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-e926d556b87c",
+      "title": "ClassificationGeneratorEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-e93e3df4a238",
+      "title": "Violation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-e96e0d516e0d",
+      "title": "AnnotationsResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-e97798873a60",
+      "title": "MigrationPlan",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ea8ddf651dec",
+      "title": "ComponentContext",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-eabaaf1ad821",
+      "title": "MigrationDiff",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-eadeb004de9f",
+      "title": "SchemaFile",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-eb4cfec3acbd",
+      "title": "Field",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ec7630910a9b",
+      "title": "ViolationSeverity",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ee45a9cea0da",
+      "title": "PlanStatus",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ef561c45ad35",
+      "title": "ColumnConstraint",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f0189083c396",
+      "title": "OutputFormat",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f0b8c2c65fed",
+      "title": "ChangeType",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f0cabbc792c0",
+      "title": "MigrationPlanRequest",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f46d12bf8948",
+      "title": "AnnotationEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f51713afab60",
+      "title": "MockGenerationResponse",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f6d2c2d09556",
+      "title": "ExportResultSentinel",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f7a08bc89a5e",
+      "title": "RegistryProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f7c8ff432fbc",
+      "title": "ExportResultArbiter",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f822657ee2ce",
+      "title": "ExportProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f852d0452b00",
+      "title": "ChangelogEntry",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f8633ffebe87",
+      "title": "Annotation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f8b3d02bdb98",
+      "title": "RetentionFieldRule",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-f8df0ddd54e9",
+      "title": "ArbiterExport",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-fd78d783f24f",
+      "title": "RegistryProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-fde85eb36364",
+      "title": "ClassificationTier",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ff3cc36d4d10",
+      "title": "ApiProtocol",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    },
+    {
+      "domains": [
+        "code",
+        "python"
+      ],
+      "id": "code-sym-ledger-ff83d1433f28",
+      "title": "ColumnOperation",
+      "type": "concept",
+      "updated_at": "2026-05-30T14:56:31",
+      "weight": 0.5
+    }
+  ],
+  "repo": "ledger",
+  "source_updated_at": "2026-05-30T14:56:31",
+  "version": 1
+}
